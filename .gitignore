@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+campaigns.db
+service_account.json
+*.log
+.vscode/
+.idea/

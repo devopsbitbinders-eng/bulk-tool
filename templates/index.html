@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Bulk Sender</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 20px; }
+        
+        .tab-btn.active {
+            border-bottom: 2px solid #16a34a;
+            color: #16a34a;
+        }
+
+        @keyframes statusPulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .status-processing {
+            animation: statusPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        /* WhatsApp Preview Styling */
+        .whatsapp-chat-preview {
+            background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+            background-color: #e5ddd5;
+            background-size: cover;
+            background-blend-mode: overlay;
+        }
+        .whatsapp-bubble {
+            position: relative;
+            background: #ffffff;
+            border-radius: 8px 8px 8px 0;
+            padding: 8px 12px;
+            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+            max-width: 85%;
+            font-size: 14.2px;
+            line-height: 19px;
+            color: #111b21;
+        }
+        .whatsapp-bubble::after {
+            content: '';
+            position: absolute;
+            left: -8px;
+            bottom: 0;
+            width: 0;
+            height: 0;
+            border: 8px solid transparent;
+            border-right-color: #ffffff;
+            border-left: 0;
+            border-bottom: 0;
+        }
+        .whatsapp-time {
+            font-size: 11px;
+            color: #667781;
+            float: right;
+            margin-top: 4px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900">
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-slate-200 py-4 px-8 mb-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-500 bg-clip-text text-transparent">
+                BulkPulse
+            </h1>
+            <div class="flex items-center gap-6">
+                <!-- Facebook Login Button -->
+                <div class="flex items-center gap-2">
+                    <button id="fbLinkBtn" onclick="launchFBLogin()" class="flex items-center gap-2 {% if linked_phone %}bg-emerald-500{% else %}bg-[#1877F2]{% endif %} hover:opacity-90 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md" {% if linked_phone %}disabled{% endif %}>
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        {% if linked_phone %}Linked ✓{% else %}Connect WhatsApp{% endif %}
+                    </button>
+                    {% if linked_phone %}
+                    <div class="flex items-center gap-1">
+                        <button onclick="unlinkAccount()" class="p-2 text-slate-400 hover:text-amber-500 transition-colors bg-slate-50 rounded-xl border border-slate-100" title="Disconnect WhatsApp (Keep Login)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        </button>
+                        <button onclick="fullLogout()" class="p-2 text-slate-400 hover:text-rose-500 transition-colors bg-slate-50 rounded-xl border border-slate-100" title="Full Logout (Switch User)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex gap-4 border-b border-slate-100">
+                    <button onclick="switchTab('campaigns')" id="tab-campaigns" class="tab-btn active px-4 py-2 font-medium text-sm transition-all">Campaigns</button>
+                    <button onclick="switchTab('templates')" id="tab-templates" class="tab-btn px-4 py-2 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all">Templates</button>
+                </div>
+                <div class="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100">
+                    <span id="apiStatusDot" class="w-2 h-2 {% if linked_phone %}bg-green-500{% else %}bg-slate-300{% endif %} rounded-full {% if linked_phone %}animate-pulse{% endif %}"></span>
+                    <span id="apiStatusText" class="text-[10px] font-bold text-slate-600">
+                        {% if linked_phone %}ACTIVE: {{ linked_phone }}{% else %}NO ACCOUNT LINKED{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Facebook SDK -->
+    <script>
+        window.fbAsyncInit = function() {
+            FB.init({
+                appId      : '{{ fb_app_id or "YOUR_APP_ID" }}',
+                cookie     : true,
+                xfbml      : true,
+                version    : 'v21.0'
+            });
+        };
+
+        (function(d, s, id){
+            var js, fjs = d.getElementsByTagName(s)[0];
+            if (d.getElementById(id)) {return;}
+            js = d.createElement(s); js.id = id;
+            js.src = "https://connect.facebook.net/en_US/sdk.js";
+            fjs.parentNode.insertBefore(js, fjs);
+        }(document, 'script', 'facebook-jssdk'));
+
+        // Listen for message from Meta Embedded Signup popup
+        window.addEventListener('message', (event) => {
+            if (event.origin !== "https://www.facebook.com" && event.origin !== "https://web.facebook.com") return;
+            try {
+                const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                if (data.type === 'WA_EMBEDDED_SIGNUP') {
+                    console.log('WA Embedded Signup Event:', data);
+                    if (data.event === 'FINISH') {
+                        const { whatsapp_business_account_id, phone_number_id } = data.data;
+                        // Use the last auth response we got, or just trigger the callback
+                        FB.getLoginStatus(function(response) {
+                            if (response.status === 'connected') {
+                                handleFBResponse(response.authResponse, whatsapp_business_account_id, phone_number_id);
+                            }
+                        });
+                    }
+                }
+            } catch (e) { console.error('Error parsing FB message:', e); }
+        });
+
+        async function launchFBLogin() {
+            FB.login(function(response) {
+                handleFBResponse(response);
+            }, {
+                // config_id: '{{ fb_config_id }}', // Standard mode for App Review
+                response_type: 'token',          // Use token for reliable ngrok demo
+                // override_default_response_type: true,
+                scope: 'whatsapp_business_management,whatsapp_business_messaging',
+                auth_type: 'rerequest' // Force permissions to show for video
+            });
+        }
+
+        async function handleFBResponse(response, wabaId = 'AUTO_DETECT', phoneId = 'AUTO_DETECT') {
+            const auth = response.authResponse;
+            const code = response.code; // For response_type: 'code'
+            const accessToken = auth ? auth.accessToken : null; // For response_type: 'token'
+
+            const btn = document.getElementById('fbLinkBtn');
+            if (btn.disabled && wabaId === 'AUTO_DETECT') return; 
+            
+            btn.disabled = true;
+            btn.innerHTML = `<span class="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span> Linking...`;
+
+            try {
+                const res = await fetch('/auth/facebook/callback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        code: code,
+                        access_token: accessToken,
+                        waba_id: wabaId, 
+                        phone_id: phoneId
+                    })
+                });
+
+                if (res.ok) {
+                    showToast('WhatsApp linked successfully!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    const err = await res.json();
+                    showToast(err.error || 'Linking failed', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = `Connect WhatsApp`;
+                }
+            } catch (err) {
+                showToast('Network error during linking', 'error');
+                btn.disabled = false;
+            }
+        }
+    </script>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 pb-12">
+        
+        <!-- Campaigns Tab -->
+        <div id="content-campaigns" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+                    <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        New Campaign
+                    </h2>
+                    
+                    <form id="campaignForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Upload Recipients (.csv, .xlsx)</label>
+                            <div id="dropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-green-500 transition-colors cursor-pointer bg-slate-50">
+                                <input type="file" id="fileInput" class="hidden" accept=".csv,.xlsx,.xls">
+                                <div class="flex flex-col items-center gap-2">
+                                    <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                                    <p class="text-sm text-slate-600"><span class="font-semibold" id="fileName">Click to upload</span> or drag and drop</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Message Type Toggle -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Message Type</label>
+                            <div class="flex gap-6">
+                                <label class="flex items-center gap-2 cursor-pointer group">
+                                    <input type="radio" name="msg_type" value="text" checked onclick="toggleTemplateFields(false)" class="w-4 h-4 text-green-600 focus:ring-green-500">
+                                    <span class="text-sm text-slate-600 group-hover:text-slate-900 transition-colors border-b border-transparent">Plain Text</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer group">
+                                    <input type="radio" name="msg_type" value="template" onclick="toggleTemplateFields(true)" class="w-4 h-4 text-green-600 focus:ring-green-500">
+                                    <span class="text-sm text-slate-600 group-hover:text-slate-900 transition-colors border-b border-transparent">WhatsApp Template</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Template Specific Fields -->
+                        <div id="templateFields" class="hidden grid grid-cols-2 gap-4 mb-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <div>
+                                <label for="templateName" class="block text-sm font-medium text-slate-700 mb-1">Template Name</label>
+                                {% if templates %}
+                                <select id="templateName" name="template_name" class="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none transition-all text-sm">
+                                    {% for t in templates %}
+                                        {% if t.status == 'APPROVED' %}
+                                        <option value="{{ t.name }}">{{ t.name }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <option value="">-- Custom (Enter Name Below) --</option>
+                                </select>
+                                <input type="text" id="customTemplateName" placeholder="Type template name manually..." 
+                                       class="hidden mt-2 w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none transition-all text-sm bg-amber-50 border-amber-200">
+                                {% else %}
+                                <input type="text" id="templateName" name="template_name" placeholder="e.g. welcome_msg" 
+                                       class="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none transition-all text-sm">
+                                {% endif %}
+                            </div>
+                            <div>
+                                <label for="languageCode" class="block text-sm font-medium text-slate-700 mb-1">Language Code</label>
+                                <input type="text" id="languageCode" name="language_code" value="en_US" 
+                                       class="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none transition-all text-sm">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="reportEmail" class="block text-sm font-medium text-slate-700 mb-1">Report Email (Optional)</label>
+                            <input type="email" id="reportEmail" name="report_email" placeholder="client-record@example.com" 
+                                   class="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none transition-all text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Message Content / Parameters</label>
+                            <div class="relative">
+                                <textarea id="messageInput" rows="5" class="w-full rounded-xl border-slate-200 shadow-sm focus:ring-green-500 focus:border-green-500 p-4 bg-slate-50 transition-all" placeholder="Hi [name], welcome!"></textarea>
+                                <p class="mt-2 text-xs text-slate-500">Use <code class="bg-slate-200 px-1 rounded">[column_name]</code> to personalize.</p>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="submitBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                            <span>Launch Campaign</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Live Progress Card -->
+                <div id="progressCard" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 hidden">
+                    <h3 class="text-lg font-semibold mb-4">Live Progress</h3>
+                    <div id="statusInfo" class="hidden mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium flex items-center gap-3">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <span id="statusMessage"></span>
+                    </div>
+                    <div class="relative pt-1">
+                        <div class="flex mb-2 items-center justify-between">
+                            <span id="progressPercent" class="text-xs font-semibold px-2 py-1 rounded-full text-green-600 bg-green-100">0%</span>
+                            <span id="progressCount" class="text-xs font-semibold text-green-600">0 / 0</span>
+                        </div>
+                        <div class="overflow-hidden h-3 mb-4 rounded-full bg-slate-100">
+                            <div id="progressBar" style="width:0%" class="h-full bg-green-500 transition-all duration-500"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                            <p class="text-[10px] text-emerald-600 font-bold uppercase">Success</p>
+                            <p id="successCount" class="text-2xl font-bold text-emerald-700">0</p>
+                        </div>
+                        <div class="bg-rose-50 p-4 rounded-xl border border-rose-100">
+                            <p class="text-[10px] text-rose-600 font-bold uppercase">Failed</p>
+                            <p id="failedCount" class="text-2xl font-bold text-rose-700">0</p>
+                        </div>
+                    </div>
+                    <div id="lastEvent" class="text-xs text-slate-500 mt-4 text-center font-medium"></div>
+                </div>
+
+                <!-- Recent History Card -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-semibold">History</h3>
+                        <button onclick="clearHistory()" class="text-xs text-rose-500 hover:text-rose-700 font-medium">Clear All</button>
+                    </div>
+                    <div id="historyList" class="space-y-4 max-h-[400px] overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar">
+                        {% for c in campaigns %}
+                        <div class="group p-4 rounded-xl border border-slate-50 hover:border-green-100 hover:bg-green-50/30 transition-all">
+                            <div class="flex justify-between items-start mb-2 gap-2">
+                                <div class="flex-grow min-w-0">
+                                    <p class="font-bold text-slate-800 text-sm truncate">{{ c.name }}</p>
+                                    <p class="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        {{ c.timestamp }}
+                                    </p>
+                                </div>
+                                <div class="flex flex-col items-end gap-2">
+                                    <span class="status-badge text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider {% if c.status == 'Completed' %}bg-green-100 text-green-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+                                        {{ c.status }}
+                                    </span>
+                                    <a href="/export/{{ c.id }}" class="flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                        Report
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between mt-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex items-center gap-1">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        <span class="text-[10px] font-bold text-slate-600">{{ c.sent_success }} Sent</span>
+                                    </div>
+                                    <div class="flex items-center gap-1 text-slate-300">•</div>
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-[10px] font-medium text-slate-400">{{ c.total_numbers }} Total</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Templates Tab Content -->
+        <div id="content-templates" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800">Meta Templates</h2>
+                    <p class="text-xs text-slate-500 mt-1">Manage and monitor your approved WhatsApp templates</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="syncTemplates()" id="syncBtn" class="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-xl text-sm font-medium hover:bg-slate-50 transition-all text-slate-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Sync Meta
+                    </button>
+                    <button onclick="openTemplateModal()" class="bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-5 py-2 rounded-xl shadow-lg shadow-green-100 transition-all">
+                        + Create New
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-100">
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Template Name</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Category</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Status</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Content Preview</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Action</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-right">Last Synced</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% if not templates %}
+                        <tr>
+                            <td colspan="6" class="px-8 py-12 text-center text-sm text-slate-500 italic">No templates found. Click "Sync Meta" to fetch from WhatsApp.</td>
+                        </tr>
+                        {% endif %}
+                        {% for t in templates %}
+                        <tr class="hover:bg-slate-50/80 transition-colors">
+                            <td class="px-8 py-5 text-sm font-bold text-slate-800">{{ t.name }}</td>
+                            <td class="px-8 py-5 text-xs text-slate-500">{{ t.category }}</td>
+                            <td class="px-8 py-5">
+                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider
+                                    {% if t.status == 'APPROVED' %}bg-green-100 text-green-700
+                                    {% elif t.status == 'REJECTED' %}bg-red-100 text-red-700
+                                    {% else %}bg-amber-100 text-amber-700{% endif %}">
+                                    {{ t.status }}
+                                </span>
+                            </td>
+                            <td class="px-8 py-5 text-xs text-slate-500 max-w-xs truncate">{{ t.content }}</td>
+                            <td class="px-8 py-5">
+                                <button onclick="openPreviewModal(`{{ t.content | replace('`', '\\`') }}`)" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                    Preview
+                                </button>
+                            </td>
+                            <td class="px-8 py-5 text-[11px] text-slate-400 text-right">{{ t.last_synced }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create Template Modal -->
+    <div id="templateModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="text-xl font-bold">Create Meta Template</h3>
+                <button onclick="closeTemplateModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="templateForm" class="p-8 space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Name</label>
+                        <input type="text" name="name" required placeholder="welcome_msg" class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Category</label>
+                        <select name="category" class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm">
+                            <option value="MARKETING">Marketing</option>
+                            <option value="UTILITY">Utility</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Language</label>
+                        <input type="text" name="language" value="en_US" required class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Template Content</label>
+                    <textarea name="content" required rows="4" placeholder="Hello {{1}}!" class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm"></textarea>
+                    <p class="text-[10px] text-slate-400 mt-2 font-medium">Use {{1}}, {{2}} for variables. Meta requires variables to be numbered.</p>
+                </div>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-green-100 transition-all">
+                    Submit to WhatsApp
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Confirmation Modal -->
+    <div id="confirmModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[150] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="p-8 text-center">
+                <div id="confirmIcon" class="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h3 id="confirmTitle" class="text-xl font-bold text-slate-800 mb-2">Are you sure?</h3>
+                <p id="confirmMessage" class="text-sm text-slate-500 mb-8">This action cannot be undone.</p>
+                <div class="flex gap-3">
+                    <button id="confirmCancelBtn" class="flex-1 px-6 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-all">Cancel</button>
+                    <button id="confirmConfirmBtn" class="flex-1 px-6 py-3 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="previewModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="text-lg font-bold">Message Preview</h3>
+                <button onclick="closePreviewModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="whatsapp-chat-preview p-6 min-h-[300px] flex flex-col justify-end">
+                <div class="whatsapp-bubble">
+                    <div id="previewMessageContent" class="whitespace-pre-wrap">Content goes here...</div>
+                    <div class="whatsapp-time">12:00 PM</div>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50 text-center">
+                <p class="text-[10px] text-slate-400 font-medium">Visual representation only. Actual layout may vary by device.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="toastContainer" class="fixed bottom-8 right-8 z-[100] flex flex-col gap-3"></div>
+
+    <script>
+        const APP_VERSION = '1.1';
+        console.log('BulkPulse Frontend Version:', APP_VERSION);
+
+        // Template Data for Auto-population
+        const templateData = {
+            {% for t in templates %}
+            "{{ t.name }}": `{{ t.content | replace('`', '\\`') | replace('$', '\\$') }}`{% if not loop.last %},{% endif %}
+            {% endfor %}
+        };
+
+        // Custom Toast System
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-emerald-600' : (type === 'error' ? 'bg-rose-600' : 'bg-slate-800');
+            
+            toast.className = `toast ${bgColor} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 min-w-[300px] border border-white/10 glass`;
+            toast.innerHTML = `
+                <div class="flex-grow font-medium text-sm">${message}</div>
+                <button onclick="this.parentElement.remove()" class="text-white/50 hover:text-white transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 5000);
+        }
+
+        // Tab Switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active', 'text-green-600', 'border-green-600', 'border-b-2');
+                b.classList.add('text-slate-500');
+            });
+            document.getElementById('tab-' + tab).classList.add('active', 'text-green-600', 'border-green-600', 'border-b-2');
+            document.getElementById('tab-' + tab).classList.remove('text-slate-500');
+
+            document.getElementById('content-campaigns').classList.add('hidden');
+            document.getElementById('content-templates').classList.add('hidden');
+            document.getElementById('content-' + tab).classList.remove('hidden');
+            if (tab === 'templates') {
+                document.getElementById('content-templates').classList.remove('hidden');
+                document.getElementById('content-templates').classList.add('block');
+            } else {
+                document.getElementById('content-campaigns').classList.remove('hidden');
+                document.getElementById('content-campaigns').classList.add('grid');
+            }
+        }
+
+        // --- Rest of original logic with showToast replaces ---
+
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const campaignForm = document.getElementById('campaignForm');
+        const submitBtn = document.getElementById('submitBtn');
+
+        document.getElementById('dropzone').onclick = () => fileInput.click();
+        fileInput.onchange = () => {
+            if (fileInput.files.length > 0) {
+                fileName.innerText = fileInput.files[0].name;
+                document.getElementById('dropzone').classList.add('bg-green-50', 'border-green-500');
+            }
+        };
+
+        campaignForm.onsubmit = async (e) => {
+            e.preventDefault();
+            if (fileInput.files.length === 0) return showToast('Please select a file first!', 'error');
+            
+            const formData = new FormData(campaignForm);
+            formData.append('file', fileInput.files[0]);
+            
+            // Handle Custom Template Name if applicable
+            let tName = document.getElementById('templateName').value;
+            const customInput = document.getElementById('customTemplateName');
+            if (!tName && customInput && !customInput.classList.contains('hidden')) {
+                tName = customInput.value;
+                if (!tName) return showToast('Please enter a template name!', 'error');
+            }
+            formData.set('template_name', tName);
+            
+            formData.append('message', document.getElementById('messageInput').value);
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span> Launching...`;
+
+            try {
+                const response = await fetch('/upload', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast('Campaign launched successfully!', 'success');
+                    document.getElementById('progressCard').classList.remove('hidden');
+                    setupSSE();
+                } else {
+                    showToast(result.error || 'Failed to start campaign', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Launch Campaign';
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Network error, try again.', 'error');
+                submitBtn.disabled = false;
+            }
+        };
+
+        async function clearHistory() {
+            showConfirm('Clear All History?', 'This will permanently delete all campaign records and message logs.', async () => {
+                try {
+                    const response = await fetch('/clear-history', { method: 'POST' });
+                    if (response.ok) {
+                        showToast('History cleared!', 'success');
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                } catch (err) { showToast('Error clearing history', 'error'); }
+            });
+        }
+
+        function toggleTemplateFields(show) {
+            const fields = document.getElementById('templateFields');
+            document.getElementById('templateName').required = show;
+            fields.className = show ? 'grid grid-cols-2 gap-4 mb-4 p-4 bg-slate-50 rounded-xl border border-slate-200' : 'hidden';
+        }
+
+        const templateModal = document.getElementById('templateModal');
+        const templateForm = document.getElementById('templateForm');
+
+        function openTemplateModal() {
+            templateModal.classList.remove('hidden');
+            templateModal.classList.add('flex');
+        }
+
+        function closeTemplateModal() {
+            templateModal.classList.add('hidden');
+            templateModal.classList.remove('flex');
+        }
+
+        const previewModal = document.getElementById('previewModal');
+        const previewContent = document.getElementById('previewMessageContent');
+
+        function openPreviewModal(content) {
+            previewContent.innerText = content;
+            previewModal.classList.remove('hidden');
+            previewModal.classList.add('flex');
+        }
+
+        function closePreviewModal() {
+            previewModal.classList.add('hidden');
+            previewModal.classList.remove('flex');
+        }
+
+        async function syncTemplates() {
+            const btn = document.getElementById('syncBtn');
+            btn.innerHTML = `<span class="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></span> Syncing...`;
+            btn.disabled = true;
+            try {
+                const response = await fetch('/templates/sync', { method: 'POST' });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast('Sync failed', 'error');
+                }
+            } catch (err) { showToast('Network error during sync', 'error'); }
+            finally {
+                btn.disabled = false;
+                btn.innerHTML = `Sync Meta`;
+            }
+        }
+
+        templateForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(templateForm);
+            const sub = templateForm.querySelector('button[type="submit"]');
+            sub.disabled = true;
+            sub.innerHTML = `Submitting...`;
+
+            try {
+                const response = await fetch('/create-template', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast('Template submitted to Meta!', 'success');
+                    closeTemplateModal();
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    showToast(result.error || 'Failed to create template', 'error');
+                }
+            } catch (err) { showToast('Network error', 'error'); }
+            finally { sub.disabled = false; sub.innerText = 'Submit to WhatsApp'; }
+        };
+
+        // Auto-populate message input when a template is selected
+        document.getElementById('templateName')?.addEventListener('change', (e) => {
+            const selectedName = e.target.value;
+            const messageInput = document.getElementById('messageInput');
+            const customInput = document.getElementById('customTemplateName');
+            
+            if (customInput) {
+                if (selectedName === "") {
+                    customInput.classList.remove('hidden');
+                    customInput.focus();
+                } else {
+                    customInput.classList.add('hidden');
+                }
+            }
+
+            if (selectedName && templateData[selectedName]) {
+                messageInput.value = templateData[selectedName];
+                showToast(`Loaded content for ${selectedName}`, 'info');
+            } else if (!selectedName) {
+                messageInput.value = '';
+            }
+        });
+
+        // Custom Confirmation Logic
+        function showConfirm(title, message, callback) {
+            const modal = document.getElementById('confirmModal');
+            document.getElementById('confirmTitle').innerText = title;
+            document.getElementById('confirmMessage').innerText = message;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            const confirmBtn = document.getElementById('confirmConfirmBtn');
+            const cancelBtn = document.getElementById('confirmCancelBtn');
+
+            const clearButtons = () => {
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            };
+
+            confirmBtn.onclick = () => { clearButtons(); callback(); };
+            cancelBtn.onclick = () => { clearButtons(); };
+        }
+
+        async function unlinkAccount() {
+            showConfirm('Disconnect WhatsApp?', 'This will stop the service but keep you signed in to Facebook for a quick reconnect.', async () => {
+                try {
+                    const response = await fetch('/auth/facebook/unlink', { method: 'POST' });
+                    if (response.ok) {
+                        showToast('WhatsApp disconnected!', 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    }
+                } catch (err) { showToast('Error disconnecting', 'error'); }
+            });
+        }
+
+        async function fullLogout() {
+            showConfirm('Full Logout & Switch User?', 'This will sign you out of Facebook entirely so a new user can log in with their own credentials.', async () => {
+                try {
+                    // 1. Unlink on backend
+                    const response = await fetch('/auth/facebook/unlink', { method: 'POST' });
+                    
+                    // 2. Logout from FB SDK
+                    if (typeof FB !== 'undefined') {
+                        FB.logout(() => console.log('Facebook session cleared.'));
+                    }
+
+                    if (response.ok) {
+                        showToast('Logged out successfully!', 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    }
+                } catch (err) { showToast('Error during logout', 'error'); }
+            });
+        }
+
+        function setupSSE() {
+            const eventSource = new EventSource('/events');
+            const statusInfo = document.getElementById('statusInfo');
+            const statusMessage = document.getElementById('statusMessage');
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const lastEventEl = document.getElementById('lastEvent');
+                
+                if (data.is_waiting) {
+                    if (lastEventEl) lastEventEl.innerHTML = `<span class="text-amber-600 font-medium italic">${data.status_text}</span>`;
+                    return;
+                }
+
+                // Handle critical errors like Token Expired
+                if (data.is_auth_error) {
+                    statusInfo.classList.remove('hidden');
+                    statusMessage.innerText = 'Critical: WhatsApp Token Expired. Please reconnect your account.';
+                    statusInfo.classList.add('bg-rose-50', 'text-rose-800', 'border-rose-200');
+                    showToast('Authentication Error: Token Expired', 'error');
+                }
+
+                // Handle completion
+                if (data.is_complete) {
+                    eventSource.close();
+                    document.getElementById('progressBar').style.width = '100%';
+                    document.getElementById('progressPercent').innerText = '100%';
+                    if (lastEventEl) lastEventEl.innerHTML = `<span class="text-emerald-600 font-bold">Campaign Finished!</span>`;
+                    
+                    // Reset Landing Button
+                    const submitBtn = document.getElementById('submitBtn');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = `<span>Launch Campaign</span>`;
+                    }
+                    
+                    showToast('Campaign Completed Successfully!', 'success');
+                    
+                    // Force refresh history after a short delay
+                    setTimeout(() => location.reload(), 1500);
+                    return;
+                }
+
+                const progress = Math.round(((data.success + data.failed) / data.total) * 100);
+                document.getElementById('progressBar').style.width = progress + '%';
+                document.getElementById('progressPercent').innerText = progress + '%';
+                document.getElementById('progressCount').innerText = `${data.success + data.failed} / ${data.total}`;
+                document.getElementById('successCount').innerText = data.success;
+                document.getElementById('failedCount').innerText = data.failed;
+                if (lastEventEl) lastEventEl.innerText = `Sent to ${data.last_phone} (${data.last_status})`;
+            };
+        }
+    </script>
+</body>
+</html>
