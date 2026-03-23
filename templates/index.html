@@ -75,9 +75,56 @@
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-900">
+    <!-- Chat Modals (Emoji & Template Picker) -->
+    <div id="chatEmojiPicker" class="fixed inset-0 bg-slate-900/60 z-[99999] flex items-center justify-center p-4 backdrop-blur-sm" style="display: none; z-index: 99999 !important;">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-100">
+            <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h5 class="font-bold text-slate-800">Quick Emojis</h5>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Pick an emoji to send</p>
+                </div>
+                <button onclick="toggleChatEmoji()" class="p-2.5 rounded-full hover:bg-slate-200 text-slate-400 transition-all active:scale-90">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-8 max-h-[450px] overflow-y-auto custom-scrollbar bg-white">
+                <div class="grid grid-cols-5 gap-4 text-3xl" id="emojiGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Picker Modal -->
+    <div id="chatTemplatePicker" class="fixed inset-0 bg-slate-900/60 z-[100000] items-center justify-center p-4" style="display: none; z-index: 100000 !important;">
+        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h5 class="font-bold text-slate-900 text-xl tracking-tight">Select WhatsApp Template</h5>
+                    <p class="text-xs text-slate-500 font-medium">Choose an approved template to send to <span id="pickerTargetPhone" class="text-indigo-600"></span></p>
+                </div>
+                <button onclick="toggleChatTemplates()" class="p-2 text-slate-400 hover:text-rose-500 bg-white rounded-xl shadow-sm transition-all border border-slate-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="flex-grow overflow-x-auto overflow-y-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse">
+                    <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 z-10">
+                        <tr>
+                            <th class="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Template Name</th>
+                            <th class="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Content</th>
+                            <th class="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chatTemplateList" class="divide-y divide-slate-50">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Navigation -->
     <nav class="bg-white border-b border-slate-200 py-4 px-8 mb-4">
-        <div class="max-w-6xl mx-auto flex justify-between items-center">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
             <h1 class="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-500 bg-clip-text text-transparent">
                 BulkPulse
             </h1>
@@ -102,6 +149,11 @@
                 <div class="flex gap-4 border-b border-slate-100">
                     <button onclick="switchTab('campaigns')" id="tab-campaigns" class="tab-btn active px-4 py-2 font-medium text-sm transition-all">Campaigns</button>
                     <button onclick="switchTab('templates')" id="tab-templates" class="tab-btn px-4 py-2 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all">Templates</button>
+                    <button onclick="switchTab('history')" id="tab-history" class="tab-btn px-4 py-2 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all">Sending History</button>
+                    <button onclick="switchTab('chat')" id="tab-chat" class="tab-btn px-4 py-2 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                        Chat
+                        <span id="unreadBadge" class="hidden w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+                    </button>
                 </div>
                 <div class="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100">
                     <span id="apiStatusDot" class="w-2 h-2 {% if linked_phone %}bg-green-500{% else %}bg-slate-300{% endif %} rounded-full {% if linked_phone %}animate-pulse{% endif %}"></span>
@@ -204,11 +256,66 @@
     </script>
 
     <!-- Main Content -->
-    <main class="max-w-6xl mx-auto px-4 pb-12">
+    <main class="max-w-7xl mx-auto px-4 pb-12">
         
         <!-- Campaigns Tab -->
-        <div id="content-campaigns" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2">
+        <div id="content-campaigns" class="">
+            <!-- Stats Dashboard -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <!-- Card 1: Templates (Orange) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-amber-500 px-6 py-3 text-center">
+                        <h3 class="text-white font-bold text-sm">Total Templates</h3>
+                    </div>
+                    <div class="p-6 text-center">
+                        <div class="text-4xl font-bold text-slate-800 mb-4">{{ stats.templates.total }}</div>
+                        <div class="flex justify-center">
+                            <span class="bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded shadow-md shadow-emerald-50">APPROVED: {{ stats.templates.approved }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Incoming (Teal) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-emerald-400 px-6 py-3 text-center">
+                        <h3 class="text-white font-bold text-sm">Total Incoming Message</h3>
+                    </div>
+                    <div class="p-6 pb-2 flex justify-between items-center">
+                        <div class="text-center w-1/2 border-r border-slate-100">
+                            <div class="text-3xl font-bold text-slate-800">{{ stats.incoming.today }}</div>
+                        </div>
+                        <div class="text-center w-1/2">
+                            <div class="text-3xl font-bold text-slate-800">{{ stats.incoming.last_7_days }}</div>
+                        </div>
+                    </div>
+                    <div class="px-6 py-2 bg-slate-50/50 flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                        <span>today</span>
+                        <span>last 7 days</span>
+                    </div>
+                </div>
+
+                <!-- Card 3: Outgoing (Red) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-rose-500 px-6 py-3 text-center">
+                        <h3 class="text-white font-bold text-sm">Total Outgoing Message</h3>
+                    </div>
+                    <div class="p-6 pb-2 flex justify-between items-center">
+                        <div class="text-center w-1/2 border-r border-slate-100">
+                            <div class="text-3xl font-bold text-slate-800">{{ stats.outgoing.today }}</div>
+                        </div>
+                        <div class="text-center w-1/2">
+                            <div class="text-3xl font-bold text-slate-800">{{ stats.outgoing.last_7_days }}</div>
+                        </div>
+                    </div>
+                    <div class="px-6 py-2 bg-slate-50/50 flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                        <span>today</span>
+                        <span>last 7 days</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
                     <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
                         <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -216,7 +323,23 @@
                     </h2>
                     
                     <form id="campaignForm" class="space-y-6">
-                        <div>
+                        <!-- Delivery Method Toggle -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Delivery Method</label>
+                            <div class="flex gap-2 p-1.5 bg-slate-100 rounded-xl w-fit border border-slate-200">
+                                <label class="flex items-center gap-2 cursor-pointer group px-4 py-2 rounded-lg transition-colors has-[:checked]:bg-white has-[:checked]:shadow-sm">
+                                    <input type="radio" name="delivery_method" value="bulk" checked onclick="toggleDeliveryMethod('bulk')" class="hidden">
+                                    <span class="text-sm font-bold text-slate-500 group-has-[:checked]:text-green-700 transition-colors">Bulk Upload (CSV)</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer group px-4 py-2 rounded-lg transition-colors has-[:checked]:bg-white has-[:checked]:shadow-sm">
+                                    <input type="radio" name="delivery_method" value="single" onclick="toggleDeliveryMethod('single')" class="hidden">
+                                    <span class="text-sm font-bold text-slate-500 group-has-[:checked]:text-green-700 transition-colors">Single Number</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Bulk Upload Area -->
+                        <div id="bulkDeliveryArea">
                             <label class="block text-sm font-medium text-slate-700 mb-2">Upload Recipients (.csv, .xlsx)</label>
                             <div id="dropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-green-500 transition-colors cursor-pointer bg-slate-50">
                                 <input type="file" id="fileInput" class="hidden" accept=".csv,.xlsx,.xls">
@@ -225,6 +348,15 @@
                                     <p class="text-sm text-slate-600"><span class="font-semibold" id="fileName">Click to upload</span> or drag and drop</p>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Single Send Area -->
+                        <div id="singleDeliveryArea" class="hidden mb-6">
+                            <label class="block text-sm font-medium text-slate-700 mb-2 flex justify-between">
+                                Recipient Mobile Number
+                                <span class="text-[10px] text-slate-400 font-normal mt-0.5">Include Country Code (e.g. +91...)</span>
+                            </label>
+                            <input type="text" id="singleMobileNumber" name="single_mobile" placeholder="e.g. 919876543210" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none text-sm transition-shadow font-medium">
                         </div>
 
                         <!-- Message Type Toggle -->
@@ -243,29 +375,36 @@
                         </div>
 
                         <!-- Template Specific Fields -->
-                        <div id="templateFields" class="hidden grid grid-cols-2 gap-4 mb-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                            <div>
-                                <label for="templateName" class="block text-sm font-medium text-slate-700 mb-1">Template Name</label>
-                                {% if templates %}
-                                <select id="templateName" name="template_name" class="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none transition-all text-sm">
-                                    {% for t in templates %}
-                                        {% if t.status == 'APPROVED' %}
-                                        <option value="{{ t.name }}">{{ t.name }}</option>
-                                        {% endif %}
-                                    {% endfor %}
-                                    <option value="">-- Custom (Enter Name Below) --</option>
-                                </select>
-                                <input type="text" id="customTemplateName" placeholder="Type template name manually..." 
-                                       class="hidden mt-2 w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none transition-all text-sm bg-amber-50 border-amber-200">
-                                {% else %}
-                                <input type="text" id="templateName" name="template_name" placeholder="e.g. welcome_msg" 
-                                       class="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none transition-all text-sm">
-                                {% endif %}
+                        <div id="templateFields" class="hidden space-y-4 mb-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-wider">Select Template</label>
+                                    <select id="templateName" name="template_name" onchange="handleTemplateChange(this)" class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm">
+                                        <option value="">-- Choose Approved Template --</option>
+                                        {% for t in templates if t.status == 'APPROVED' %}
+                                            <option value="{{ t.name }}">
+                                                {{ t.name }} ({{ t.language }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="flex items-end">
+                                    <button type="button" onclick="openTemplateModal()" class="w-full h-[38px] bg-white text-green-600 border border-green-200 font-bold py-2 rounded-xl hover:bg-green-50 transition-all text-sm flex items-center justify-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Create New
+                                    </button>
+                                </div>
                             </div>
-                            <div>
-                                <label for="languageCode" class="block text-sm font-medium text-slate-700 mb-1">Language Code</label>
-                                <input type="text" id="languageCode" name="language_code" value="en_US" 
-                                       class="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none transition-all text-sm">
+
+                            <!-- Variable Mapping Area -->
+                            <div id="mappingArea" class="hidden space-y-3 pt-4 border-t border-slate-200 animate-in slide-in-from-top-2 duration-300">
+                                <div class="flex justify-between items-center">
+                                    <h4 class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Map Data Columns to Template</h4>
+                                    <span id="mappingStatus" class="text-[9px] font-medium text-slate-400 italic">No file uploaded</span>
+                                </div>
+                                <div id="mappingList" class="grid grid-cols-1 gap-2">
+                                    <!-- Mapping rows injected here -->
+                                </div>
                             </div>
                         </div>
 
@@ -335,7 +474,7 @@
                                     <p class="font-bold text-slate-800 text-sm truncate">{{ c.name }}</p>
                                     <p class="text-[10px] text-slate-400 font-medium flex items-center gap-1">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                        {{ c.timestamp }}
+                                        <span class="sync-time">{{ c.timestamp }}</span>
                                     </p>
                                 </div>
                                 <div class="flex flex-col items-end gap-2">
@@ -362,10 +501,11 @@
                             </div>
                         </div>
                         {% endfor %}
-                    </div>
                 </div>
             </div>
         </div>
+    </div>
+</div>
 
         <!-- Templates Tab Content -->
         <div id="content-templates" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -393,87 +533,545 @@
                             <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Category</th>
                             <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Status</th>
                             <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Content Preview</th>
-                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Action</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-center">Preview</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-center">Danger Zone</th>
                             <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-right">Last Synced</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         {% if not templates %}
                         <tr>
-                            <td colspan="6" class="px-8 py-12 text-center text-sm text-slate-500 italic">No templates found. Click "Sync Meta" to fetch from WhatsApp.</td>
+                            <td colspan="7" class="px-8 py-12 text-center text-sm text-slate-500 italic">No templates found. Click "Sync Meta" to fetch from WhatsApp.</td>
                         </tr>
                         {% endif %}
                         {% for t in templates %}
                         <tr class="hover:bg-slate-50/80 transition-colors">
                             <td class="px-8 py-5 text-sm font-bold text-slate-800">{{ t.name }}</td>
-                            <td class="px-8 py-5 text-xs text-slate-500">{{ t.category }}</td>
+                            <td class="px-8 py-5 text-xs text-slate-500 capitalize">{{ t.category }}</td>
                             <td class="px-8 py-5">
                                 <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider
-                                    {% if t.status == 'APPROVED' %}bg-green-100 text-green-700
-                                    {% elif t.status == 'REJECTED' %}bg-red-100 text-red-700
-                                    {% else %}bg-amber-100 text-amber-700{% endif %}">
+                                    {% if t.status == 'APPROVED' %}bg-emerald-100 text-emerald-700 border border-emerald-200
+                                    {% elif t.status == 'REJECTED' %}bg-rose-100 text-rose-700 border border-rose-200
+                                    {% else %}bg-amber-100 text-amber-700 border border-amber-200{% endif %}">
                                     {{ t.status }}
                                 </span>
                             </td>
                             <td class="px-8 py-5 text-xs text-slate-500 max-w-xs truncate">{{ t.content }}</td>
-                            <td class="px-8 py-5">
-                                <button onclick="openPreviewModal(`{{ t.content | replace('`', '\\`') }}`)" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1">
+                            <td class="px-8 py-5 text-center">
+                                <button onclick="openTemplatePreview('{{ t.name }}')" class="mx-auto text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center justify-center gap-1">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                     Preview
                                 </button>
                             </td>
-                            <td class="px-8 py-5 text-[11px] text-slate-400 text-right">{{ t.last_synced }}</td>
+                            <td class="px-8 py-5 text-center flex items-center justify-center gap-2">
+                                <button onclick="editTemplate('{{ t.name }}')" class="text-indigo-600 hover:text-indigo-800 text-[10px] font-bold flex items-center justify-center gap-1 opacity-80 hover:opacity-100 transition-opacity">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                    Edit
+                                </button>
+                                <div class="w-px h-3 bg-slate-200"></div>
+                                <button onclick="deleteTemplate('{{ t.name }}')" class="text-rose-500 hover:text-rose-700 text-[10px] font-bold flex items-center justify-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    Delete
+                                </button>
+                            </td>
+                            <td class="px-8 py-5 text-[11px] text-slate-400 text-right whitespace-nowrap sync-time">{{ t.last_synced }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
-    </main>
 
-    <!-- Create Template Modal -->
-    <div id="templateModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+        <!-- Sending History Tab Content -->
+        <div id="content-history" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 class="text-xl font-bold">Create Meta Template</h3>
-                <button onclick="closeTemplateModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800">Sending History</h2>
+                    <p class="text-xs text-slate-500 mt-1">Monitor delivery and read status of your campaigns</p>
+                </div>
+                <button onclick="loadHistory()" class="p-2 text-slate-400 hover:text-green-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </button>
             </div>
-            <form id="templateForm" class="p-8 space-y-6">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-bold text-slate-700 mb-1">Name</label>
-                        <input type="text" name="name" required placeholder="welcome_msg" class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm">
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-100">
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Campaign Name</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Date</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-center">Sent</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-center text-rose-500">Failed</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-center">Delivered</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-center">Read</th>
+                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-right">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="divide-y divide-slate-100">
+                        <!-- Loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Chat Tab Content -->
+        <div id="content-chat" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 h-[75vh] flex">
+            <!-- Sidebar: Contacts -->
+            <div class="w-1/3 border-r border-slate-100 flex flex-col bg-slate-50/30">
+                <div class="p-6 border-b border-slate-100 bg-white">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-slate-800">Messages</h3>
+                        
+                        <!-- Filter Dropdown -->
+                        <div class="relative">
+                            <button onclick="toggleChatFilter()" class="p-2 -mr-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                            </button>
+                            <div id="chatFilterMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-2">
+                                <button onclick="setChatFilter('all')" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium">All</button>
+                                <button onclick="setChatFilter('unread')" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium">Unread</button>
+                                <button onclick="setChatFilter('read')" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium">Read</button>
+                                <div class="h-px bg-slate-100 my-1"></div>
+                                <button onclick="exportChatCSV()" class="w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 font-bold">Export CSV</button>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-bold text-slate-700 mb-1">Category</label>
-                        <select name="category" class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm">
-                            <option value="MARKETING">Marketing</option>
-                            <option value="UTILITY">Utility</option>
-                        </select>
+                    <div class="relative">
+                        <input type="text" id="chatSearch" placeholder="Search numbers..." class="w-full pl-9 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-green-500 transition-all">
+                        <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-bold text-slate-700 mb-1">Language</label>
-                        <input type="text" name="language" value="en_US" required class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm">
+                <div id="chatContactList" class="flex-grow overflow-y-auto custom-scrollbar p-2 space-y-1">
+                    <!-- Contacts loaded via JS -->
+                </div>
+            </div>
+
+            <!-- Main: Chat Window -->
+            <div id="chatWindow" class="flex-grow flex flex-col bg-white">
+                <div class="hidden flex-grow flex-col h-full" id="activeChat">
+                    <!-- Chat Header -->
+                    <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold">
+                                <span id="chatInitials">?</span>
+                            </div>
+                            <div>
+                                <p id="chatDisplayName" class="font-bold text-slate-800 tracking-tight"></p>
+                                <p class="text-[10px] text-green-500 font-bold uppercase tracking-wider">Active 24h Window</p>
+                            </div>
+                        </div>
+                        <button onclick="loadChatHistory(currentChatPhone)" class="p-2 text-slate-400 hover:text-green-600 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Messages Area -->
+                    <div id="chatMessagesArea" class="flex-grow overflow-y-auto p-6 space-y-4 bg-slate-50/50 custom-scrollbar whatsapp-chat-preview">
+                        <!-- Messages loaded via JS -->
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="px-4 py-3 border-t border-slate-100 bg-white relative">
+                        <!-- File Preview -->
+                        <div id="chatAttachmentPreview" class="hidden absolute bottom-[110%] left-4 right-4 p-3 bg-white border border-slate-200 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 z-50">
+                            <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                            </div>
+                            <div class="flex-grow overflow-hidden">
+                                <p id="chatAttachmentName" class="text-xs font-bold text-slate-700 truncate"></p>
+                                <p class="text-[10px] text-slate-400">Ready to send</p>
+                            </div>
+                            <button onclick="clearChatAttachment()" class="w-8 h-8 rounded-full bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+
+                        <div class="flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-1.5 focus-within:bg-white focus-within:border-green-500 focus-within:ring-4 focus-within:ring-green-500/10 transition-all duration-200">
+                            <!-- Emoji Button -->
+                            <button onclick="toggleChatEmoji()" class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all" title="Emoji">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-3.5-9c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm7 0c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5 14.67 11 15.5 11zm-3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H4.89c.8 2.04 2.78 3.5 5.11 3.5z"></path></svg>
+                            </button>
+                            
+                            <!-- Input -->
+                            <textarea id="chatInput" rows="1" placeholder="Type a message..." 
+                                class="flex-grow px-2 py-2.5 bg-transparent border-none focus:ring-0 resize-none text-sm text-slate-700 placeholder-slate-400 custom-scrollbar m-0 h-[42px] leading-tight" 
+                                onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendChatReply(); }"></textarea>
+                            
+                            <!-- Action Buttons -->
+                            <div class="flex items-center gap-1 pr-1">
+                                <input type="file" id="chatFileInput" class="hidden" onchange="handleChatAttachment(this)" accept="image/*,video/*">
+                                <input type="file" id="chatDocInput" class="hidden" onchange="handleChatAttachment(this)" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt">
+                                
+                                <button onclick="document.getElementById('chatFileInput').click()" class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Photo/Video">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                </button>
+                                
+                                <button onclick="toggleChatTemplates()" class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-all" title="Templates">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-7.714 2.143L11 21l-2.286-6.857L1 12l7.714-2.143L11 3z"></path></svg>
+                                </button>
+                                
+                                <button onclick="sendChatReply()" id="chatSendBtn" class="w-10 h-10 bg-green-600 text-white hover:bg-green-700 hover:scale-105 active:scale-95 rounded-xl shadow-lg shadow-green-100 flex items-center justify-center transition-all ml-1" title="Send">
+                                    <svg class="w-5 h-5 ml-1 transform -rotate-45" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-1">Template Content</label>
-                    <textarea name="content" required rows="4" placeholder="Hello {{1}}!" class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm"></textarea>
-                    <p class="text-[10px] text-slate-400 mt-2 font-medium">Use {{1}}, {{2}} for variables. Meta requires variables to be numbered.</p>
+
+                <!-- Placeholder -->
+                <div id="chatPlaceholder" class="flex-grow flex flex-col items-center justify-center p-12 text-center space-y-4 opacity-50">
+                    <div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800">Select a conversation</h4>
+                        <p class="text-sm text-slate-500">Pick a number from the list to start chatting</p>
+                    </div>
                 </div>
-                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-green-100 transition-all">
-                    Submit to WhatsApp
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal (Redesigned Structured Layout) -->
+    <div id="previewModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200000] hidden items-center justify-center p-4 sm:p-6" style="z-index: 200000 !important;">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col h-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-300">
+            <!-- Header -->
+            <div class="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10 font-[Inter,system-ui]">
+                <h3 class="text-xl font-extrabold text-slate-800 tracking-tight">Template Preview</h3>
+                <button onclick="closePreviewModal()" class="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black rounded-lg transition-all shadow-lg shadow-rose-100 flex items-center gap-2 uppercase tracking-widest">
+                    <span>Close</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
-            </form>
+            </div>
+
+            <!-- Content Area -->
+            <div id="previewContentGrid" class="flex-grow overflow-y-auto bg-slate-50/30 p-8 flex justify-center items-center">
+                <!-- Abstract Phone Frame -->
+                <div class="w-[300px] h-[580px] bg-[#0b141a] rounded-[3rem] border-[10px] border-slate-800 shadow-2xl relative flex flex-col overflow-hidden">
+                    <!-- Notch -->
+                    <div class="absolute top-0 inset-x-0 h-6 flex justify-center py-1 z-10">
+                        <div class="w-20 h-4 bg-slate-800 rounded-full"></div>
+                    </div>
+                    
+                    <!-- Chat Header -->
+                    <div class="bg-[#202c33] px-4 pt-10 pb-3 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                            </div>
+                            <div class="flex-grow min-w-0">
+                                <p id="view_contact_name" class="text-xs font-bold text-white truncate">WhatsApp</p>
+                                <p class="text-[9px] text-slate-400">Business Account</p>
+                            </div>
+                        </div>
+                        <div id="view_status_badge" class="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest bg-emerald-100 text-emerald-700">APPROVED</div>
+                    </div>
+
+                    <!-- Chat Area -->
+                    <div class="flex-grow overflow-y-auto p-3 space-y-2 bg-[#0b141a] relative custom-scrollbar">
+                        <!-- Background Image -->
+                        <div class="absolute inset-0 opacity-10 bg-[url('https://i.pinimg.com/originals/ab/ab/60/abab60f2524ccd113f8373b30e42d766.jpg')] bg-repeat"></div>
+                        
+                        <!-- Meta Notification -->
+                        <div class="relative z-10 flex justify-center px-4 mb-2">
+                            <span class="bg-[#182229] text-[8px] text-[#8696a0] px-2 py-0.5 rounded-md shadow-sm">TODAY</span>
+                        </div>
+
+                        <!-- WhatsApp Bubble -->
+                        <div class="relative z-10 bg-[#ecedf1] rounded-xl rounded-tl-none shadow-sm max-w-[85%] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-300">
+                            <!-- Preview Header -->
+                            <div id="view_header_area" class="hidden">
+                                <div id="view_header_text" class="px-3 pt-3 pb-1 text-[11px] font-bold text-[#111b21] leading-tight"></div>
+                                <div id="view_media_area" class="hidden px-2 pt-2">
+                                    <div class="w-full aspect-video bg-[#d9dbdf] rounded-lg flex items-center justify-center overflow-hidden relative">
+                                        <img id="view_media_img" class="hidden w-full h-full object-cover">
+                                        <div id="view_media_icon" class="text-[#8696a0] flex flex-col items-center gap-1">
+                                            <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path id="view_media_svg_path" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            <span id="view_media_label" class="text-[8px] font-bold">MEDIA CONTENT</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Preview Body -->
+                            <div class="px-3 py-2">
+                                <div id="view_body_text" class="text-[11px] text-[#111b21] leading-[1.4] whitespace-pre-wrap"></div>
+                                <div id="view_footer_text" class="text-[9px] text-[#667781] mt-1 font-medium hidden"></div>
+                                <div class="flex justify-end mt-1">
+                                    <span class="text-[7px] text-[#667781] flex items-center gap-0.5">
+                                        09:58 AM
+                                        <svg class="w-2 h-2 text-indigo-400" viewBox="0 0 24 24" fill="currentColor"><path d="M22.319 4.319l-1.414-1.414-11.905 11.905-5.319-5.319-1.414 1.414 6.733 6.733 13.319-13.319zm-6.142 0l-1.414-1.414-7.176 7.176 1.414 1.414 7.176-7.176z"/></svg>
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <!-- Preview Buttons -->
+                            <div id="view_buttons_area" class="border-t border-white/50 divide-y divide-white/50 hidden">
+                                <!-- Buttons added dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-8 py-5 bg-white border-t border-slate-100 flex justify-end gap-3 items-center sticky bottom-0 z-10">
+                <button onclick="closePreviewModal(); toggleChatTemplates()" class="px-6 py-3 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-black hover:bg-indigo-100 transition-all uppercase tracking-widest">Select Other Template</button>
+                <button id="previewSendBtn" class="px-10 py-3 bg-[#3b82f6] text-white rounded-xl text-xs font-black hover:bg-[#2563eb] transition-all shadow-xl shadow-blue-100 uppercase tracking-widest flex items-center gap-2">
+                    <span>Send</span>
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Template Modal (Wizard) -->
+    <div id="templateModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <!-- Modal Header -->
+            <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div class="flex items-center gap-3">
+                    <div id="wizardStepDot" class="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold text-sm">1</div>
+                    <h3 id="wizardTitle" class="text-xl font-bold text-slate-800">Set up your template</h3>
+                </div>
+                <button onclick="closeTemplateModal()" class="p-2 text-slate-400 hover:text-slate-600 transition-colors bg-white rounded-xl shadow-sm border border-slate-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Step 1: Category Selection -->
+            <div id="templateStep1" class="p-8 space-y-6">
+                <p class="text-sm text-slate-500 mb-6">Choose the category that best describes your message template. Then, select the type of message that you want to send.</p>
+                
+                <div class="grid grid-cols-3 gap-4 mb-8">
+                    <!-- Marketing -->
+                    <label class="relative block cursor-pointer group">
+                        <input type="radio" name="wiz_category" value="MARKETING" class="peer hidden" checked onchange="updateWizSubtypes('MARKETING')">
+                        <div class="p-4 rounded-2xl border-2 border-slate-100 bg-white peer-checked:border-green-500 peer-checked:bg-green-50/30 transition-all hover:border-slate-200 text-center">
+                            <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 peer-checked:bg-green-100">
+                                <svg class="w-5 h-5 text-slate-600 peer-checked:text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 0111 15.118V5.882a4.001 4.001 0 015.564 3.435m-9.942 4.366l5.222 5.222m-5.222-5.222L11 8.5"></path></svg>
+                            </div>
+                            <span class="block text-sm font-bold text-slate-800">Marketing</span>
+                        </div>
+                    </label>
+                    
+                    <!-- Utility -->
+                    <label class="relative block cursor-pointer group">
+                        <input type="radio" name="wiz_category" value="UTILITY" class="peer hidden" onchange="updateWizSubtypes('UTILITY')">
+                        <div class="p-4 rounded-2xl border-2 border-slate-100 bg-white peer-checked:border-blue-500 peer-checked:bg-blue-50/30 transition-all hover:border-slate-200 text-center">
+                            <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 peer-checked:bg-blue-100">
+                                <svg class="w-5 h-5 text-slate-600 peer-checked:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                            </div>
+                            <span class="block text-sm font-bold text-slate-800">Utility</span>
+                        </div>
+                    </label>
+
+                    <!-- Authentication -->
+                    <label class="relative block cursor-pointer group">
+                        <input type="radio" name="wiz_category" value="AUTHENTICATION" class="peer hidden" onchange="updateWizSubtypes('AUTHENTICATION')">
+                        <div class="p-4 rounded-2xl border-2 border-slate-100 bg-white peer-checked:border-indigo-500 peer-checked:bg-indigo-50/30 transition-all hover:border-slate-200 text-center">
+                            <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 peer-checked:bg-indigo-100">
+                                <svg class="w-5 h-5 text-slate-600 peer-checked:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17l-1 1H8v2H7v1H4v-3l1-1h1v-1h2l1.257-1.257A6 6 0 1121 9z"></path></svg>
+                            </div>
+                            <span class="block text-sm font-bold text-slate-800">Authentication</span>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Sub-types Dynamic Area -->
+                <div id="wizSubtypeArea" class="space-y-3">
+                    <!-- Default for Marketing -->
+                    <label class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-sm transition-all cursor-pointer">
+                        <input type="radio" name="wiz_subtype" value="DEFAULT" checked class="mt-1 w-4 h-4 text-green-600">
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">Default</p>
+                            <p class="text-xs text-slate-400">Send messages with media and customised buttons to engage your customers.</p>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-sm transition-all cursor-pointer">
+                        <input type="radio" name="wiz_subtype" value="CATALOG" class="mt-1 w-4 h-4 text-green-600">
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">Catalogue</p>
+                            <p class="text-xs text-slate-400">Send messages that drive sales by connecting your product catalogue.</p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="pt-6 border-t border-slate-100">
+                    <button onclick="goToStep2()" class="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+                        Continue to Editor
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Rich Editor (Split View) -->
+            <div id="templateStep2" class="hidden h-[80vh] flex flex-col">
+                <div class="flex flex-1 overflow-hidden">
+                    <!-- Left: Configuration Form -->
+                    <div class="w-1/2 overflow-y-auto p-8 space-y-6 border-r border-slate-100 custom-scrollbar">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Template Name</label>
+                                <input type="text" id="wiz_name" placeholder="summer_sale_2024" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium" oninput="updateTemplatePreview()">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Language</label>
+                                <select id="wiz_language" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium">
+                                    <option value="en_US">English (US)</option>
+                                    <option value="hi_IN">Hindi (IN)</option>
+                                    <option value="es_ES">Spanish</option>
+                                    <option value="pt_BR">Portuguese</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Header Section -->
+                        <div class="p-5 rounded-2xl bg-slate-50 border border-slate-100 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-sm font-bold text-slate-800">Header <span class="text-[10px] font-normal text-slate-400 ml-1">(Optional)</span></h4>
+                                <select id="wiz_header_type" class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold outline-none" onchange="toggleHeaderInput(); updateTemplatePreview()">
+                                    <option value="NONE">None</option>
+                                    <option value="TEXT">Text</option>
+                                    <option value="IMAGE">Image</option>
+                                    <option value="VIDEO">Video</option>
+                                    <option value="DOCUMENT">Document</option>
+                                </select>
+                            </div>
+                            <div id="headerTextInput" class="hidden">
+                                <input type="text" id="wiz_header_text" placeholder="Special Offer for You!" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" oninput="updateTemplatePreview()">
+                            </div>
+                            <div id="headerMediaInfo" class="hidden space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <input type="text" id="wiz_header_sample_url" placeholder="https://example.com/image.jpg" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 outline-none text-xs" oninput="updateTemplatePreview()">
+                                    <button onclick="triggerMediaUpload()" class="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-slate-600 shadow-sm shadow-indigo-50">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                    </button>
+                                </div>
+                                <input type="file" id="wiz_media_file" class="hidden" onchange="handleWizardMedia(this)">
+                            </div>
+                        </div>
+
+                        <!-- Body Section -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-end mb-1">
+                                <label class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Body Message</label>
+                                <div class="flex gap-1.5">
+                                    <button onclick="insertWizVariable()" class="px-2 py-1 text-[10px] font-bold bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-100 transition-colors border border-indigo-100 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                        Var
+                                    </button>
+                                    <button onclick="formatWizText('*')" title="Bold" class="p-1 px-2 text-[10px] font-bold bg-slate-100 text-slate-600 rounded-md border border-slate-200 hover:bg-slate-200">B</button>
+                                    <button onclick="formatWizText('_')" title="Italic" class="p-1 px-2 text-[10px] italic bg-slate-100 text-slate-600 rounded-md border border-slate-200 hover:bg-slate-200">I</button>
+                                    <button onclick="formatWizText('~')" title="Strikethrough" class="p-1 px-2 text-[10px] line-through bg-slate-100 text-slate-600 rounded-md border border-slate-200 hover:bg-slate-200">S</button>
+                                </div>
+                            </div>
+                            <textarea id="wiz_body" rows="6" placeholder="Hi {name}! Welcome to our store..." class="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm leading-relaxed custom-scrollbar" oninput="updateTemplatePreview()"></textarea>
+                            <p class="text-[10px] text-slate-400 font-medium italic">Use {name}, {city} for variables. Mapped automatically.</p>
+                        </div>
+
+                        <!-- Footer Section -->
+                        <div class="p-5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Footer <span class="font-normal">(Optional)</span></label>
+                            <input type="text" id="wiz_footer" placeholder="Text at the bottom of the bubble" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" oninput="updateTemplatePreview()">
+                        </div>
+
+                        <!-- Buttons Section -->
+                        <div class="p-5 rounded-2xl bg-slate-50 border border-slate-100 space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-sm font-bold text-slate-800">Buttons <span class="text-[10px] font-normal text-slate-400 ml-1">(Optional, max 3)</span></h4>
+                                <button onclick="addWizButtonRow()" class="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 text-indigo-600 rounded-lg hover:bg-slate-50 shadow-sm">+ Add Button</button>
+                            </div>
+                            <div id="wiz_buttons_list" class="space-y-3">
+                                <!-- Button rows added dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Mobile Preview -->
+                    <div class="w-1/2 bg-slate-100 p-8 flex items-center justify-center relative overflow-hidden">
+                        <!-- Abstract Phone Frame -->
+                        <div class="w-[300px] h-[580px] bg-[#0b141a] rounded-[3rem] border-[10px] border-slate-800 shadow-2xl relative flex flex-col overflow-hidden">
+                            <!-- Notch -->
+                            <div class="absolute top-0 inset-x-0 h-6 flex justify-center py-1 z-10">
+                                <div class="w-20 h-4 bg-slate-800 rounded-full"></div>
+                            </div>
+                            
+                            <!-- Chat Header -->
+                            <div class="bg-[#202c33] px-4 pt-10 pb-3 flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                                </div>
+                                <div class="flex-grow min-w-0">
+                                    <p id="preview_header_name" class="text-xs font-bold text-white truncate">New Template</p>
+                                    <p class="text-[9px] text-slate-400">Business Account</p>
+                                </div>
+                            </div>
+
+                            <!-- Chat Area -->
+                            <div class="flex-grow overflow-y-auto p-3 space-y-2 bg-[#0b141a] relative">
+                                <!-- Background Image (Optional) -->
+                                <div class="absolute inset-0 opacity-10 bg-[url('https://i.pinimg.com/originals/ab/ab/60/abab60f2524ccd113f8373b30e42d766.jpg')] bg-repeat"></div>
+                                
+                                <!-- Meta Notification (Optional) -->
+                                <div class="relative z-10 flex justify-center px-4">
+                                    <span class="bg-[#182229] text-[8px] text-[#8696a0] px-2 py-0.5 rounded-md shadow-sm">TODAY</span>
+                                </div>
+
+                                <!-- WhatsApp Bubble -->
+                                <div id="preview_bubble" class="relative z-10 bg-[#ecedf1] rounded-xl rounded-tl-none shadow-sm max-w-[85%] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-300">
+                                    <!-- Preview Header -->
+                                    <div id="prev_header_area" class="hidden">
+                                        <div id="prev_header_text" class="px-3 pt-3 pb-1 text-[11px] font-bold text-[#111b21] leading-tight"></div>
+                                        <div id="prev_header_media" class="hidden px-2 pt-2">
+                                            <div class="w-full aspect-video bg-[#d9dbdf] rounded-lg flex items-center justify-center overflow-hidden">
+                                                <img id="prev_media_img" class="hidden w-full h-full object-cover">
+                                                <div id="prev_media_placeholder" class="text-[#8696a0] flex flex-col items-center gap-1">
+                                                    <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                    <span class="text-[8px] font-bold">MEDIA CONTENT</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Preview Body -->
+                                    <div class="px-3 py-2">
+                                        <div id="prev_body_text" class="text-[11px] text-[#111b21] leading-[1.4] whitespace-pre-wrap">Your template message will appear here...</div>
+                                        <div id="prev_footer_text" class="text-[9px] text-[#667781] mt-1 font-medium hidden"></div>
+                                        <div class="flex justify-end mt-1">
+                                            <span class="text-[7px] text-[#667781] flex items-center gap-0.5">
+                                                09:58 AM
+                                                <svg class="w-2 h-2 text-indigo-400" viewBox="0 0 24 24" fill="currentColor"><path d="M22.319 4.319l-1.414-1.414-11.905 11.905-5.319-5.319-1.414 1.414 6.733 6.733 13.319-13.319zm-6.142 0l-1.414-1.414-7.176 7.176 1.414 1.414 7.176-7.176z"/></svg>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Preview Buttons -->
+                                    <div id="prev_buttons_area" class="border-t border-white/50 divide-y divide-white/50 hidden">
+                                        <!-- Buttons added dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2 Footer -->
+                <div class="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <button onclick="goToStep1()" class="text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path></svg>
+                        Back
+                    </button>
+                    <button onclick="submitWizardTemplate()" id="saveTmplBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-3 rounded-2xl shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2 min-w-[200px]">
+                        Create Template
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Custom Confirmation Modal -->
-    <div id="confirmModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[150] hidden items-center justify-center p-4">
+    <div id="confirmModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[300000] hidden items-center justify-center p-4" style="z-index: 300000 !important;">
         <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
             <div class="p-8 text-center">
                 <div id="confirmIcon" class="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -489,23 +1087,62 @@
         </div>
     </div>
 
-    <!-- Preview Modal -->
-    <div id="previewModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 class="text-lg font-bold">Message Preview</h3>
-                <button onclick="closePreviewModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+
+    <!-- History Detail Modal -->
+    <div id="historyDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-[60] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+            <!-- Modal Header -->
+            <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h3 id="detailCampaignName" class="text-xl font-bold text-slate-800">Campaign Details</h3>
+                    <p id="detailCampaignDate" class="text-xs text-slate-400 mt-0.5">March 19, 2026</p>
+                </div>
+                <button onclick="closeHistoryModal()" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
-            <div class="whatsapp-chat-preview p-6 min-h-[300px] flex flex-col justify-end">
-                <div class="whatsapp-bubble">
-                    <div id="previewMessageContent" class="whitespace-pre-wrap">Content goes here...</div>
-                    <div class="whatsapp-time">12:00 PM</div>
+
+            <!-- Stats Bar -->
+            <div class="grid grid-cols-4 gap-4 p-8 bg-slate-50/30">
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
+                    <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Sent</p>
+                    <p id="statSent" class="text-2xl font-black text-slate-700">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
+                    <p class="text-[10px] uppercase font-bold text-rose-400 tracking-wider mb-1">Failed</p>
+                    <p id="statFailed" class="text-2xl font-black text-rose-600">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center border-l-4 border-l-blue-500">
+                    <p class="text-[10px] uppercase font-bold text-blue-400 tracking-wider mb-1">Delivered</p>
+                    <p id="statDelivered" class="text-2xl font-black text-blue-600">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center border-l-4 border-l-emerald-500">
+                    <p class="text-[10px] uppercase font-bold text-emerald-400 tracking-wider mb-1">Read</p>
+                    <p id="statRead" class="text-2xl font-black text-emerald-600">0</p>
                 </div>
             </div>
-            <div class="p-4 bg-slate-50 text-center">
-                <p class="text-[10px] text-slate-400 font-medium">Visual representation only. Actual layout may vary by device.</p>
+
+            <!-- Message Log Table -->
+            <div class="flex-grow overflow-y-auto px-8 pb-8">
+                <div class="rounded-2xl border border-slate-100 overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Phone Number</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Status</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Timestamp</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Notes / Error</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailTableBody" class="divide-y divide-slate-50 text-sm">
+                            <!-- Loaded via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="px-8 py-4 bg-slate-50 border-t border-slate-100 text-center">
+                <p class="text-[10px] text-slate-400 font-medium italic">Status updates are received in real-time via WhatsApp Webhooks</p>
             </div>
         </div>
     </div>
@@ -513,16 +1150,88 @@
     <!-- Notification Container -->
     <div id="toastContainer" class="fixed bottom-8 right-8 z-[100] flex flex-col gap-3"></div>
 
-    <script>
-        const APP_VERSION = '1.1';
-        console.log('BulkPulse Frontend Version:', APP_VERSION);
+    <script id="templatesLive" type="application/json">
+        {{ templates_json | safe }}
+    </script>
 
-        // Template Data for Auto-population
-        const templateData = {
-            {% for t in templates %}
-            "{{ t.name }}": `{{ t.content | replace('`', '\\`') | replace('$', '\\$') }}`{% if not loop.last %},{% endif %}
-            {% endfor %}
-        };
+    <script>
+        const templatesList = JSON.parse(document.getElementById('templatesLive').textContent || '[]').filter(t => (t.status || '').toUpperCase() === 'APPROVED');
+        const templateData = templatesList.reduce((acc, t) => { acc[t.name] = t.content; return acc; }, {});
+        const templateComponents = templatesList.reduce((acc, t) => { acc[t.name] = t.components; return acc; }, {});
+
+        // Timestamp Formatting Helper
+        function formatDateTime(ts) {
+            if (!ts) return "";
+            try {
+                let cleanTs = ts.toString().replace(' ', 'T');
+                if (!cleanTs.includes('Z') && !cleanTs.includes('+') && !cleanTs.match(/-\d{2}:?\d{2}$/)) {
+                    cleanTs += 'Z';
+                }
+                let d = new Date(cleanTs);
+                if (isNaN(d.getTime())) return ts;
+
+                // Clamp future times (caused by server clock skew) to current browser "now"
+                const browserNow = new Date();
+                if (d > browserNow) d = browserNow;
+
+                const options = { 
+                    day: '2-digit', 
+                    month: 'short', 
+                    hour: 'numeric', 
+                    minute: '2-digit', 
+                    hour12: true,
+                    timeZone: 'Asia/Kolkata' 
+                };
+                return d.toLocaleString('en-IN', options).toUpperCase();
+            } catch (e) { return ts; }
+        }
+
+        function formatTimeOnly(ts) {
+            if (!ts) return "";
+            try {
+                if (ts.length <= 8 && ts.includes(':') && !ts.includes('-')) return ts;
+                let cleanTs = ts.toString().replace(' ', 'T');
+                if (!cleanTs.includes('Z') && !cleanTs.includes('+') && !cleanTs.match(/-\d{2}:?\d{2}$/)) {
+                    cleanTs += 'Z';
+                }
+                let d = new Date(cleanTs);
+                if (isNaN(d.getTime())) return ts;
+
+                // Clamp future times
+                const browserNow = new Date();
+                if (d > browserNow) d = browserNow;
+
+                return d.toLocaleTimeString('en-IN', { 
+                    hour: 'numeric', 
+                    minute: '2-digit', 
+                    hour12: true,
+                    timeZone: 'Asia/Kolkata'
+                }).toUpperCase();
+            } catch (e) { return ts; }
+        }
+
+        function formatAllSyncTimes() {
+            const elements = document.querySelectorAll('.sync-time');
+            elements.forEach(el => {
+                const val = (el.textContent || el.innerText || "").trim();
+                // If it looks like a raw SQLite timestamp (YYYY-MM-DD HH:MM:SS)
+                if (val && val.includes('-') && val.includes(':') && !val.includes(',')) {
+                    const formatted = formatDateTime(val);
+                    if (formatted !== val) el.innerText = formatted;
+                }
+            });
+        }
+        
+        // Run on load and whenever tabs switch
+        document.addEventListener('DOMContentLoaded', formatAllSyncTimes);
+        window.addEventListener('load', formatAllSyncTimes);
+        setInterval(formatAllSyncTimes, 2000); 
+
+        function openTemplatePreview(name) {
+            const content = templateData[name] || '';
+            const components = templateComponents[name] || [];
+            openPreviewModal({ content, components, isTemplateTab: true });
+        }
 
         // Custom Toast System
         function showToast(message, type = 'info') {
@@ -550,16 +1259,125 @@
             document.getElementById('tab-' + tab).classList.add('active', 'text-green-600', 'border-green-600', 'border-b-2');
             document.getElementById('tab-' + tab).classList.remove('text-slate-500');
 
-            document.getElementById('content-campaigns').classList.add('hidden');
-            document.getElementById('content-templates').classList.add('hidden');
-            document.getElementById('content-' + tab).classList.remove('hidden');
-            if (tab === 'templates') {
-                document.getElementById('content-templates').classList.remove('hidden');
-                document.getElementById('content-templates').classList.add('block');
-            } else {
-                document.getElementById('content-campaigns').classList.remove('hidden');
-                document.getElementById('content-campaigns').classList.add('grid');
+            const contentId = 'content-' + tab;
+            const content = document.getElementById(contentId);
+            if (content) {
+                document.querySelectorAll('main > div').forEach(div => div.classList.add('hidden'));
+                content.classList.remove('hidden');
             }
+
+            if (tab === 'templates') {
+                content.classList.add('block');
+            } else if (tab === 'history') {
+                content.classList.add('block');
+                loadHistory();
+            } else if (tab === 'chat') {
+                content.classList.remove('hidden');
+                content.classList.add('flex');
+                loadChatContacts();
+            } else {
+                content.classList.add('grid');
+            }
+        }
+
+        // History Management
+        async function loadHistory() {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = `<tr><td colspan="6" class="px-8 py-12 text-center text-sm text-slate-500 italic">Loading history...</td></tr>`;
+            
+            try {
+                const response = await fetch('/api/history');
+                const campaigns = await response.json();
+                
+                if (campaigns.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-8 py-12 text-center text-sm text-slate-500 italic">No campaigns found.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = campaigns.map(c => `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="px-8 py-5 text-sm font-bold text-slate-800">${c.name}</td>
+                        <td class="px-8 py-5 text-xs text-slate-500 capitalize sync-time">${c.timestamp}</td>
+                        <td class="px-8 py-5 text-center text-sm font-medium text-slate-600">${c.sent_success}</td>
+                        <td class="px-8 py-5 text-center text-sm font-medium text-rose-600">${c.failed || 0}</td>
+                        <td class="px-8 py-5 text-center text-sm font-medium text-blue-600">${c.delivered || 0}</td>
+                        <td class="px-8 py-5 text-center text-sm font-medium text-emerald-600">${c.read || 0}</td>
+                        <td class="px-8 py-5 text-right">
+                            <button onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}')" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1 justify-end">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                Details
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+                formatAllSyncTimes();
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-8 py-12 text-center text-rose-500 italic text-sm">Failed to load history.</td></tr>`;
+            }
+        }
+
+        async function viewCampaignDetails(id, name, date) {
+            const modal = document.getElementById('historyDetailModal');
+            document.getElementById('detailCampaignName').innerText = name;
+            document.getElementById('detailCampaignDate').innerText = formatDateTime(date);
+            
+            // Show loading stats
+            document.getElementById('statSent').innerText = "...";
+            document.getElementById('statDelivered').innerText = "...";
+            document.getElementById('statRead').innerText = "...";
+            document.getElementById('statFailed').innerText = "...";
+            document.getElementById('detailTableBody').innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-slate-400">Loading details...</td></tr>`;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            try {
+                const response = await fetch(`/api/campaign/${id}/details`);
+                const data = await response.json();
+                
+                // Update stats
+                document.getElementById('statSent').innerText = data.stats.sent;
+                document.getElementById('statDelivered').innerText = data.stats.delivered;
+                document.getElementById('statRead').innerText = data.stats.read;
+                document.getElementById('statFailed').innerText = data.stats.failed;
+
+                // Update table
+                const tbody = document.getElementById('detailTableBody');
+                if (data.messages.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-slate-400">No messages found for this campaign.</td></tr>`;
+                } else {
+                    tbody.innerHTML = data.messages.map(m => {
+                        let statusColor = 'text-slate-600 bg-slate-100';
+                        if (m.status === 'delivered') statusColor = 'text-blue-700 bg-blue-100';
+                        if (m.status === 'read') statusColor = 'text-emerald-700 bg-emerald-100';
+                        if (m.status === 'failed') statusColor = 'text-rose-700 bg-rose-100';
+                        
+                        return `
+                            <tr class="hover:bg-slate-50 transition-colors">
+                                <td class="px-6 py-4 font-medium text-slate-800">${m.phone}</td>
+                                <td class="px-6 py-4">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusColor}">
+                                        ${m.status}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-xs text-slate-400 sync-time">${m.timestamp}</td>
+                                <td class="px-6 py-4 text-xs ${m.status === 'failed' ? 'text-rose-500 font-medium' : 'text-slate-400'}">
+                                    ${m.error_message || (m.status === 'sent' ? 'Sent but not delivered' : '')}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                    formatAllSyncTimes();
+                }
+            } catch (err) {
+                showToast('Failed to load campaign details', 'error');
+            }
+        }
+
+        function closeHistoryModal() {
+            const modal = document.getElementById('historyDetailModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
 
         // --- Rest of original logic with showToast replaces ---
@@ -570,30 +1388,198 @@
         const submitBtn = document.getElementById('submitBtn');
 
         document.getElementById('dropzone').onclick = () => fileInput.click();
-        fileInput.onchange = () => {
+        let currentFileColumns = [];
+        let currentTemplateVars = [];
+        let currentHeaderType = "NONE";
+
+        function toggleDeliveryMethod(method) {
+            const bulkArea = document.getElementById('bulkDeliveryArea');
+            const singleArea = document.getElementById('singleDeliveryArea');
+            
+            if (method === 'bulk') {
+                bulkArea.classList.remove('hidden');
+                singleArea.classList.add('hidden');
+            } else {
+                bulkArea.classList.add('hidden');
+                singleArea.classList.remove('hidden');
+            }
+            
+            // Re-render templates mappings if a template is selected
+            if (document.getElementById('templateName').value) {
+                const template = templatesList.find(t => t.name === document.getElementById('templateName').value);
+                if (template) {
+                    renderMappingUI(template.variable_map || {});
+                }
+            }
+        }
+
+        fileInput.onchange = async () => {
             if (fileInput.files.length > 0) {
-                fileName.innerText = fileInput.files[0].name;
+                const file = fileInput.files[0];
+                fileName.innerText = file.name;
                 document.getElementById('dropzone').classList.add('bg-green-50', 'border-green-500');
+                
+                // Get Columns from Backend
+                const formData = new FormData();
+                formData.append('file', file);
+                try {
+                    const res = await fetch('/api/get-columns', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (res.ok) {
+                        currentFileColumns = data.columns;
+                        document.getElementById('mappingStatus').innerText = `${currentFileColumns.length} columns found`;
+                        renderMappingUI();
+                    }
+                } catch (e) { console.error('Error fetching columns', e); }
             }
         };
 
+        function handleTemplateChange(select) {
+            const templateName = select.value;
+            if (!templateName) {
+                document.getElementById('mappingArea').classList.add('hidden');
+                return;
+            }
+
+            const template = templatesList.find(t => t.name === templateName);
+            if (!template) return;
+
+            const content = template.content || "";
+            const components = template.components || [];
+            const varMap = template.variable_map || {};
+            
+            // Extract Variables {{n}}
+            const matches = content.match(/\x7b\x7b\d+\x7d\x7d/g) || [];
+            currentTemplateVars = [...new Set(matches.map(m => m.replace(/[\x7b\x7d]/g, "")))].sort((a,b) => a-b);
+            
+            // Check for Media Header
+            const header = components.find(c => c.type === 'HEADER');
+            currentHeaderType = header ? header.format : "NONE";
+
+            document.getElementById('mappingArea').classList.remove('hidden');
+            renderMappingUI(varMap);
+        }
+
+        function renderMappingUI(variableMap = {}) {
+            const list = document.getElementById('mappingList');
+            const method = document.querySelector('input[name="delivery_method"]:checked')?.value || 'bulk';
+
+            if (method === 'bulk' && !currentFileColumns.length) {
+                list.innerHTML = `<p class="text-[10px] text-amber-600 bg-amber-50 p-2 rounded">Please upload a file first to map variables.</p>`;
+                return;
+            }
+
+            let html = "";
+            
+            // Media Header Mapping
+            if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(currentHeaderType)) {
+                if (method === 'bulk') {
+                    html += `
+                        <div class="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200">
+                            <span class="text-[10px] font-bold text-slate-500 w-24">Header (${currentHeaderType})</span>
+                            <select name="map_header" class="flex-1 bg-transparent border-none outline-none text-[10px] font-medium">
+                                <option value="">-- Select Column for ${currentHeaderType} URL --</option>
+                                ${currentFileColumns.map(c => `<option value="${c}">${c}</option>`).join('')}
+                            </select>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200">
+                            <span class="text-[10px] font-bold text-slate-500 w-24">Header URL</span>
+                            <input type="text" name="val_header" class="flex-1 bg-transparent border-none outline-none text-[10px] font-medium" placeholder="https://example.com/image.jpg">
+                        </div>
+                    `;
+                }
+            }
+
+            // Body Variables Mapping
+            currentTemplateVars.forEach(v => {
+                const mapKey = v.toString();
+                // Use variableMap if available
+                const label = (variableMap && variableMap[mapKey]) 
+                             ? `Variable {${variableMap[mapKey]}}` 
+                             : `Variable {% raw %}{{{% endraw %}${v}{% raw %}}}{% endraw %}`;
+
+                if (method === 'bulk') {
+                    html += `
+                        <div class="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200">
+                            <span class="text-[10px] font-bold text-slate-500 w-24">${label}</span>
+                            <select name="map_var_${v}" class="flex-1 bg-transparent border-none outline-none text-[10px] font-medium">
+                                <option value="">-- Select Column for ${label} --</option>
+                                ${currentFileColumns.map(c => `<option value="${c}">${c}</option>`).join('')}
+                            </select>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200">
+                            <span class="text-[10px] font-bold text-slate-500 w-24">${label}</span>
+                            <input type="text" name="val_var_${v}" class="flex-1 bg-transparent border-none outline-none text-[10px] font-medium" placeholder="Enter value for ${mapKey}">
+                        </div>
+                    `;
+                }
+            });
+
+            list.innerHTML = html || `<p class="text-[10px] text-slate-400 p-2 italic">This template has no variables.</p>`;
+        }
+
         campaignForm.onsubmit = async (e) => {
             e.preventDefault();
-            if (fileInput.files.length === 0) return showToast('Please select a file first!', 'error');
+            const method = document.querySelector('input[name="delivery_method"]:checked')?.value || 'bulk';
+            
+            if (method === 'bulk' && fileInput.files.length === 0) {
+                return showToast('Please select a file first!', 'error');
+            }
+            if (method === 'single' && !document.getElementById('singleMobileNumber').value) {
+                return showToast('Please enter a mobile number!', 'error');
+            }
             
             const formData = new FormData(campaignForm);
-            formData.append('file', fileInput.files[0]);
-            
-            // Handle Custom Template Name if applicable
-            let tName = document.getElementById('templateName').value;
-            const customInput = document.getElementById('customTemplateName');
-            if (!tName && customInput && !customInput.classList.contains('hidden')) {
-                tName = customInput.value;
-                if (!tName) return showToast('Please enter a template name!', 'error');
+            if (method === 'bulk') {
+                formData.append('file', fileInput.files[0]);
+            } else {
+                // If single, remove the empty file element entirely to prevent binary upload issues
+                formData.delete("file");
             }
-            formData.set('template_name', tName);
             
-            formData.append('message', document.getElementById('messageInput').value);
+            const msgType = document.querySelector('input[name="msg_type"]:checked').value;
+            
+            if (msgType === 'template') {
+                const tName = document.getElementById('templateName').value;
+                if (!tName) return showToast('Please select a template!', 'error');
+                
+                // Gather Mappings
+                const mappings = { vars: {}, header: null };
+                const mappingContainer = document.getElementById('mappingList');
+                
+                // Header Mapping
+                if (method === 'bulk') {
+                    const headerSelect = mappingContainer.querySelector('select[name="map_header"]');
+                    if (headerSelect) mappings.header = headerSelect.value;
+                } else {
+                    const headerInput = mappingContainer.querySelector('input[name="val_header"]');
+                    if (headerInput) mappings.header = headerInput.value;
+                }
+                
+                // Var Mappings
+                currentTemplateVars.forEach(v => {
+                    if (method === 'bulk') {
+                        const sel = mappingContainer.querySelector(`select[name="map_var_${v}"]`);
+                        if (sel) mappings.vars[v] = sel.value;
+                    } else {
+                        const inp = mappingContainer.querySelector(`input[name="val_var_${v}"]`);
+                        if (inp) mappings.vars[v] = inp.value;
+                    }
+                });
+                
+                formData.append('mappings', JSON.stringify(mappings));
+                // Include disabled text area value
+                formData.append('message', document.getElementById('messageInput').value);
+            } else {
+                formData.set('template_name', '');
+                formData.append('message', document.getElementById('messageInput').value);
+            }
 
             submitBtn.disabled = true;
             submitBtn.innerHTML = `<span class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span> Launching...`;
@@ -614,52 +1600,626 @@
                 console.error(err);
                 showToast('Network error, try again.', 'error');
                 submitBtn.disabled = false;
+                submitBtn.innerText = 'Launch Campaign';
             }
         };
 
-        async function clearHistory() {
-            showConfirm('Clear All History?', 'This will permanently delete all campaign records and message logs.', async () => {
-                try {
-                    const response = await fetch('/clear-history', { method: 'POST' });
-                    if (response.ok) {
-                        showToast('History cleared!', 'success');
-                        setTimeout(() => location.reload(), 1000);
-                    }
-                } catch (err) { showToast('Error clearing history', 'error'); }
-            });
-        }
-
         function toggleTemplateFields(show) {
             const fields = document.getElementById('templateFields');
+            const messageArea = document.getElementById('messageInput').closest('div').parentElement;
+            
+            if (show) {
+                fields.classList.remove('hidden');
+                messageArea.classList.add('hidden');
+            } else {
+                fields.classList.add('hidden');
+                messageArea.classList.remove('hidden');
+            }
             document.getElementById('templateName').required = show;
-            fields.className = show ? 'grid grid-cols-2 gap-4 mb-4 p-4 bg-slate-50 rounded-xl border border-slate-200' : 'hidden';
         }
 
-        const templateModal = document.getElementById('templateModal');
-        const templateForm = document.getElementById('templateForm');
+        // --- Template Wizard Logic ---
+        // --- Template Wizard Logic (Rich Editor) ---
+        let currentWizStep = 1;
+        let isEditMode = false;
 
-        function openTemplateModal() {
-            templateModal.classList.remove('hidden');
-            templateModal.classList.add('flex');
+        function editTemplate(origin) {
+            let templateName;
+            if (typeof origin === 'string') {
+                templateName = origin;
+            } else {
+                let row = origin.closest('tr');
+                templateName = row.cells[0].innerText.trim();
+            }
+            
+            let templateData = templatesList.find(t => t.name === templateName);
+
+            if (!templateData) {
+                showToast('Template data not found', 'error');
+                return;
+            }
+
+            isEditMode = true;
+            currentWizStep = 1;
+
+            // Populate modal
+            document.getElementById('wiz_name').value = templateData.name;
+            document.getElementById('wiz_name').readOnly = true;
+
+            document.getElementById('wiz_language').value = templateData.language.toLowerCase() === 'en' ? 'en_US' : templateData.language;
+
+            let catEl = document.querySelector(`input[name="wiz_category"][value="${templateData.category}"]`);
+            if (catEl) {
+                catEl.checked = true;
+                if(typeof updateWizSubtypes === 'function') updateWizSubtypes(templateData.category);
+            }
+
+            // Find body component
+            let bodyComp = templateData.components.find(c => c.type === 'BODY');
+            if (bodyComp) {
+                document.getElementById('wiz_body').value = bodyComp.text;
+            }
+
+            // Header logic
+            let headerComp = templateData.components.find(c => c.type === 'HEADER');
+            if (headerComp) {
+                document.getElementById('wiz_header_type').value = headerComp.format;
+                if (typeof toggleHeaderInput === 'function') toggleHeaderInput();
+                
+                if (headerComp.format === 'TEXT') {
+                    document.getElementById('wiz_header_text').value = headerComp.text || '';
+                } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerComp.format)) {
+                    if(headerComp.example && headerComp.example.header_handle) {
+                         document.getElementById('wiz_header_sample_url').value = headerComp.example.header_handle[0] || "";
+                    }
+                }
+            } else {
+                document.getElementById('wiz_header_type').value = 'NONE';
+                if (typeof toggleHeaderInput === 'function') toggleHeaderInput();
+            }
+
+            // Footer logic
+            let footerComp = templateData.components.find(c => c.type === 'FOOTER');
+            if (footerComp) {
+                document.getElementById('wiz_footer').value = footerComp.text;
+            } else {
+                document.getElementById('wiz_footer').value = '';
+            }
+
+            // Retrieve Buttons
+            let buttonsComp = templateData.components.find(c => c.type === 'BUTTONS');
+            wizButtons = [];
+            if (buttonsComp && buttonsComp.buttons) {
+                wizButtons = buttonsComp.buttons;
+            }
+
+            if(typeof updateTemplatePreview === 'function') updateTemplatePreview();
+            openTemplateModal(true);
+        }
+
+        async function submitWizardTemplate() {
+            const submitBtn = document.getElementById('saveTmplBtn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="animate-spin rounded-full h-4 w-4 border-b-2 border-white inline-block"></span> Submitting...';
+
+            try {
+                const components = [];
+                const headerType = document.getElementById('wiz_header_type').value;
+                if (headerType !== 'NONE') {
+                    const headerComp = { type: 'HEADER', format: headerType };
+                    if (headerType === 'TEXT') {
+                        headerComp.text = document.getElementById('wiz_header_text').value;
+                    } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerType)) {
+                        const url = document.getElementById('wiz_header_sample_url').value;
+                        if(url) {
+                            headerComp.example = { header_handle: [url] };
+                        }
+                    }
+                    components.push(headerComp);
+                }
+
+                components.push({
+                    type: 'BODY',
+                    text: document.getElementById('wiz_body').value
+                });
+
+                const footerText = document.getElementById('wiz_footer').value;
+                if (footerText) {
+                    components.push({ type: 'FOOTER', text: footerText });
+                }
+
+                if (wizButtons && wizButtons.length > 0) {
+                    components.push({
+                        type: 'BUTTONS',
+                        buttons: wizButtons
+                    });
+                }
+
+                const catEl = document.querySelector('input[name="wiz_category"]:checked');
+
+                const payload = {
+                    name: document.getElementById('wiz_name').value,
+                    category: catEl ? catEl.value : 'MARKETING',
+                    language: document.getElementById('wiz_language').value,
+                    components: components
+                };
+
+                const url = isEditMode ? '/api/templates/update' : '/api/templates/create';
+                const method = isEditMode ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showToast(`Template ${isEditMode ? 'updated' : 'created'} successfully!`, 'success');
+                    closeTemplateModal();
+                    // Let Meta propagate
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    const err = await response.json();
+                    showToast(err.detail || err.error || `Failed to ${isEditMode ? 'update' : 'create'} template`, 'error');
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }
+        let wizButtons = [];
+
+        function openTemplateModal(fromEdit = false) {
+            currentWizStep = 1;
+            wizButtons = [];
+            if (!fromEdit) {
+                isEditMode = false;
+                document.getElementById('wiz_name').value = '';
+                document.getElementById('wiz_name').readOnly = false;
+                document.getElementById('wiz_body').value = '';
+                document.getElementById('wiz_header_text').value = '';
+                document.getElementById('wiz_footer').value = '';
+                if(typeof updateTemplatePreview === 'function') updateTemplatePreview();
+            }
+            document.getElementById('templateModal').classList.remove('hidden');
+            document.getElementById('templateModal').classList.add('flex');
+            goToStep1();
         }
 
         function closeTemplateModal() {
-            templateModal.classList.add('hidden');
-            templateModal.classList.remove('flex');
+            document.getElementById('templateModal').classList.add('hidden');
+            document.getElementById('templateModal').classList.remove('flex');
+        }
+
+        function goToStep1() {
+            currentWizStep = 1;
+            document.getElementById('wizardStepDot').innerText = "1";
+            document.getElementById('wizardTitle').innerText = "Set up your template";
+            document.getElementById('templateStep1').classList.remove('hidden');
+            document.getElementById('templateStep2').classList.add('hidden');
+        }
+
+        function goToStep2() {
+            currentWizStep = 2;
+            document.getElementById('wizardStepDot').innerText = "2";
+            document.getElementById('wizardTitle').innerText = "Edit template";
+            document.getElementById('templateStep1').classList.add('hidden');
+            document.getElementById('templateStep2').classList.remove('hidden');
+            updateTemplatePreview();
+            renderWizButtons();
+        }
+
+        function updateTemplatePreview() {
+            const name = document.getElementById('wiz_name').value || 'New Template';
+            const headerType = document.getElementById('wiz_header_type').value;
+            const headerText = document.getElementById('wiz_header_text').value;
+            const bodyText = document.getElementById('wiz_body').value || 'Your template message will appear here...';
+            const footerText = document.getElementById('wiz_footer').value;
+            const mediaUrl = document.getElementById('wiz_header_sample_url').value;
+
+            // Update Header Name
+            document.getElementById('preview_header_name').innerText = name;
+
+            // Handle Header Preview
+            const headerArea = document.getElementById('prev_header_area');
+            const headerTextArea = document.getElementById('prev_header_text');
+            const headerMediaArea = document.getElementById('prev_header_media');
+            const mediaImg = document.getElementById('prev_media_img');
+            const mediaPlaceholder = document.getElementById('prev_media_placeholder');
+
+            headerArea.classList.add('hidden');
+            headerTextArea.classList.add('hidden');
+            headerMediaArea.classList.add('hidden');
+
+            if (headerType === 'TEXT' && headerText) {
+                headerArea.classList.remove('hidden');
+                headerTextArea.classList.remove('hidden');
+                headerTextArea.innerText = headerText;
+            } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerType)) {
+                headerArea.classList.remove('hidden');
+                headerMediaArea.classList.remove('hidden');
+                if (mediaUrl && headerType === 'IMAGE') {
+                    mediaImg.src = mediaUrl;
+                    mediaImg.classList.remove('hidden');
+                    mediaPlaceholder.classList.add('hidden');
+                } else {
+                    mediaImg.classList.add('hidden');
+                    mediaPlaceholder.classList.remove('hidden');
+                }
+            }
+
+            // Update Body Preview (Apply basic formatting for preview)
+            let formattedBody = bodyText
+                .replace(/\*(.*?)\*/g, '<b>$1</b>')
+                .replace(/_(.*?)_/g, '<i>$1</i>')
+                .replace(/~(.*?)~/g, '<strike>$1</strike>')
+                .replace(/[\{\[](.*?)[\}\]]/g, '<span class="text-indigo-500 font-bold">{' + '{$1}' + '}</span>');
+            
+            document.getElementById('prev_body_text').innerHTML = formattedBody;
+
+            // Update Footer Preview
+            const footerEl = document.getElementById('prev_footer_text');
+            if (footerText) {
+                footerEl.innerText = footerText;
+                footerEl.classList.remove('hidden');
+            } else {
+                footerEl.classList.add('hidden');
+            }
+
+            // Update Buttons Preview
+            const btnsArea = document.getElementById('prev_buttons_area');
+            if (wizButtons.length > 0) {
+                btnsArea.classList.remove('hidden');
+                btnsArea.innerHTML = wizButtons.map(btn => `
+                    <div class="py-2 text-center text-[10px] font-bold text-indigo-600 bg-white/50 flex items-center justify-center gap-1.5">
+                        ${btn.type === 'PHONE_NUMBER' ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 005.105 5.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path></svg>' : ''}
+                        ${btn.type === 'URL' ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>' : ''}
+                        ${btn.text || 'Button Label'}
+                    </div>
+                `).join('');
+            } else {
+                btnsArea.classList.add('hidden');
+            }
+        }
+
+        function insertWizVariable() {
+            const textarea = document.getElementById('wiz_body');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const varName = prompt("Enter variable name (e.g. name, order_id):", "name") || "var";
+            const insertion = `{${varName}}`;
+            textarea.value = text.substring(0, start) + insertion + text.substring(end);
+            textarea.focus();
+            textarea.selectionStart = textarea.selectionEnd = start + insertion.length;
+            updateTemplatePreview();
+        }
+
+        function formatWizText(char) {
+            const textarea = document.getElementById('wiz_body');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selected = textarea.value.substring(start, end);
+            if (!selected) return;
+            const insertion = `${char}${selected}${char}`;
+            textarea.value = textarea.value.substring(0, start) + insertion + textarea.value.substring(end);
+            textarea.focus();
+            updateTemplatePreview();
+        }
+
+        function addWizButtonRow() {
+            if (wizButtons.length >= 3) return showToast('Maximum 3 buttons allowed', 'error');
+            wizButtons.push({ type: 'QUICK_REPLY', text: '', url_type: 'STATIC', url: '', phone: '' });
+            renderWizButtons();
+            updateTemplatePreview();
+        }
+
+        function removeWizButtonRow(index) {
+            wizButtons.splice(index, 1);
+            renderWizButtons();
+            updateTemplatePreview();
+        }
+
+        function renderWizButtons() {
+            const list = document.getElementById('wiz_buttons_list');
+            list.innerHTML = wizButtons.map((btn, i) => `
+                <div class="p-4 bg-white rounded-2xl border border-slate-200 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <div class="flex items-center justify-between">
+                        <select onchange="updateBtnType(${i}, this.value)" class="bg-slate-50 px-3 py-1.5 rounded-lg text-xs font-bold outline-none border border-slate-200">
+                            <option value="QUICK_REPLY" ${btn.type === 'QUICK_REPLY' ? 'selected' : ''}>Quick Reply</option>
+                            <option value="PHONE_NUMBER" ${btn.type === 'PHONE_NUMBER' ? 'selected' : ''}>Call</option>
+                            <option value="URL" ${btn.type === 'URL' ? 'selected' : ''}>Visit URL</option>
+                        </select>
+                        <button onclick="removeWizButtonRow(${i})" class="text-rose-400 hover:text-rose-600 transition-colors p-1.5 hover:bg-rose-50 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-3">
+                        ${btn.type === 'URL' ? `
+                            <div class="grid grid-cols-4 gap-3 items-end">
+                                <div class="col-span-1">
+                                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">URL Type:</label>
+                                    <select onchange="wizButtons[${i}].url_type = this.value; renderWizButtons(); updateTemplatePreview()" class="w-full bg-slate-50 px-3 py-2 rounded-xl text-xs font-medium border border-slate-200 outline-none">
+                                        <option value="STATIC" ${btn.url_type === 'STATIC' ? 'selected' : ''}>Static</option>
+                                        <option value="DYNAMIC" ${btn.url_type === 'DYNAMIC' ? 'selected' : ''}>Dynamic</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-3">
+                                    <div class="flex h-10 shadow-sm">
+                                        <div class="bg-rose-500 text-white px-4 flex items-center rounded-l-xl text-xs font-bold whitespace-nowrap min-w-[100px]">
+                                            <input type="text" value="${btn.text}" oninput="wizButtons[${i}].text = this.value; updateTemplatePreview()" placeholder="Visit Now" class="bg-transparent border-none outline-none text-white placeholder-rose-200 w-full">
+                                        </div>
+                                        <input type="text" value="${btn.url}" oninput="wizButtons[${i}].url = this.value; updateTemplatePreview()" placeholder="https://example.com" class="flex-1 bg-white px-4 border border-slate-200 border-l-0 rounded-r-xl text-xs font-medium outline-none focus:ring-1 focus:ring-indigo-500">
+                                    </div>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="flex items-center gap-3">
+                                <div class="flex-1">
+                                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Button Label:</label>
+                                    <input type="text" value="${btn.text}" oninput="wizButtons[${i}].text = this.value; updateTemplatePreview()" placeholder="Enter label..." class="w-full bg-slate-50 px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 outline-none focus:ring-1 focus:ring-indigo-500">
+                                </div>
+                                ${btn.type === 'PHONE_NUMBER' ? `
+                                    <div class="w-1/3">
+                                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Phone:</label>
+                                        <input type="text" value="${btn.phone || ''}" oninput="wizButtons[${i}].phone = this.value; updateTemplatePreview()" placeholder="+91..." class="w-full bg-slate-50 px-4 py-2 rounded-xl text-xs font-medium border border-slate-200 outline-none focus:ring-1 focus:ring-indigo-500">
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateBtnType(index, type) {
+            wizButtons[index].type = type;
+            renderWizButtons();
+            updateTemplatePreview();
+        }
+
+        function toggleHeaderInput() {
+            const type = document.getElementById('wiz_header_type').value;
+            // headerTextInput - for TEXT
+            // headerMediaInfo - for IMAGE, VIDEO, DOCUMENT
+            const hText = document.getElementById('headerTextInput');
+            const hMedia = document.getElementById('headerMediaInfo');
+            if (hText) hText.classList.toggle('hidden', type !== 'TEXT');
+            if (hMedia) hMedia.classList.toggle('hidden', !['IMAGE', 'VIDEO', 'DOCUMENT'].includes(type));
+        }
+
+        async function submitWizardTemplate() {
+            const name = document.getElementById('wiz_name').value;
+            if (!name) return showToast('Template name is required', 'error');
+            
+            const category = document.querySelector('input[name="wiz_category"]:checked').value;
+            const subtype = document.querySelector('input[name="wiz_subtype"]:checked').value;
+            const language = document.getElementById('wiz_language').value;
+            let body = document.getElementById('wiz_body').value;
+            const footer = document.getElementById('wiz_footer').value;
+            const headerType = document.getElementById('wiz_header_type').value;
+            const headerText = document.getElementById('wiz_header_text').value;
+            const sampleUrl = document.getElementById('wiz_header_sample_url')?.value || '';
+
+            // Validation: Ensure buttons have text
+            for (let b of wizButtons) {
+                if (!b.text) return showToast('All buttons must have a label', 'error');
+                if (b.type === 'PHONE_NUMBER' && !b.phone) return showToast('Phone number is required for Call button', 'error');
+                if (b.type === 'URL' && !b.url) return showToast('URL is required for Visit Website button', 'error');
+            }
+
+            // Transformation: {name} -> {{1}}
+            const variableMap = {};
+            let varIndex = 1;
+            const varRegex = /[\{\[](\w+)[\}\]]/g;
+            const seenVars = new Map();
+
+            const transformedBody = body.replace(varRegex, (match, varName) => {
+                if (!seenVars.has(varName)) {
+                    seenVars.set(varName, varIndex++);
+                }
+                const idx = seenVars.get(varName);
+                variableMap[idx] = varName;
+                return `{% raw %}{{{% endraw %}${idx}{% raw %}}}{% endraw %}`;
+            });
+
+            const submitBtn = document.getElementById('saveTmplBtn');
+            const originalText = submitBtn.innerText;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span> Submitting...`;
+
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('category', category);
+            formData.append('subtype', subtype);
+            formData.append('language', language);
+            formData.append('content', transformedBody);
+            formData.append('footer', footer);
+            formData.append('header_type', headerType);
+            formData.append('header_text', headerType === 'TEXT' ? headerText : (['IMAGE','VIDEO','DOCUMENT'].includes(headerType) ? sampleUrl : ''));
+            
+            // Process Buttons for Dynamic URL support
+            const processedButtons = wizButtons.map(b => {
+                let btn = { ...b };
+                if (btn.type === 'URL' && btn.url_type === 'DYNAMIC') {
+                    if (!btn.url.includes('{% raw %}{{{% endraw %}1{% raw %}}}{% endraw %}')) {
+                        btn.url = btn.url.endsWith('/') ? btn.url + '{% raw %}{{{% endraw %}1{% raw %}}}{% endraw %}' : btn.url + '/{% raw %}{{{% endraw %}1{% raw %}}}{% endraw %}';
+                    }
+                }
+                return btn;
+            });
+            formData.append('buttons', JSON.stringify(processedButtons));
+            formData.append('variable_map', JSON.stringify(variableMap));
+
+            try {
+                const response = await fetch('/api/templates/create-complex', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast('Template created successfully!', 'success');
+                    closeTemplateModal();
+                    // Successfully created, reload to show in list
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(result.error || 'Failed to create template', 'error');
+                }
+            } catch (err) {
+                showToast('Network error', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = originalText;
+            }
         }
 
         const previewModal = document.getElementById('previewModal');
         const previewContent = document.getElementById('previewMessageContent');
 
-        function openPreviewModal(content) {
-            previewContent.innerText = content;
-            previewModal.classList.remove('hidden');
-            previewModal.classList.add('flex');
+        function openPreviewModal(template) {
+            const modal = document.getElementById('previewModal');
+            const sendBtn = document.getElementById('previewSendBtn');
+
+            const t = typeof template === 'string' ? { content: template } : template;
+            document.getElementById('view_contact_name').innerText = t.name ? t.name : "WhatsApp";
+
+            const statusBadge = document.getElementById('view_status_badge');
+            if (t.status) {
+                statusBadge.innerText = t.status.toUpperCase();
+                statusBadge.className = targetStatusClass(t.status);
+                statusBadge.classList.remove('hidden');
+            } else {
+                statusBadge.classList.add('hidden');
+            }
+
+            // Extract components
+            const comps = typeof t.components === 'string' ? JSON.parse(t.components) : (t.components || []);
+            const header = comps.find(c => c.type === 'HEADER');
+            const body = comps.find(c => c.type === 'BODY') || { text: t.content || '' };
+            const footer = comps.find(c => c.type === 'FOOTER');
+            const buttonsComp = comps.find(c => c.type === 'BUTTONS');
+
+            // Text formatting helper
+            const formatWA = (text) => {
+                if (!text) return '';
+                return text
+                    .replace(/\*(.*?)\*/g, '<b>$1</b>')
+                    .replace(/_(.*?)_/g, '<i>$1</i>')
+                    .replace(/~(.*?)~/g, '<strike>$1</strike>')
+                    .replace(/\{\{(\d+)\}\}/g, '<span class="text-indigo-600 bg-indigo-50 px-1 rounded">[$1]</span>');
+            };
+
+            // Header
+            const hArea = document.getElementById('view_header_area');
+            const hText = document.getElementById('view_header_text');
+            const hMedia = document.getElementById('view_media_area');
+            const hIcon = document.getElementById('view_media_icon');
+            const hImg = document.getElementById('view_media_img');
+            const hLabel = document.getElementById('view_media_label');
+            const hPath = document.getElementById('view_media_svg_path');
+
+            hText.classList.add('hidden');
+            hMedia.classList.add('hidden');
+            hIcon.classList.remove('hidden');
+            hImg.classList.add('hidden');
+            hImg.src = '';
+            
+            if (header && header.format) {
+                hArea.classList.remove('hidden');
+                if (header.format === 'TEXT') {
+                    hText.innerHTML = formatWA(header.text || '');
+                    hText.classList.remove('hidden');
+                } else if (header.format === 'IMAGE' || header.format === 'VIDEO' || header.format === 'DOCUMENT') {
+                    hMedia.classList.remove('hidden');
+                    hLabel.innerText = header.format + ' CONTENT';
+                    
+                    if (header.format === 'IMAGE') {
+                        hPath.setAttribute('d', 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z');
+                        if (header.example && header.example.header_handle && header.example.header_handle[0]) {
+                            hImg.src = header.example.header_handle[0];
+                            hImg.classList.remove('hidden');
+                            hIcon.classList.add('hidden');
+                        }
+                    } else if (header.format === 'VIDEO') {
+                        hPath.setAttribute('d', 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z');
+                    } else {
+                        hPath.setAttribute('d', 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z');
+                    }
+                }
+            } else {
+                hArea.classList.add('hidden');
+            }
+
+            // Body
+            document.getElementById('view_body_text').innerHTML = formatWA(body.text);
+
+            // Footer
+            const fText = document.getElementById('view_footer_text');
+            if (footer && footer.text) {
+                fText.innerText = footer.text;
+                fText.classList.remove('hidden');
+            } else {
+                fText.classList.add('hidden');
+            }
+
+            // Buttons
+            const bArea = document.getElementById('view_buttons_area');
+            bArea.innerHTML = '';
+            if (buttonsComp && buttonsComp.buttons && buttonsComp.buttons.length > 0) {
+                bArea.classList.remove('hidden');
+                buttonsComp.buttons.forEach(btn => {
+                    let icon = '';
+                    if (btn.type === 'PHONE_NUMBER') icon = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>';
+                    else if (btn.type === 'URL') icon = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>';
+                    else icon = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>';
+                    
+                    bArea.innerHTML += `
+                        <div class="py-2.5 text-center text-[#027eb5] text-xs font-medium cursor-pointer flex items-center justify-center gap-1.5 hover:bg-[#d9dbdf] transition-colors">
+                            ${icon} ${btn.text}
+                        </div>
+                    `;
+                });
+            } else {
+                bArea.classList.add('hidden');
+            }
+
+            // Send Button Logic
+            if (sendBtn) {
+                if (t.name) {
+                    sendBtn.disabled = false;
+                    sendBtn.classList.remove('opacity-50');
+                    sendBtn.onclick = () => { closePreviewModal(); sendChatTemplate(t.name); };
+                } else {
+                    sendBtn.disabled = true;
+                    sendBtn.classList.add('opacity-50');
+                    sendBtn.onclick = null;
+                }
+                
+                const footerArea = sendBtn.parentElement;
+                if (footerArea) {
+                    if (t.isTemplateTab) {
+                        footerArea.classList.add('hidden');
+                    } else {
+                        footerArea.classList.remove('hidden');
+                        footerArea.classList.add('flex');
+                    }
+                }
+            }
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        
+        function targetStatusClass(status) {
+            const s = (status || '').toLowerCase();
+            return `px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest ${s === 'approved' ? 'bg-emerald-100 text-emerald-700' : (s === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700')}`;
         }
 
         function closePreviewModal() {
-            previewModal.classList.add('hidden');
-            previewModal.classList.remove('flex');
+            const modal = document.getElementById('previewModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
 
         async function syncTemplates() {
@@ -748,6 +2308,23 @@
             cancelBtn.onclick = () => { clearButtons(); };
         }
 
+        async function deleteTemplate(name) {
+            showConfirm('Delete Template?', `Are you sure you want to delete "${name}"? This will remove it from both this dashboard and your Meta account.`, async () => {
+                try {
+                    const formData = new FormData();
+                    formData.append('name', name);
+                    const response = await fetch('/api/templates/delete', { method: 'POST', body: formData });
+                    if (response.ok) {
+                        showToast('Template deleted successfully!', 'success');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        const res = await response.json();
+                        showToast(res.error || 'Failed to delete template', 'error');
+                    }
+                } catch (err) { showToast('Error deleting template', 'error'); }
+            });
+        }
+
         async function unlinkAccount() {
             showConfirm('Disconnect WhatsApp?', 'This will stop the service but keep you signed in to Facebook for a quick reconnect.', async () => {
                 try {
@@ -831,6 +2408,434 @@
                 if (lastEventEl) lastEventEl.innerText = `Sent to ${data.last_phone} (${data.last_status})`;
             };
         }
+        // Auto-sync on load
+        window.addEventListener('load', () => {
+            const isLinked = "{{ linked_phone }}";
+            if (isLinked && isLinked !== "") {
+                const lastSync = localStorage.getItem('lastAutoSync');
+                const now = Date.now();
+                // 5 minute throttle
+                if (!lastSync || (now - lastSync > 300000)) {
+                    localStorage.setItem('lastAutoSync', now);
+                    setTimeout(() => {
+                        console.log("Auto-Syncing Meta Templates...");
+                        syncTemplates();
+                    }, 2000);
+                }
+            }
+        });
+
+        // --- WhatsApp Chat Logic ---
+        // Global variables already declared at the top of script if needed, 
+        // but let's keep them here for this closure.
+        var currentChatPhone = null;
+        var currentChatAttachment = null;
+        var chatTemplatesList = [];
+        var chatInterval = null;
+        window.chatContactsData = [];
+        var currentChatFilter = 'all';
+
+        function toggleChatFilter() {
+            const menu = document.getElementById('chatFilterMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        function setChatFilter(mode) {
+            currentChatFilter = mode;
+            document.getElementById('chatFilterMenu').classList.add('hidden');
+            renderChatContacts();
+        }
+
+        function exportChatCSV() {
+            document.getElementById('chatFilterMenu').classList.add('hidden');
+            if (!window.chatContactsData || window.chatContactsData.length === 0) return;
+            const csvContent = "data:text/csv;charset=utf-8,Phone,Unread\n" 
+                + window.chatContactsData.map(c => `${c.phone},${c.has_unread ? 'Yes' : 'No'}`).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "chat_contacts.csv");
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        async function loadChatContacts() {
+            const list = document.getElementById('chatContactList');
+            if(!list) return;
+            list.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">Loading contacts...</div>`;
+            
+            try {
+                const response = await fetch('/api/chat/contacts');
+                if (!response.ok) throw new Error(`API error: ${response.status}`);
+                
+                const contacts = await response.json();
+                if (!Array.isArray(contacts)) throw new Error('Expected array of contacts');
+                
+                window.chatContactsData = contacts;
+                renderChatContacts();
+                
+            } catch (err) {
+                console.error("Chat Contact JS Error:", err);
+                list.innerHTML = `<div class="p-4 text-center text-xs text-rose-400">Error loading contacts:<br/>${err.message}</div>`;
+            }
+        }
+
+        function renderChatContacts() {
+            const list = document.getElementById('chatContactList');
+            const search = document.getElementById('chatSearch')?.value.toLowerCase() || '';
+            
+            if (window.chatContactsData.length === 0) {
+                list.innerHTML = `<div class="p-8 text-center"><p class="text-xs text-slate-400">No conversations yet.</p><p class="text-[10px] text-slate-300 mt-1">Start by sending a campaign!</p></div>`;
+                return;
+            }
+
+            let filtered = window.chatContactsData;
+            
+            // Apply text search
+            if (search) {
+                filtered = filtered.filter(c => c.phone.includes(search));
+            }
+            // Apply Mode Filter
+            if (currentChatFilter === 'unread') {
+                filtered = filtered.filter(c => c.has_unread);
+            } else if (currentChatFilter === 'read') {
+                filtered = filtered.filter(c => !c.has_unread);
+            }
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">No matching contacts.</div>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(pData => {
+                const phone = pData.phone;
+                const hasUnread = pData.has_unread;
+                const isActive = currentChatPhone === phone;
+                
+                return `
+                <button onclick="openChat('${phone}')" class="w-full p-4 flex items-center gap-3 rounded-xl hover:bg-white hover:shadow-sm transition-all text-left ${isActive ? 'bg-white shadow-sm ring-1 ring-slate-100' : ''}">
+                    <div class="relative">
+                        <div class="w-10 h-10 ${isActive ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'} rounded-full flex items-center justify-center font-bold transition-colors">
+                            ${phone.slice(-2)}
+                        </div>
+                        ${hasUnread ? '<span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-white"></span></span>' : ''}
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <p class="text-sm font-bold text-slate-800 truncate ${hasUnread ? 'text-green-700' : ''}">${phone}</p>
+                        <p class="text-[10px] ${hasUnread ? 'text-green-600 font-bold' : 'text-slate-400'} truncate">${hasUnread ? 'New messages' : 'Click to view chat'}</p>
+                    </div>
+                </button>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('chatSearch')?.addEventListener('input', renderChatContacts);
+
+
+        async function openChat(phone) {
+            currentChatPhone = phone;
+            document.getElementById('chatPlaceholder').classList.add('hidden');
+            document.getElementById('activeChat').classList.remove('hidden');
+            document.getElementById('activeChat').classList.add('flex');
+            document.getElementById('chatDisplayName').innerText = phone;
+            document.getElementById('chatInitials').innerText = phone.slice(-2);
+            document.getElementById('chatInput').value = '';
+            
+            // Mark as read in UI & DB
+            const contact = window.chatContactsData.find(c => c.phone === phone);
+            if (contact && contact.has_unread) {
+                contact.has_unread = false;
+                renderChatContacts(); // clear unread dot
+                fetch(`/api/chat/read/${phone}`, { method: 'POST' }).catch(e => console.error(e));
+            } else {
+                renderChatContacts(); // simply update highlight status
+            }
+            
+            await loadChatHistory(phone);
+            
+            // Auto-refresh chat every 4 seconds
+            if (chatInterval) clearInterval(chatInterval);
+            chatInterval = setInterval(() => {
+                if (currentChatPhone === phone && !document.getElementById('content-chat').classList.contains('hidden')) {
+                    loadChatHistory(phone, true);
+                }
+            }, 4000);
+        }
+
+        async function loadChatHistory(phone, silent = false) {
+            const area = document.getElementById('chatMessagesArea');
+            if (!area) return;
+            if (!silent) area.innerHTML = `<div class="h-full flex items-center justify-center text-xs text-slate-400">Loading messages...</div>`;
+            
+            try {
+                const response = await fetch(`/api/chat/history/${phone}`);
+                const messages = await response.json();
+                
+                const isAtBottom = area.scrollHeight - area.scrollTop <= area.clientHeight + 100;
+
+                area.innerHTML = messages.map(m => {
+                    const isOut = m.direction === 'outbound';
+                    const time = formatTimeOnly(m.timestamp);
+                    
+                    return `
+                        <div class="flex ${isOut ? 'justify-end' : 'justify-start'} w-full animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div class="max-w-[80%] min-w-[60px] p-3 rounded-2xl shadow-sm ${isOut ? 'bg-green-600 text-white rounded-tr-none shadow-green-100' : 'bg-white text-slate-800 rounded-tl-none shadow-slate-100'}">
+                                <p class="text-sm leading-relaxed">${m.message}</p>
+                                <div class="flex items-center justify-end gap-1 mt-1 opacity-70">
+                                    <span class="text-[9px]">${time}</span>
+                                    ${isOut ? `<svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M22.319 4.319l-1.414-1.414-11.905 11.905-5.319-5.319-1.414 1.414 6.733 6.733 13.319-13.319zm-6.142 0l-1.414-1.414-7.176 7.176 1.414 1.414 7.176-7.176z"/></svg>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                if (!silent || isAtBottom) area.scrollTop = area.scrollHeight;
+            } catch (err) {
+                if (!silent) area.innerHTML = `<div class="p-4 text-center text-rose-500">Failed to load chat</div>`;
+            }
+        }
+
+        const commonEmojis = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠'];
+
+        function initEmojiPicker() {
+            const grid = document.getElementById('emojiGrid');
+            if (grid) {
+                grid.innerHTML = commonEmojis.map(e => `<button onclick="addChatEmoji('${e}')" class="p-1 hover:bg-slate-100 rounded transition-colors">${e}</button>`).join('');
+            }
+        }
+        window.addEventListener('load', initEmojiPicker);
+
+        function toggleChatEmoji() {
+            const picker = document.getElementById('chatEmojiPicker');
+            const templatePicker = document.getElementById('chatTemplatePicker');
+            if (!picker) return;
+            
+            if (picker.style.display === 'none' || picker.classList.contains('hidden')) {
+                const grid = document.getElementById('emojiGrid');
+                if (grid && grid.children.length === 0) {
+                    initEmojiPicker();
+                }
+                picker.style.display = 'flex';
+                picker.classList.remove('hidden');
+                if (templatePicker) {
+                    templatePicker.style.display = 'none';
+                    templatePicker.classList.add('hidden');
+                }
+            } else {
+                picker.style.display = 'none';
+                picker.classList.add('hidden');
+            }
+        }
+
+        // chatTemplatesList is already declared above
+
+        async function toggleChatTemplates() {
+            const picker = document.getElementById('chatTemplatePicker');
+            const emojiPicker = document.getElementById('chatEmojiPicker');
+            const isHidden = picker.style.display === 'none' || picker.classList.contains('hidden');
+            
+            if (isHidden) {
+                if (!currentChatPhone) return showToast('Please select a contact first', 'error');
+                
+                document.getElementById('pickerTargetPhone').innerText = currentChatPhone;
+                // Close emoji picker
+                if (emojiPicker) {
+                    emojiPicker.style.display = 'none';
+                    emojiPicker.classList.add('hidden');
+                }
+                
+                // Show picker
+                picker.style.display = 'flex';
+                picker.classList.remove('hidden');
+                const listArea = document.getElementById('chatTemplateList');
+                listArea.innerHTML = '<tr><td colspan="3" class="px-8 py-12 text-center text-slate-400 text-xs italic">Fetching approved templates...</td></tr>';
+                
+                try {
+                    const response = await fetch('/api/templates');
+                    if (response.ok) {
+                        const data = await response.json();
+                        chatTemplatesList = Array.isArray(data) ? data : [];
+                    } else {
+                        if (typeof templatesList !== 'undefined') chatTemplatesList = templatesList;
+                    }
+                    renderChatTemplates(chatTemplatesList);
+                } catch (err) {
+                    if (typeof templatesList !== 'undefined') chatTemplatesList = templatesList;
+                    renderChatTemplates(chatTemplatesList);
+                }
+            } else {
+                picker.style.display = 'none';
+                picker.classList.add('hidden');
+            }
+        }
+
+        function renderChatTemplates(templates) {
+            const listArea = document.getElementById('chatTemplateList');
+            try {
+                if (!templates || !Array.isArray(templates)) {
+                    listArea.innerHTML = '<tr><td colspan="3" class="px-8 py-12 text-center text-rose-500 text-xs">No templates available. Please sync first.</td></tr>';
+                    return;
+                }
+                
+                const approved = templates.filter(t => {
+                    const status = t.status ? String(t.status).trim().toLowerCase() : '';
+                    return status === 'approved';
+                });
+                
+                if (approved.length === 0) {
+                    listArea.innerHTML = '<tr><td colspan="3" class="px-8 py-12 text-center text-slate-400 text-xs">No approved templates found in database.</td></tr>';
+                    return;
+                }
+                
+                listArea.innerHTML = approved.map(t => {
+                    const safeName = String(t.name).replace(/'/g, "\\'");
+                    const safeContent = String(t.content || (t.components ? 'Template with components' : 'No content preview')).replace(/"/g, "&quot;");
+                    
+                    return `
+                        <tr class="hover:bg-indigo-50/50 transition-colors">
+                            <td class="px-8 py-5">
+                                <span class="text-sm font-bold text-slate-800">${t.name}</span>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="px-1.5 py-0.5 bg-green-100 text-green-700 text-[9px] font-bold rounded uppercase">${t.language}</span>
+                                    <span class="text-[9px] text-slate-400 capitalize">${t.category || ''}</span>
+                                </div>
+                            </td>
+                            <td class="px-8 py-5">
+                                <p class="text-xs text-slate-600 line-clamp-2 italic leading-relaxed" title="${safeContent}">"${safeContent}"</p>
+                            </td>
+                            <td class="px-8 py-5 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <button onclick="previewChatTemplate('${safeName}')" class="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold hover:bg-slate-200 transition-all border border-slate-200 shadow-sm">Preview</button>
+                                    <button onclick="sendChatTemplate('${safeName}')" class="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 transition-all flex items-center gap-1.5 shadow-md shadow-indigo-100">
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+                                        Send
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error('Render Templates Error:', err);
+                listArea.innerHTML = '<tr><td colspan="3" class="px-8 py-12 text-center text-rose-500">Error rendering templates.</td></tr>';
+            }
+        }
+
+        function previewChatTemplate(name) {
+            const t = chatTemplatesList.find(temp => temp.name === name);
+            if (!t) return;
+            
+            // Open the new structured preview modal
+            openPreviewModal(t);
+        }
+
+        async function sendChatTemplate(name) {
+            if (!currentChatPhone) return;
+            
+            showConfirm('Send Template?', `Are you sure you want to send template "${name}" to ${currentChatPhone}?`, async () => {
+                toggleChatTemplates();
+                document.getElementById('chatInput').disabled = true;
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('phone', currentChatPhone);
+                    formData.append('template_name', name);
+                    formData.append('msg_type', 'template');
+                    
+                    const response = await fetch('/api/chat/send', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    if (result.wa_id) {
+                        showToast('Template sent successfully!', 'success');
+                        loadChatHistory(currentChatPhone);
+                    } else {
+                        showToast('Failed to send template: ' + (result.error || 'Unknown error'), 'error');
+                    }
+                } catch (err) {
+                    showToast('Network error while sending template', 'error');
+                } finally {
+                    document.getElementById('chatInput').disabled = false;
+                }
+            });
+        }
+
+        function addChatEmoji(char) {
+            const input = document.getElementById('chatInput');
+            input.value += char;
+            input.focus();
+        }
+
+        function handleChatAttachment(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                currentChatAttachment = file;
+                document.getElementById('chatAttachmentName').innerText = file.name;
+                document.getElementById('chatAttachmentPreview').classList.remove('hidden');
+                document.getElementById('chatEmojiPicker').classList.add('hidden'); // Close emoji picker if open
+            }
+        }
+
+        function clearChatAttachment() {
+            currentChatAttachment = null;
+            document.getElementById('chatAttachmentPreview').classList.add('hidden');
+            document.getElementById('chatFileInput').value = '';
+            document.getElementById('chatDocInput').value = '';
+        }
+
+        async function sendChatReply() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if ((!message && !currentChatAttachment) || !currentChatPhone) return;
+            
+            input.value = '';
+            input.disabled = true;
+            document.getElementById('chatEmojiPicker').classList.add('hidden');
+            
+            try {
+                const formData = new FormData();
+                formData.append('phone', currentChatPhone);
+                formData.append('message', message);
+                if (currentChatAttachment) {
+                    formData.append('file', currentChatAttachment);
+                }
+                
+                // Clear UI attachment early
+                clearChatAttachment();
+            
+                const response = await fetch('/api/chat/send', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    await loadChatHistory(currentChatPhone);
+                } else {
+                    showToast(result.error || 'Failed to send message', 'error');
+                }
+            } catch (err) {
+                showToast('Network error', 'error');
+            } finally {
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        // Filter Chat Contacts
+        document.getElementById('chatSearch')?.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            document.querySelectorAll('#chatContactList button').forEach(btn => {
+                const phone = btn.querySelector('p').innerText;
+                btn.classList.toggle('hidden', !phone.includes(q));
+            });
+        });
+
     </script>
 </body>
 </html>

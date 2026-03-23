@@ -5,10 +5,18 @@ import json
 import time
 from datetime import datetime, timezone, timedelta
 
-def get_now_ist():
-    """Returns the current time in Indian Standard Time (IST) as a string."""
-    ist = timezone(timedelta(hours=5, minutes=30))
-    return datetime.now(ist).strftime('%Y-%m-%d %H:%M:%S')
+def get_now_utc():
+    """Returns the current time in UTC in a format SQLite likes: YYYY-MM-DD HH:MM:SS"""
+    return datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+def normalize_phone(phone):
+    """Normalizes phone number to digits only and adds 91 if 10 digits."""
+    if not phone:
+        return ""
+    clean = re.sub(r'\D', '', str(phone))
+    if len(clean) == 10:
+        clean = "91" + clean
+    return clean
 
 def extract_phone_numbers(file_content, filename):
     print(f"DEBUG: Processing file: {filename} (Content Size: {len(file_content)} bytes)")
