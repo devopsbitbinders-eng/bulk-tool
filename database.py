@@ -23,25 +23,25 @@ async def init_db():
     await db.connect()
     is_mysql = DATABASE_URL.startswith("mysql")
     
-    # Create Chat Messages Table
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS chat_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            phone TEXT,
-            message TEXT,
-            direction TEXT, -- 'inbound' (from user) or 'outbound' (from admin)
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            wa_message_id TEXT UNIQUE,
-            is_read BOOLEAN DEFAULT 0
-        )
-    """)
-    
     # helper for auto-increment syntax
     auto_inc = "AUTO_INCREMENT" if is_mysql else "AUTOINCREMENT"
     text_type = "VARCHAR(255)" if is_mysql else "TEXT"
     
     # Charset for MySQL
     charset = "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci" if is_mysql else ""
+
+    # Create Chat Messages Table
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY {auto_inc},
+            phone TEXT,
+            message TEXT,
+            direction TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            wa_message_id TEXT,
+            is_read BOOLEAN DEFAULT 0
+        )
+    """)
 
     # 1. Campaigns Table
     await db.execute(f"""
