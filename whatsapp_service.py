@@ -256,6 +256,7 @@ async def fetch_meta_templates(credentials):
     try:
         while url:
             response = requests.get(url, headers=headers)
+            print(f"DEBUG: Meta API Response Code: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 templates = data.get("data", [])

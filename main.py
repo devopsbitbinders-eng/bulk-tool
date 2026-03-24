@@ -34,6 +34,16 @@ SYSTEM_PASS = os.environ.get('SYSTEM_PASS', 'hzlx pcmv tpap yvbq') # Set this in
 # Webhook Verify Token (User should paste this in Meta Dashboard)
 WEBHOOK_VERIFY_TOKEN = "Bitbinders_Secret_2013"
 
+# --- Helper for JSON Serialization (MySQL Datetime fix) ---
+def safe_json_response(data, status_code=200):
+    try:
+        # We use json.dumps with default=str to convert datetimes/decimals to strings
+        json_str = json.dumps(data, default=str)
+        return JSONResponse(content=json.loads(json_str), status_code=status_code)
+    except Exception as e:
+        print(f"DEBUG ERROR: Serialization failed: {str(e)}")
+        return JSONResponse(content={"error": "Serialization failed"}, status_code=500)
+
 async def get_active_credentials():
     db = await get_db()
     row = await db.fetch_one("SELECT whatsapp_token as token, phone_number_id as phone_id, waba_id FROM user_credentials WHERE is_active = 1 ORDER BY last_updated DESC LIMIT 1")
@@ -285,6 +295,12 @@ async def process_campaign(campaign_id: int, data: list, phone_col: str, message
             phone, message_to_send, msg_type, template_name, language_code, 
             media_url=media_url, template_params=template_params, credentials=credentials
         )
+        
+        if not success:
+            print(f"DEBUG ERROR: Campaign Message Failed to {phone}. Response: {response}")
+            failed_count += 1
+        else:
+            success_count += 1
         
         status = "sent" if success else "failed"
         error = ""
@@ -715,6 +731,7 @@ async def sync_templates():
     # fetch_meta_templates returns [] on error or if no templates exist.
     # We should distinguish between "Not Linked" and "Empty".
     templates_data = await fetch_meta_templates(credentials)
+    print(f"DEBUG: Meta API returned {len(templates_data)} templates.")
     
     db = await get_db()
     is_mysql = "mysql" in db.url.scheme
@@ -754,6 +771,7 @@ async def sync_templates():
             "status": status, "content": content, "components": components,
             "last_synced": utc_now
         })
+        print(f"DEBUG: Successfully synced template: {name}")
         sync_count += 1
     
     # NEW: Cleanup local templates that are no longer on Meta
@@ -763,7 +781,7 @@ async def sync_templates():
         if row['name'] not in meta_names:
             await db.execute("DELETE FROM templates WHERE name = :name", {"name": row['name']})
     
-    return {"message": f"Synced {sync_count} templates from Meta"}
+    return safe_json_response({"message": f"Synced {sync_count} templates from Meta"})
 
 @app.post("/api/templates/delete")
 async def delete_template_api(name: str = Form(...)):
@@ -990,7 +1008,7 @@ async def get_history():
         FROM campaigns c 
         ORDER BY timestamp DESC
     """)
-    return [dict(r) for r in rows]
+    return safe_json_response([dict(r) for r in rows])
 
 @app.get("/api/campaign/{campaign_id}/details")
 async def get_campaign_details(campaign_id: int):
@@ -1013,10 +1031,10 @@ async def get_campaign_details(campaign_id: int):
         WHERE campaign_id = :id
         ORDER BY timestamp ASC
     """, {"id": campaign_id})
-    return {
+    return safe_json_response({
         "stats": dict(stats),
         "messages": [dict(m) for m in messages]
-    }
+    })
 
 # --- Meta Webhook Handlers ---
 
