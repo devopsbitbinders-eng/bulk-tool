@@ -100,6 +100,17 @@ async def init_db():
         ) {table_opts}
     """)
 
+    # 5. Users Table
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY {auto_inc},
+            username {text_type} UNIQUE,
+            password_hash TEXT,
+            salt TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) {table_opts}
+    """)
+
     # Migrations for existing SQLite/MySQL
     if is_mysql:
         # For MySQL, ensure existing tables are converted

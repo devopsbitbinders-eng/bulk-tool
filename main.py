@@ -16,6 +16,8 @@ from database import init_db, get_db
 from utils import extract_phone_numbers, substitute_template, sync_to_google_sheet, send_email_report, get_now_utc, normalize_phone
 from whatsapp_service import send_whatsapp_message, get_whatsapp_templates, create_whatsapp_template, fetch_meta_templates, delete_whatsapp_template, upload_whatsapp_media
 import datetime
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
+from auth_utils import hash_password, verify_password, create_session_token, verify_session_token
 
 # Settings
 USE_REAL_API = True # Set to False for local testing without sending real messages
@@ -150,6 +152,12 @@ async def get_dashboard_stats():
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    # Check for authentication
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username:
+        return RedirectResponse(url="/login", status_code=303)
+        
     db = await get_db()
     
     # Get linked account info
@@ -179,8 +187,54 @@ async def index(request: Request):
         "fb_app_id": FB_APP_ID,
         "fb_config_id": FB_CONFIG_ID,
         "linked_phone": linked_phone,
-        "stats": await get_dashboard_stats()
+        "stats": await get_dashboard_stats(),
+        "username": username
     })
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    # If already logged in, go to dashboard
+    session_token = request.cookies.get("session_token")
+    if verify_session_token(session_token):
+        return RedirectResponse(url="/", status_code=303)
+    return templates.TemplateResponse(request=request, name="login.html", context={"request": request})
+
+@app.get("/signup", response_class=HTMLResponse)
+async def signup_page(request: Request):
+    return templates.TemplateResponse(request=request, name="signup.html", context={"request": request})
+
+@app.post("/api/auth/signup")
+async def register(username: str = Form(...), password: str = Form(...)):
+    db = await get_db()
+    # Check if user exists
+    existing = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
+    if existing:
+        return JSONResponse(status_code=400, content={"error": "Username already exists"})
+    
+    pwd_hash, salt = hash_password(password)
+    await db.execute(
+        "INSERT INTO users (username, password_hash, salt) VALUES (:u, :p, :s)",
+        {"u": username, "p": pwd_hash, "s": salt}
+    )
+    return {"message": "User created successfully. You can now login."}
+
+@app.post("/api/auth/login")
+async def login(username: str = Form(...), password: str = Form(...)):
+    db = await get_db()
+    user = await db.fetch_one("SELECT * FROM users WHERE username = :u", {"u": username})
+    if not user or not verify_password(password, user['salt'], user['password_hash']):
+        return JSONResponse(status_code=401, content={"error": "Invalid username or password"})
+    
+    token = create_session_token(username)
+    response = JSONResponse(content={"message": "Logged in successfully", "redirect": "/"})
+    response.set_cookie(key="session_token", value=token, httponly=True, max_age=604800) # 7 days
+    return response
+
+@app.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie("session_token")
+    return response
 
 @app.get("/api/templates")
 async def api_get_templates():

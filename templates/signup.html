@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account - Bitbinders Messenger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="bg-[#f8fafc] min-h-screen flex items-center justify-center p-6">
+    <div class="w-full max-w-md animate-in fade-in zoom-in duration-500">
+        <div class="text-center mb-10">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-100 mb-4 shadow-inner">
+                <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">Create Account</h1>
+            <p class="text-slate-500 font-medium">Join Bitbinders Messenger Platform</p>
+        </div>
+
+        <div class="glass border border-slate-200 rounded-[2.5rem] p-8 shadow-2xl">
+            <form id="signupForm" class="space-y-6">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest pl-1">Choose Username</label>
+                    <input type="text" name="username" required 
+                        class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-800"
+                        placeholder="e.g. admin_zoya">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest pl-1">Set Password</label>
+                    <input type="password" name="password" required 
+                        class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-800"
+                        placeholder="••••••••">
+                </div>
+
+                <div id="statusMsg" class="hidden p-4 rounded-2xl text-xs font-bold border"></div>
+
+                <button type="submit" id="submitBtn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-500/30 transition-all transform active:scale-95 flex items-center justify-center gap-2">
+                    <span>Create Account</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                </button>
+            </form>
+
+            <div class="mt-8 text-center">
+                <p class="text-slate-500 text-sm font-medium">Already have an account? 
+                    <a href="/login" class="text-indigo-600 font-bold hover:underline">Log in instead</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('signupForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const statusEl = document.getElementById('statusMsg');
+            const originalText = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>';
+            
+            statusEl.classList.add('hidden');
+            statusEl.classList.remove('bg-rose-50', 'text-rose-600', 'border-rose-100', 'bg-emerald-50', 'text-emerald-600', 'border-emerald-100');
+
+            const formData = new FormData(e.target);
+            try {
+                const res = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    statusEl.innerText = data.message;
+                    statusEl.classList.add('bg-emerald-50', 'text-emerald-600', 'border-emerald-100');
+                    statusEl.classList.remove('hidden');
+                    setTimeout(() => window.location.href = '/login', 2000);
+                } else {
+                    statusEl.innerText = data.error || 'Signup failed';
+                    statusEl.classList.add('bg-rose-50', 'text-rose-600', 'border-rose-100');
+                    statusEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                statusEl.innerText = 'Connection error';
+                statusEl.classList.add('bg-rose-50', 'text-rose-600', 'border-rose-100');
+                statusEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        };
+    </script>
+</body>
+</html>
