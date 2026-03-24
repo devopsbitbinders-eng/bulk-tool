@@ -998,9 +998,14 @@ async def get_templates_api():
 @app.get("/api/history")
 async def get_history():
     db = await get_db()
-    # Calculate all stats dynamically for consistency
+    # Calculate all stats dynamically from the messages table to reflect real-time Webhook updates
     rows = await db.fetch_all("""
-        SELECT * FROM campaigns 
+        SELECT c.id, c.name, c.timestamp, c.total_numbers, c.status as campaign_status,
+               (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND (status = 'sent' OR status = 'delivered' OR status = 'read')) as sent_success,
+               (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered,
+               (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as `read`,
+               (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed
+        FROM campaigns c 
         ORDER BY timestamp DESC
     """)
     return safe_json_response([dict(r) for r in rows])
