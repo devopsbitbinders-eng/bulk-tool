@@ -734,6 +734,7 @@ async def sync_templates():
     print(f"DEBUG: Meta API returned {len(templates_data)} templates.")
     
     db = await get_db()
+    print(f"DEBUG: Database scheme is: '{db.url.scheme}'")
     is_mysql = "mysql" in db.url.scheme
     sync_count = 0
     for t in templates_data:
