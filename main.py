@@ -717,7 +717,7 @@ async def sync_templates():
     templates_data = await fetch_meta_templates(credentials)
     
     db = await get_db()
-    is_mysql = db.url.scheme == "mysql"
+    is_mysql = "mysql" in db.url.scheme
     sync_count = 0
     for t in templates_data:
         name = t.get('name')
@@ -908,7 +908,7 @@ async def create_complex_template(
     
     # Save to Local DB
     db = await get_db()
-    is_mysql = db.url.scheme == "mysql"
+    is_mysql = "mysql" in db.url.scheme
     
     utc_now = get_now_utc()
     if is_mysql:
