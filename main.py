@@ -736,7 +736,7 @@ async def sync_templates():
                     status = VALUES(status),
                     content = VALUES(content),
                     components = VALUES(components),
-                    last_synced = :last_synced
+                    last_synced = VALUES(last_synced)
             """
         else:
             query = """
@@ -922,7 +922,7 @@ async def create_complex_template(
                 content = VALUES(content),
                 components = VALUES(components),
                 variable_map = VALUES(variable_map),
-                last_synced = :last_synced
+                last_synced = VALUES(last_synced)
         """
     else:
         query = """
