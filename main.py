@@ -165,7 +165,7 @@ async def index(request: Request):
         "request": request, 
         "campaigns": campaigns,
         "templates": templates_list,
-        "templates_json": json.dumps(templates_list),
+        "templates_json": json.dumps(templates_list, default=str),
         "fb_app_id": FB_APP_ID,
         "fb_config_id": FB_CONFIG_ID,
         "linked_phone": linked_phone,
