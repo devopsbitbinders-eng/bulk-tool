@@ -115,7 +115,7 @@ async def init_db():
     try: await db.execute("ALTER TABLE templates ADD COLUMN variable_map TEXT")
     except: pass
 
-    await db.disconnect()
+    pass # Keep connection pool alive for the actual request
 
 async def get_db():
     # In databases, we use the global db object. 
