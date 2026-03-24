@@ -716,7 +716,7 @@ async def events_handler(request: Request):
 async def get_templates_route():
     db = await get_db()
     rows = await db.fetch_all("SELECT * FROM templates")
-    return [dict(r) for r in rows]
+    return safe_json_response([dict(r) for r in rows])
 
 @app.post("/templates/sync")
 @app.post("/api/templates/sync")
@@ -995,7 +995,7 @@ async def get_columns(file: UploadFile = File(...)):
 async def get_templates_api():
     db = await get_db()
     rows = await db.fetch_all("SELECT * FROM templates ORDER BY last_synced DESC")
-    return [dict(r) for r in rows]
+    return safe_json_response([dict(r) for r in rows])
 
 @app.get("/api/history")
 async def get_history():
@@ -1005,7 +1005,7 @@ async def get_history():
         SELECT c.*, 
                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND (status = 'sent' OR status = 'delivered' OR status = 'read')) as sent_success,
                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered,
-               (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read,
+               (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as `read`,
                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed
         FROM campaigns c 
         ORDER BY timestamp DESC
@@ -1150,7 +1150,7 @@ async def get_columns(file: UploadFile = File(...)):
 async def get_templates_api():
     db = await get_db()
     rows = await db.fetch_all("SELECT * FROM templates ORDER BY last_synced DESC")
-    return [dict(r) for r in rows]
+    return safe_json_response([dict(r) for r in rows])
 
 @app.get("/api/chat/contacts")
 async def get_chat_contacts():
@@ -1237,7 +1237,7 @@ async def get_chat_history(phone: str):
         ORDER BY timestamp ASC
     """, {"p": phone})
     
-    return [dict(r) for r in rows]
+    return safe_json_response([dict(r) for r in rows])
 
 @app.post("/api/chat/send")
 async def send_chat_reply(
