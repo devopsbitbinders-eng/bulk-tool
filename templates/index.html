@@ -1155,7 +1155,10 @@
     </script>
 
     <script>
-        const templatesList = JSON.parse(document.getElementById('templatesLive').textContent || '[]').filter(t => (t.status || '').toUpperCase() === 'APPROVED');
+        const templatesList = JSON.parse(document.getElementById('templatesLive').textContent || '[]').filter(t => {
+            const s = (t.status || '').toUpperCase();
+            return s === 'APPROVED' || s === 'PENDING' || s === 'IN_APPEAL';
+        });
         const templateData = templatesList.reduce((acc, t) => { acc[t.name] = t.content; return acc; }, {});
         const templateComponents = templatesList.reduce((acc, t) => { acc[t.name] = t.components; return acc; }, {});
 
