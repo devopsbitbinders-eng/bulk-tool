@@ -1350,6 +1350,9 @@ async def update_template_json(req: TemplateFormJSONReq):
     if not success:
         return JSONResponse(status_code=400, content={"error": error_msg})
         
+    # Sync with Meta to get the updated status/components
+    await sync_templates()
+        
     return {"message": "Template updated successfully on Meta."}
 
 @app.post("/api/templates/create")
@@ -1366,8 +1369,52 @@ async def create_template_json(req: TemplateFormJSONReq):
     
     if not success:
         return JSONResponse(status_code=400, content={"error": error_msg})
+    
+    # Extract content from components for local preview
+    content = ""
+    for component in req.components:
+        if component.type == "BODY":
+            content = component.text or ""
+            break
+            
+    # Save to local DB immediately so preview works
+    db = await get_db()
+    utc_now = get_now_utc()
+    
+    # Use the same logic as sync_templates but for a single template
+    is_mysql = "mysql" in str(db.url).lower() or "mariadb" in str(db.url).lower()
+    if is_mysql:
+        query = """
+            INSERT INTO templates (name, category, language, status, content, components, last_synced)
+            VALUES (:name, :category, :language, 'PENDING', :content, :components, :last_synced)
+            ON DUPLICATE KEY UPDATE
+                category = VALUES(category),
+                language = VALUES(language),
+                status = 'PENDING',
+                content = VALUES(content),
+                components = VALUES(components),
+                last_synced = VALUES(last_synced)
+        """
+    else:
+        query = """
+            INSERT INTO templates (name, category, language, status, content, components, last_synced)
+            VALUES (:name, :category, :language, 'PENDING', :content, :components, :last_synced)
+            ON CONFLICT(name) DO UPDATE SET
+                category = excluded.category,
+                language = excluded.language,
+                status = 'PENDING',
+                content = excluded.content,
+                components = excluded.components,
+                last_synced = :last_synced
+        """
         
-    return {"message": "Template created successfully on Meta."}
+    await db.execute(query, {
+        "name": req.name, "category": req.category, "language": req.language, 
+        "content": content, "components": json.dumps([c.dict(exclude_none=True) for c in req.components]), 
+        "last_synced": utc_now
+    })
+        
+    return {"message": "Template created successfully on Meta and synced locally."}
 
 if __name__ == "__main__":
     import uvicorn
