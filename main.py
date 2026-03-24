@@ -1021,7 +1021,7 @@ async def get_campaign_details(campaign_id: int):
             COUNT(*) as total,
             SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
             SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) as delivered,
-            SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END) as read,
+            SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END) as `read`,
             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
         FROM messages WHERE campaign_id = :id
     """, {"id": campaign_id})
