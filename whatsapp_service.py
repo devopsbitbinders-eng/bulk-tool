@@ -76,6 +76,59 @@ def create_whatsapp_template(name, category, language, body_text=None, component
     except Exception as e:
         return False, str(e)
 
+def create_whatsapp_otp_template(name, language, add_security_recommendation=False, code_expiration_minutes=None, credentials=None):
+    """Creates a specialized AUTHENTICATION template on Meta API for OTPs."""
+    token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
+    waba_id = credentials.get('waba_id', WHATSAPP_BUSINESS_ACCOUNT_ID) if credentials else WHATSAPP_BUSINESS_ACCOUNT_ID
+    
+    url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{waba_id}/message_templates"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    # Meta AUTHENTICATION templates have strict component structures
+    components = [
+        {
+            "type": "BODY",
+            "add_security_recommendation": add_security_recommendation
+        }
+    ]
+
+    # Expiration is defined at the FOOTER level in newer Meta API versions format
+    if code_expiration_minutes and int(code_expiration_minutes) > 0:
+        components.append({
+            "type": "FOOTER",
+            "code_expiration_minutes": int(code_expiration_minutes)
+        })
+
+    # Add the standard Copy Code button
+    components.append({
+        "type": "BUTTONS",
+        "buttons": [
+            {
+                "type": "OTP",
+                "otp_type": "COPY_CODE",
+                "text": "Copy code"
+            }
+        ]
+    })
+
+    payload = {
+        "name": name,
+        "category": "AUTHENTICATION",
+        "language": language,
+        "components": components
+    }
+
+    print(f"DEBUG: Meta OTP Template Payload: {json.dumps(payload, indent=2, ensure_ascii=False)}")
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        return response.status_code in [200, 201], response.text
+    except Exception as e:
+        return False, str(e)
+
 def update_whatsapp_template(name, category, body_text=None, components=None, credentials=None):
     """Updates an existing template on Meta API.
     Note: Meta allows updating templates that are in certain states (e.g. APPROVED, REJECTED, etc. depending on what you change).

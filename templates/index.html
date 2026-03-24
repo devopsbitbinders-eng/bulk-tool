@@ -545,6 +545,10 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         Sync Meta
                     </button>
+                    <button onclick="openOtpModal()" class="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold px-5 py-2 rounded-xl shadow-lg shadow-amber-100 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        Create OTP Template
+                    </button>
                     <button onclick="openTemplateModal()" class="bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-5 py-2 rounded-xl shadow-lg shadow-green-100 transition-all">
                         + Create New
                     </button>
@@ -1092,6 +1096,140 @@
                         Create Template
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OTP Template Creation Modal -->
+    <div id="otpTemplateModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250000] hidden items-center justify-center p-4" style="z-index: 250000 !important;">
+        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+            <!-- Header -->
+            <div class="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-white flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-extrabold text-slate-800 tracking-tight">Official WhatsApp OTP Template</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Create an Authentication template for sending one-time passwords</p>
+                    </div>
+                </div>
+                <button onclick="closeOtpModal()" class="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Body: Form + Preview -->
+            <div class="flex flex-grow min-h-0 overflow-hidden">
+                <!-- Left: Form -->
+                <div class="w-1/2 p-8 overflow-y-auto custom-scrollbar space-y-6 border-r border-slate-100">
+                    <!-- Template Name -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Template Name</label>
+                        <input type="text" id="otp_name" placeholder="e.g., my_otp_template" oninput="updateOtpPreview()"
+                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-400 outline-none text-sm transition-all font-medium">
+                        <p class="text-[10px] text-slate-400 mt-1">Lowercase letters, numbers, and underscores only.</p>
+                    </div>
+
+                    <!-- Language -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select Language</label>
+                        <select id="otp_language" onchange="updateOtpPreview()" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-400 outline-none text-sm transition-all bg-white">
+                            <option value="en_US">English (US)</option>
+                            <option value="en_GB">English (UK)</option>
+                            <option value="hi">Hindi</option>
+                            <option value="ar">Arabic</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="pt_BR">Portuguese (Brazil)</option>
+                            <option value="id">Indonesian</option>
+                        </select>
+                    </div>
+
+                    <!-- Security Recommendation -->
+                    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                        <div>
+                            <p class="text-sm font-bold text-slate-700">Add Security Recommendation</p>
+                            <p class="text-xs text-slate-400 mt-0.5">Adds "Do not share this code" warning</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="otp_security" onchange="updateOtpPreview()" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+
+                    <!-- Code Expiration -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Code Expiration Minutes</label>
+                        <div class="flex items-center gap-3">
+                            <input type="number" id="otp_expiry" value="10" min="1" max="90" oninput="updateOtpPreview()"
+                                class="flex-grow px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-400 outline-none text-sm transition-all font-medium">
+                            <span class="text-sm text-slate-400 font-medium">minutes</span>
+                        </div>
+                        <p class="text-[10px] text-rose-400 mt-1">Minimum 1, maximum 90 minutes &amp; 0 for no time limit</p>
+                    </div>
+                </div>
+
+                <!-- Right: Live Phone Preview -->
+                <div class="w-1/2 bg-slate-100 p-8 flex items-center justify-center flex-shrink-0">
+                    <div class="w-[280px] h-[560px] bg-[#0b141a] rounded-[3rem] border-[10px] border-slate-800 shadow-2xl relative flex flex-col overflow-hidden">
+                        <!-- Notch -->
+                        <div class="absolute top-0 inset-x-0 h-6 flex justify-center py-1 z-10">
+                            <div class="w-20 h-4 bg-slate-800 rounded-full"></div>
+                        </div>
+                        <!-- Chat Header -->
+                        <div class="bg-[#202c33] px-4 pt-10 pb-3 flex items-center gap-2 flex-shrink-0">
+                            <div class="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center">
+                                <svg class="w-4 h-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold text-white">Your Business</p>
+                                <p class="text-[9px] text-slate-400">Business Account</p>
+                            </div>
+                        </div>
+                        <!-- Chat Area -->
+                        <div class="flex-grow overflow-y-auto p-3 bg-[#0b141a] relative">
+                            <div class="absolute inset-0 opacity-10 bg-[url('https://i.pinimg.com/originals/ab/ab/60/abab60f2524ccd113f8373b30e42d766.jpg')] bg-repeat"></div>
+                            <div class="relative z-10 flex justify-center mb-3">
+                                <span class="bg-[#182229] text-[8px] text-[#8696a0] px-2 py-0.5 rounded-md">Today</span>
+                            </div>
+                            <!-- System message -->
+                            <div class="relative z-10 flex justify-center mb-3">
+                                <span class="bg-[#182229] text-[8px] text-[#8696a0] px-2 py-1 rounded-md text-center">This business uses a secure service from Meta to manage this chat.</span>
+                            </div>
+                            <!-- OTP Bubble -->
+                            <div class="relative z-10 bg-[#202c33] rounded-xl rounded-tl-none shadow-sm overflow-hidden max-w-[90%]">
+                                <div class="px-3 py-3">
+                                    <p id="otp_preview_body" class="text-[11px] text-[#e9edef] leading-relaxed">
+                                        <strong>123456</strong> is your verification code.
+                                    </p>
+                                    <p id="otp_preview_security" class="text-[10px] text-[#8696a0] mt-1 hidden">For your security, do not share this code.</p>
+                                    <p id="otp_preview_expiry" class="text-[10px] text-[#8696a0] mt-1">This code expires in 10 minutes.</p>
+                                    <div class="flex justify-end mt-1.5">
+                                        <span class="text-[7px] text-[#667781] flex items-center gap-0.5">11:59
+                                            <svg class="w-2.5 h-2.5 text-blue-400" viewBox="0 0 24 24" fill="currentColor"><path d="M22.319 4.319l-1.414-1.414-11.905 11.905-5.319-5.319-1.414 1.414 6.733 6.733 13.319-13.319zm-6.142 0l-1.414-1.414-7.176 7.176 1.414 1.414 7.176-7.176z"/></svg>
+                                        </span>
+                                    </div>
+                                </div>
+                                <!-- Copy Code Button -->
+                                <div class="border-t border-[#ffffff15] py-2 px-3 flex items-center justify-center gap-2">
+                                    <svg class="w-3.5 h-3.5 text-[#00a884]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                                    <span class="text-[11px] text-[#00a884] font-semibold">Copy code</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center flex-shrink-0">
+                <button onclick="closeOtpModal()" class="text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">Cancel</button>
+                <button onclick="submitOtpTemplate()" id="saveOtpBtn" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-8 py-3 rounded-2xl shadow-lg shadow-amber-100 transition-all flex items-center justify-center gap-2 min-w-[200px]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    Save OTP Template
+                </button>
             </div>
         </div>
     </div>
@@ -2286,6 +2424,84 @@
             finally {
                 btn.disabled = false;
                 btn.innerHTML = `Sync Meta`;
+            }
+        }
+
+        // ───── OTP Template Modal ─────
+        function openOtpModal() {
+            const modal = document.getElementById('otpTemplateModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            // Reset fields
+            document.getElementById('otp_name').value = '';
+            document.getElementById('otp_language').value = 'en_US';
+            document.getElementById('otp_security').checked = false;
+            document.getElementById('otp_expiry').value = '10';
+            updateOtpPreview();
+        }
+
+        function closeOtpModal() {
+            const modal = document.getElementById('otpTemplateModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function updateOtpPreview() {
+            const security = document.getElementById('otp_security').checked;
+            const expiry = parseInt(document.getElementById('otp_expiry').value) || 0;
+
+            // Security line
+            const secEl = document.getElementById('otp_preview_security');
+            if (security) {
+                secEl.classList.remove('hidden');
+            } else {
+                secEl.classList.add('hidden');
+            }
+
+            // Expiry line
+            const expEl = document.getElementById('otp_preview_expiry');
+            if (expiry > 0) {
+                expEl.classList.remove('hidden');
+                expEl.textContent = `This code expires in ${expiry} minutes.`;
+            } else {
+                expEl.classList.add('hidden');
+            }
+        }
+
+        async function submitOtpTemplate() {
+            const name = document.getElementById('otp_name').value.trim();
+            if (!name) { showToast('Please enter a template name.', 'error'); return; }
+
+            const btn = document.getElementById('saveOtpBtn');
+            btn.disabled = true;
+            btn.innerHTML = `<span class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span> Saving...`;
+
+            const payload = {
+                name: name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+                language: document.getElementById('otp_language').value,
+                add_security_recommendation: document.getElementById('otp_security').checked,
+                code_expiration_minutes: parseInt(document.getElementById('otp_expiry').value) || 0
+            };
+
+            try {
+                const response = await fetch('/api/templates/create-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast(result.message || 'OTP Template submitted!', 'success');
+                    closeOtpModal();
+                    setTimeout(() => location.reload(), 1800);
+                } else {
+                    showToast(result.error || 'Failed to create OTP template.', 'error');
+                }
+            } catch (err) {
+                showToast('Network error. Please try again.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Save OTP Template`;
             }
         }
 

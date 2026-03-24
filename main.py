@@ -14,7 +14,7 @@ import requests
 from contextlib import asynccontextmanager
 from database import init_db, get_db
 from utils import extract_phone_numbers, substitute_template, sync_to_google_sheet, send_email_report, get_now_utc, normalize_phone
-from whatsapp_service import send_whatsapp_message, get_whatsapp_templates, create_whatsapp_template, fetch_meta_templates, delete_whatsapp_template, upload_whatsapp_media
+from whatsapp_service import send_whatsapp_message, get_whatsapp_templates, create_whatsapp_template, create_whatsapp_otp_template, fetch_meta_templates, delete_whatsapp_template, upload_whatsapp_media
 import datetime
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
 from auth_utils import hash_password, verify_password, create_session_token, verify_session_token
@@ -1569,6 +1569,88 @@ async def create_template_json(request: Request, req: TemplateFormJSONReq):
     })
         
     return {"message": "Template created successfully on Meta and synced locally."}
+
+@app.post("/api/templates/create-otp")
+async def create_otp_template(request: Request):
+    """Endpoint for creating specialized WhatsApp Authentication (OTP) templates."""
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+
+    credentials = await get_active_credentials(u_id)
+    if not credentials:
+        return JSONResponse(status_code=400, content={"error": "Please link your WhatsApp account first."})
+
+    body = await request.json()
+    name = body.get("name", "").strip().lower().replace(" ", "_")
+    language = body.get("language", "en_US")
+    add_security = body.get("add_security_recommendation", False)
+    expiry_minutes = body.get("code_expiration_minutes", 10)
+
+    if not name:
+        return JSONResponse(status_code=400, content={"error": "Template name is required."})
+
+    success, resp_text = create_whatsapp_otp_template(
+        name=name,
+        language=language,
+        add_security_recommendation=add_security,
+        code_expiration_minutes=expiry_minutes,
+        credentials=credentials
+    )
+
+    if not success:
+        try:
+            error_detail = json.loads(resp_text).get("error", {}).get("message", resp_text)
+        except Exception:
+            error_detail = resp_text
+        return JSONResponse(status_code=400, content={"error": error_detail})
+
+    # Build a representative body text for local preview
+    body_text = "{{1}} is your verification code."
+    if add_security:
+        body_text += " For your security, do not share this code."
+
+    components_preview = [
+        {"type": "BODY", "text": body_text},
+        {"type": "BUTTONS", "buttons": [{"type": "OTP", "otp_type": "COPY_CODE", "text": "Copy code"}]}
+    ]
+    if expiry_minutes and int(expiry_minutes) > 0:
+        components_preview.append({"type": "FOOTER", "code_expiration_minutes": int(expiry_minutes)})
+
+    # Save locally so preview works immediately
+    db = await get_db()
+    utc_now = get_now_utc()
+    is_mysql = "mysql" in str(db.url).lower() or "mariadb" in str(db.url).lower()
+    if is_mysql:
+        query = """
+            INSERT INTO templates (name, category, language, status, content, components, user_id, last_synced)
+            VALUES (:name, 'AUTHENTICATION', :language, 'PENDING', :content, :components, :user_id, :last_synced)
+            ON DUPLICATE KEY UPDATE
+                category = VALUES(category),
+                status = 'PENDING',
+                content = VALUES(content),
+                components = VALUES(components),
+                last_synced = VALUES(last_synced)
+        """
+    else:
+        query = """
+            INSERT INTO templates (name, category, language, status, content, components, user_id, last_synced)
+            VALUES (:name, 'AUTHENTICATION', :language, 'PENDING', :content, :components, :user_id, :last_synced)
+            ON CONFLICT(name) DO UPDATE SET
+                category = excluded.category,
+                status = 'PENDING',
+                content = excluded.content,
+                components = excluded.components,
+                last_synced = :last_synced
+        """
+    await db.execute(query, {
+        "name": name, "language": language, "content": body_text,
+        "components": json.dumps(components_preview), "user_id": u_id, "last_synced": utc_now
+    })
+
+    return {"message": "OTP Template submitted to Meta. It will appear as PENDING until approved."}
 
 if __name__ == "__main__":
     import uvicorn
