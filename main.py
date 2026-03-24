@@ -161,7 +161,7 @@ async def index(request: Request):
             except: t["variable_map"] = {}
         templates_list.append(t)
             
-    return templates.TemplateResponse("index.html", {
+    return templates.TemplateResponse(request=request, name="index.html", context={
         "request": request, 
         "campaigns": campaigns,
         "templates": templates_list,
