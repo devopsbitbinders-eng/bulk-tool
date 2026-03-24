@@ -734,8 +734,9 @@ async def sync_templates():
     print(f"DEBUG: Meta API returned {len(templates_data)} templates.")
     
     db = await get_db()
-    print(f"DEBUG: Database scheme is: '{db.url.scheme}'")
-    is_mysql = "mysql" in db.url.scheme
+    scheme = str(db.url.scheme).lower()
+    print(f"DEBUG: Database scheme is: '{scheme}'")
+    is_mysql = "mysql" in scheme or "mariadb" in scheme
     sync_count = 0
     for t in templates_data:
         name = t.get('name')
@@ -927,7 +928,7 @@ async def create_complex_template(
     
     # Save to Local DB
     db = await get_db()
-    is_mysql = "mysql" in db.url.scheme
+    is_mysql = "mysql" in str(db.url.scheme).lower() or "mariadb" in str(db.url.scheme).lower()
     
     utc_now = get_now_utc()
     if is_mysql:
