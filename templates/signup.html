@@ -8,15 +8,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --indigo: #6366f1;
-            --emerald: #10b981;
-            --slate: #0f172a;
+            --neon-green: #ccff00;
+            --dark-bg: #000000;
         }
         body { 
             font-family: 'Outfit', sans-serif; 
             margin: 0;
             overflow: hidden;
-            background: #0f172a;
+            background: #000000;
+            color: white;
         }
         
         .mesh-bg {
@@ -26,53 +26,59 @@
             width: 100vw;
             height: 100vh;
             z-index: -1;
-            background-color: #0f172a;
+            background-color: #000000;
             background-image: 
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
-                radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%),
-                radial-gradient(at 50% 50%, rgba(15, 23, 42, 1) 0px, transparent 80%);
-            filter: blur(80px);
-            animation: meshMove 20s ease-in-out infinite alternate;
+                radial-gradient(at 0% 0%, rgba(204, 255, 0, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(204, 255, 0, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(204, 255, 0, 0.05) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(204, 255, 0, 0.08) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(0, 0, 0, 1) 0px, transparent 80%);
+            filter: blur(100px);
+            animation: meshMove 25s ease-in-out infinite alternate;
         }
 
         @keyframes meshMove {
             0% { transform: scale(1); }
-            100% { transform: scale(1.2) rotate(-5deg); }
+            100% { transform: scale(1.1) rotate(-2deg); }
         }
 
         .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(25px) saturate(180%);
-            -webkit-backdrop-filter: blur(25px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            background: rgba(10, 10, 10, 0.6);
+            backdrop-filter: blur(30px) saturate(150%);
+            -webkit-backdrop-filter: blur(30px) saturate(150%);
+            border: 1px solid rgba(204, 255, 0, 0.1);
+            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
         }
 
-        .input-glass {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        .input-dark {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             color: white;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
-        .input-glass:focus {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--indigo);
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        .input-dark:focus {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--neon-green);
+            box-shadow: 0 0 15px rgba(204, 255, 0, 0.1);
         }
 
-        .btn-glow-indigo {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.4s ease;
+        .btn-neon {
+            background: var(--neon-green);
+            color: #000000;
+            font-weight: 900;
+            letter-spacing: 0.05em;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         
-        .btn-glow-indigo:hover {
-            box-shadow: 0 0 30px rgba(99, 102, 241, 0.4);
-            transform: translateY(-2px);
+        .btn-neon:hover {
+            box-shadow: 0 0 40px rgba(204, 255, 0, 0.5);
+            transform: scale(1.02);
         }
+
+        .text-neon { color: var(--neon-green); }
+        .border-neon { border-color: rgba(204, 255, 0, 0.2); }
+        .bg-neon-faint { background: rgba(204, 255, 0, 0.05); }
 
         .animate-up {
             animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
@@ -84,68 +90,68 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-6 bg-[#0f172a]">
+<body class="min-h-screen flex items-center justify-center p-6 bg-black">
     <div class="mesh-bg"></div>
 
     <div class="w-full max-w-[440px] animate-up">
         <!-- Logo Area -->
         <div class="text-center mb-10">
-            <div class="inline-flex items-center justify-center w-20 h-20 rounded-[2rem] bg-gradient-to-tr from-indigo-500/20 to-emerald-500/20 border border-white/10 mb-6 shadow-2xl relative group transition-all duration-500 hover:scale-110">
-                <div class="absolute inset-0 rounded-[2rem] bg-indigo-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <svg class="w-10 h-10 text-indigo-400 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="inline-flex items-center justify-center w-20 h-20 rounded-[2rem] bg-neon-faint border border-neon mb-6 shadow-2xl relative group transition-all duration-500 hover:scale-110">
+                <div class="absolute inset-0 rounded-[2rem] bg-[#ccff00]/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <svg class="w-10 h-10 text-neon relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
                 </svg>
             </div>
-            <h1 class="text-4xl font-extrabold text-white mb-3 tracking-tight">Join Platform</h1>
-            <p class="text-slate-400 font-medium text-lg">Create your secure workspace</p>
+            <h1 class="text-5xl font-black text-white mb-3 tracking-tighter">JOIN <span class="text-neon">DIGITAL</span></h1>
+            <p class="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px]">Create Your Credentials</p>
         </div>
 
         <!-- Signup Card -->
-        <div class="glass-card rounded-[2.5rem] p-10 relative overflow-hidden">
-            <div class="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 blur-[60px] rounded-full"></div>
+        <div class="glass-card rounded-[2.5rem] p-10 relative overflow-hidden border-neon">
+            <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#ccff00]/40 to-transparent"></div>
             
             <form id="signupForm" class="space-y-7 relative z-10">
                 <div class="space-y-3">
-                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Username Selection</label>
+                    <label class="block text-[11px] font-black text-slate-500 uppercase tracking-[0.25em] ml-1">Choose Username</label>
                     <div class="relative group">
-                        <span class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+                        <span class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-neon transition-colors">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                         </span>
                         <input type="text" name="username" required 
-                            class="w-full input-glass rounded-2xl pl-14 pr-6 py-4 outline-none font-medium text-white placeholder:text-slate-600"
-                            placeholder="Pick a unique name">
+                            class="w-full input-dark rounded-2xl pl-14 pr-6 py-4 outline-none font-bold text-white placeholder:text-slate-700"
+                            placeholder="PICK A NAME">
                     </div>
                 </div>
 
                 <div class="space-y-3">
-                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Secret Password</label>
+                    <label class="block text-[11px] font-black text-slate-500 uppercase tracking-[0.25em] ml-1">Secret Password</label>
                     <div class="relative group">
-                        <span class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        <span class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-neon transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 0 00-2-2H6a2 0 00-2 2v6a2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                         </span>
                         <input type="password" name="password" required 
-                            class="w-full input-glass rounded-2xl pl-14 pr-6 py-4 outline-none font-medium text-white placeholder:text-slate-600"
-                            placeholder="At least 6 characters">
+                            class="w-full input-dark rounded-2xl pl-14 pr-6 py-4 outline-none font-bold text-white placeholder:text-slate-700"
+                            placeholder="MIN 6 CHARS">
                     </div>
                 </div>
 
-                <div id="statusMsg" class="hidden p-4 rounded-2xl text-[11px] font-bold border transition-all duration-300"></div>
+                <div id="statusMsg" class="hidden p-4 rounded-2xl text-[11px] font-black border transition-all duration-300"></div>
 
                 <button type="submit" id="submitBtn"
-                    class="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-extrabold py-5 rounded-2xl shadow-xl shadow-indigo-500/20 transition-all transform active:scale-[0.98] flex items-center justify-center gap-3 btn-glow-indigo">
-                    <span>CREATE ACCOUNT</span>
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                    class="w-full btn-neon py-5 rounded-2xl shadow-2xl flex items-center justify-center gap-3 active:opacity-90 active:scale-[0.98]">
+                    <span>INITIALIZE ACCOUNT</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                 </button>
             </form>
 
             <div class="mt-10 text-center relative z-10">
-                <p class="text-slate-500 text-sm font-medium">Already registered? 
-                    <a href="/login" class="text-indigo-400 font-bold hover:text-indigo-300 transition-colors ml-1 decoration-indigo-500/30 underline-offset-4 hover:underline select-none">Log in here</a>
+                <p class="text-slate-600 text-[11px] font-bold uppercase tracking-widest">Already Verified? 
+                    <a href="/login" class="text-neon hover:text-white transition-colors ml-1 decoration-neon/30 underline-offset-8 hover:underline italic">Login Terminal</a>
                 </p>
             </div>
         </div>
 
-        <p class="text-center mt-12 text-slate-600 text-[10px] font-bold uppercase tracking-[0.3em] opacity-50">&copy; 2026 Bitbinders Messenger</p>
+        <p class="text-center mt-12 text-slate-800 text-[9px] font-black uppercase tracking-[0.5em] opacity-40">&copy; 2026 Bitbinders Beyond Digital</p>
     </div>
 
     <script>
@@ -156,7 +162,7 @@
             const originalText = btn.innerHTML;
             
             btn.disabled = true;
-            btn.innerHTML = '<span class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>';
+            btn.innerHTML = '<span class="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></span>';
             
             statusEl.classList.add('hidden');
             statusEl.className = 'hidden p-4 rounded-2xl text-[11px] font-bold border transition-all duration-300';
@@ -169,17 +175,17 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    statusEl.innerText = 'Neural presence confirmed. Redirecting...';
+                    statusEl.innerText = 'PRESENCE CONFIRMED. REDIRECTING...';
                     statusEl.classList.add('bg-emerald-500/10', 'text-emerald-400', 'border-emerald-500/20');
                     statusEl.classList.remove('hidden');
                     setTimeout(() => window.location.href = '/login', 2000);
                 } else {
-                    statusEl.innerText = data.error || 'Identity conflict detected';
+                    statusEl.innerText = data.error || 'IDENTITY CONFLICT DETECTED';
                     statusEl.classList.add('bg-rose-500/10', 'text-rose-400', 'border-rose-500/20');
                     statusEl.classList.remove('hidden');
                 }
             } catch (err) {
-                statusEl.innerText = 'Neural connection timeout';
+                statusEl.innerText = 'NEURAL CONNECTION TIMEOUT';
                 statusEl.classList.add('bg-rose-500/10', 'text-rose-400', 'border-rose-500/20');
                 statusEl.classList.remove('hidden');
             } finally {
