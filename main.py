@@ -234,9 +234,14 @@ async def logout():
     return response
 
 @app.get("/api/templates")
-async def api_get_templates():
+async def api_get_templates(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
     db = await get_db()
-    templates_raw = await db.fetch_all("SELECT * FROM templates ORDER BY name ASC")
+    templates_raw = await db.fetch_all("SELECT * FROM templates WHERE user_id = :u ORDER BY name ASC", {"u": u_id})
     templates_list = []
     for row in templates_raw:
         t = dict(row)
@@ -827,8 +832,8 @@ async def sync_templates(request: Request):
         utc_now = get_now_utc()
         if is_mysql:
             query = """
-                INSERT INTO templates (name, category, language, status, content, components, last_synced)
-                VALUES (:name, :category, :language, :status, :content, :components, :last_synced)
+                INSERT INTO templates (user_id, name, category, language, status, content, components, last_synced)
+                VALUES (:u, :name, :category, :language, :status, :content, :components, :last_synced)
                 ON DUPLICATE KEY UPDATE
                     status = VALUES(status),
                     content = VALUES(content),
@@ -837,9 +842,9 @@ async def sync_templates(request: Request):
             """
         else:
             query = """
-                INSERT INTO templates (name, category, language, status, content, components, last_synced)
-                VALUES (:name, :category, :language, :status, :content, :components, :last_synced)
-                ON CONFLICT(name) DO UPDATE SET
+                INSERT INTO templates (user_id, name, category, language, status, content, components, last_synced)
+                VALUES (:u, :name, :category, :language, :status, :content, :components, :last_synced)
+                ON CONFLICT(user_id, name) DO UPDATE SET
                     status = excluded.status,
                     content = excluded.content,
                     components = excluded.components,
@@ -847,6 +852,7 @@ async def sync_templates(request: Request):
             """
             
         await db.execute(query, {
+            "u": u_id,
             "name": name, "category": category, "language": language, 
             "status": status, "content": content, "components": components,
             "last_synced": utc_now
@@ -881,12 +887,13 @@ async def delete_template_api(request: Request, name: str = Form(...)):
         print(f"ERROR: Exception during Meta delete: {e}")
     
     # 2. Always delete locally to keep UI clean
-    await db.execute("DELETE FROM templates WHERE name = :name", {"name": name})
+    await db.execute("DELETE FROM templates WHERE name = :name AND user_id = :u", {"name": name, "u": u_id})
     
     return {"message": "Template deleted successfully"}
 
 @app.post("/api/templates/create-complex")
 async def create_complex_template(
+    request: Request,
     name: str = Form(...),
     category: str = Form(...),
     subtype: str = Form("DEFAULT"),
@@ -898,7 +905,14 @@ async def create_complex_template(
     buttons: str = Form("[]"), # JSON string
     variable_map: str = Form(None) # JSON string of {"1": "name", "2": "city"}
 ):
-    credentials = await get_active_credentials()
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    credentials = await get_active_credentials(u_id)
+    if not credentials:
+        return JSONResponse(status_code=400, content={"error": "Please link your WhatsApp account first."})
     
     # Normalize newlines in body content
     # 1. Convert Windows \r\n to standard \n
@@ -1081,7 +1095,12 @@ async def get_templates_api():
     return safe_json_response([dict(r) for r in rows])
 
 @app.get("/api/history")
-async def get_history():
+async def get_history(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
     db = await get_db()
     # Calculate all stats dynamically from the messages table to reflect real-time Webhook updates
     rows = await db.fetch_all("""
@@ -1091,13 +1110,23 @@ async def get_history():
                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as `read`,
                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed
         FROM campaigns c 
+        WHERE c.user_id = :u
         ORDER BY timestamp DESC
-    """)
+    """, {"u": u_id})
     return safe_json_response([dict(r) for r in rows])
 
 @app.get("/api/campaign/{campaign_id}/details")
-async def get_campaign_details(campaign_id: int):
+async def get_campaign_details(request: Request, campaign_id: int):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
     db = await get_db()
+    # Verify ownership
+    camp = await db.fetch_one("SELECT id FROM campaigns WHERE id = :id AND user_id = :u", {"id": campaign_id, "u": u_id})
+    if not camp: return JSONResponse(status_code=403, content={"error": "Forbidden"})
+
     # Summary stats
     stats = await db.fetch_one("""
         SELECT 
@@ -1106,16 +1135,16 @@ async def get_campaign_details(campaign_id: int):
             SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) as delivered,
             SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END) as `read`,
             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
-        FROM messages WHERE campaign_id = :id
-    """, {"id": campaign_id})
+        FROM messages WHERE campaign_id = :id AND user_id = :u
+    """, {"id": campaign_id, "u": u_id})
     
     # Message list
     messages = await db.fetch_all("""
         SELECT phone, status, error_message, timestamp 
         FROM messages 
-        WHERE campaign_id = :id
+        WHERE campaign_id = :id AND user_id = :u
         ORDER BY timestamp ASC
-    """, {"id": campaign_id})
+    """, {"id": campaign_id, "u": u_id})
     return safe_json_response({
         "stats": dict(stats),
         "messages": [dict(m) for m in messages]
@@ -1244,22 +1273,27 @@ async def get_templates_api():
     return safe_json_response([dict(r) for r in rows])
 
 @app.get("/api/chat/contacts")
-async def get_chat_contacts():
+async def get_chat_contacts(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
     db = await get_db()
-    # Unique phones and their unread status
+    # Unique phones and their unread status filtered by user_id
     rows = await db.fetch_all("""
         SELECT t.phone, 
                MAX(CASE WHEN c.is_read = 0 AND c.direction = 'inbound' THEN 1 ELSE 0 END) as has_unread
         FROM (
-            SELECT phone FROM messages WHERE status IN ('sent', 'delivered', 'read')
+            SELECT phone FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read')
             UNION
-            SELECT phone FROM chat_messages
+            SELECT phone FROM chat_messages WHERE user_id = :u
         ) t
-        LEFT JOIN chat_messages c ON t.phone = c.phone
+        LEFT JOIN chat_messages c ON t.phone = c.phone AND c.user_id = :u
         WHERE t.phone IS NOT NULL AND t.phone != ''
         GROUP BY t.phone
         ORDER BY MAX(c.timestamp) DESC, t.phone ASC
-    """)
+    """, {"u": u_id})
     return [{"phone": r['phone'], "has_unread": bool(r['has_unread'])} for r in rows]
 
 @app.post("/api/chat/read/{phone}")
@@ -1319,25 +1353,30 @@ async def update_template_api(
         }, status_code=400)
 
 @app.get("/api/chat/history/{phone}")
-async def get_chat_history(phone: str):
+async def get_chat_history(request: Request, phone: str):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
     db = await get_db()
-    # Bi-directional history
-    # We include messages from 'messages' table (campaigns) and 'chat_messages' (interactive)
+    # Bi-directional history filtered by user_id
     rows = await db.fetch_all("""
         SELECT 'outbound' as direction, message, timestamp, status as wa_status, NULL as wa_message_id
         FROM messages 
-        WHERE phone = :p AND status != 'failed'
+        WHERE phone = :p AND user_id = :u AND status != 'failed'
         UNION ALL
         SELECT direction, message, timestamp, NULL as wa_status, wa_message_id
         FROM chat_messages
-        WHERE phone = :p
+        WHERE phone = :p AND user_id = :u
         ORDER BY timestamp ASC
-    """, {"p": phone})
+    """, {"p": phone, "u": u_id})
     
     return safe_json_response([dict(r) for r in rows])
 
 @app.post("/api/chat/send")
 async def send_chat_reply(
+    request: Request,
     phone: str = Form(...),
     message: str = Form(""),
     file: UploadFile = File(None),
@@ -1352,11 +1391,17 @@ async def send_chat_reply(
     if not message and not file and not template_name:
         return JSONResponse(status_code=400, content={"error": "Message, file, or template is required"})
 
-    # Get Credentials
+    # Get Credentials for THIS user
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
     db = await get_db()
-    acc = await db.fetch_one("SELECT whatsapp_token, phone_number_id, waba_id FROM user_credentials WHERE is_active = 1 ORDER BY last_updated DESC LIMIT 1")
+    # Ensure we use the logged-in user's credentials
+    acc = await db.fetch_one("SELECT whatsapp_token, phone_number_id, waba_id FROM user_credentials WHERE is_active = 1 AND user_id = :u ORDER BY last_updated DESC LIMIT 1", {"u": u_id})
     if not acc:
-        return JSONResponse(status_code=400, content={"error": "No WhatsApp account linked"})
+        return JSONResponse(status_code=400, content={"error": "No WhatsApp account linked for your profile"})
     
     credentials = {
         "token": acc['whatsapp_token'],
@@ -1408,11 +1453,11 @@ async def send_chat_reply(
         if isinstance(response, dict) and "messages" in response:
             wa_id = response["messages"][0].get("id")
             
-        # Save to Chat History
+        # Save to Chat History with user_id
         await db.execute("""
-            INSERT INTO chat_messages (phone, message, direction, wa_message_id, is_read, timestamp)
-            VALUES (:phone, :message, 'outbound', :id, 1, :ts)
-        """, {"phone": phone, "message": display_message, "id": wa_id, "ts": get_now_utc()})
+            INSERT INTO chat_messages (user_id, phone, message, direction, wa_message_id, is_read, timestamp)
+            VALUES (:u, :phone, :message, 'outbound', :id, 1, :ts)
+        """, {"u": u_id, "phone": phone, "message": display_message, "id": wa_id, "ts": get_now_utc()})
         
         return {"status": "ok", "wa_id": wa_id}
     else:
