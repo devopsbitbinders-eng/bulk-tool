@@ -286,3 +286,31 @@ async def fetch_meta_templates(credentials):
     except Exception as e:
         print(f"DEBUG: Error fetching templates: {str(e)}")
         return all_templates
+
+def update_whatsapp_template(name, category, components, credentials=None):
+    """Updates an existing template on Meta API by deleting and re-creating it."""
+    token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
+    waba_id = credentials.get('waba_id', WHATSAPP_BUSINESS_ACCOUNT_ID) if credentials else WHATSAPP_BUSINESS_ACCOUNT_ID
+
+    # Meta does not support direct template updates via API for most fields.
+    # The standard approach is to delete and recreate the template.
+    # However, we can attempt a PATCH for category changes on some template versions.
+    url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{waba_id}/message_templates"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "name": name,
+        "category": category,
+        "components": components
+    }
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code in (200, 201):
+            return True, None
+        else:
+            err = response.json().get("error", {}).get("message", response.text)
+            return False, err
+    except Exception as e:
+        return False, str(e)
