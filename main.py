@@ -299,8 +299,6 @@ async def process_campaign(campaign_id: int, data: list, phone_col: str, message
         if not success:
             print(f"DEBUG ERROR: Campaign Message Failed to {phone}. Response: {response}")
             failed_count += 1
-        else:
-            success_count += 1
         
         status = "sent" if success else "failed"
         error = ""
@@ -1071,13 +1069,13 @@ async def webhook_handler(request: Request):
                 for status_update in statuses:
                     wa_message_id = status_update.get("id")
                     new_status = status_update.get("status") # sent, delivered, read, failed
+                    print(f"DEBUG WEBHOOK: Status update for {wa_message_id}: {new_status}")
                     
                     db = await get_db()
                     # Check if message exists
                     msg = await db.fetch_one("SELECT campaign_id FROM messages WHERE whatsapp_message_id = :id", {"id": wa_message_id})
                     if msg:
-                        campaign_id = msg['campaign_id']
-                        print(f"DEBUG WEBHOOK: Updating message {wa_message_id} to {new_status}")
+                        print(f"DEBUG WEBHOOK: Found message {wa_message_id}. Current campaign: {msg['campaign_id']}. New status: {new_status}")
                         
                         # Update message status and error message if failed
                         error_msg = None
