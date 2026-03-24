@@ -35,6 +35,7 @@ async def init_db():
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS chat_messages (
             id INTEGER PRIMARY KEY {auto_inc},
+            user_id INTEGER,
             phone TEXT,
             message TEXT,
             direction TEXT,
@@ -48,6 +49,7 @@ async def init_db():
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS campaigns (
             id INTEGER PRIMARY KEY {auto_inc},
+            user_id INTEGER,
             name TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             total_numbers INTEGER,
@@ -61,6 +63,7 @@ async def init_db():
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY {auto_inc},
+            user_id INTEGER,
             campaign_id INTEGER,
             phone TEXT,
             message TEXT,
@@ -76,14 +79,16 @@ async def init_db():
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS templates (
             id INTEGER PRIMARY KEY {auto_inc},
-            name {text_type} UNIQUE,
+            user_id INTEGER,
+            name {text_type},
             category TEXT,
             language TEXT,
             status TEXT,
             content TEXT,
             components TEXT,
             variable_map TEXT,
-            last_synced DATETIME DEFAULT CURRENT_TIMESTAMP
+            last_synced DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, name)
         ) {table_opts}
     """)
 
@@ -91,6 +96,7 @@ async def init_db():
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS user_credentials (
             id INTEGER PRIMARY KEY {auto_inc},
+            user_id INTEGER,
             whatsapp_token TEXT,
             phone_number_id TEXT,
             waba_id TEXT,
@@ -118,6 +124,17 @@ async def init_db():
         for table in tables:
             try: await db.execute(f"ALTER TABLE {table} CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
             except: pass
+    
+    try: await db.execute("ALTER TABLE chat_messages ADD COLUMN user_id INTEGER")
+    except: pass
+    try: await db.execute("ALTER TABLE campaigns ADD COLUMN user_id INTEGER")
+    except: pass
+    try: await db.execute("ALTER TABLE messages ADD COLUMN user_id INTEGER")
+    except: pass
+    try: await db.execute("ALTER TABLE templates ADD COLUMN user_id INTEGER")
+    except: pass
+    try: await db.execute("ALTER TABLE user_credentials ADD COLUMN user_id INTEGER")
+    except: pass
     
     try: await db.execute("ALTER TABLE messages ADD COLUMN whatsapp_message_id TEXT")
     except: pass

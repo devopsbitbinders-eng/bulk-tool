@@ -3,56 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Account - Bitbinders Messenger</title>
+    <title>Create Account | Bitbinders Messenger</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Outfit', sans-serif; }
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        :root {
+            --indigo: #6366f1;
+            --emerald: #10b981;
+            --slate: #0f172a;
+        }
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            margin: 0;
+            overflow: hidden;
+            background: #0f172a;
+        }
+        
+        .mesh-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background-color: #0f172a;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(15, 23, 42, 1) 0px, transparent 80%);
+            filter: blur(80px);
+            animation: meshMove 20s ease-in-out infinite alternate;
+        }
+
+        @keyframes meshMove {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.2) rotate(-5deg); }
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(25px) saturate(180%);
+            -webkit-backdrop-filter: blur(25px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .input-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .input-glass:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--indigo);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+
+        .btn-glow-indigo {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+        
+        .btn-glow-indigo:hover {
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .animate-up {
+            animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
-<body class="bg-[#f8fafc] min-h-screen flex items-center justify-center p-6">
-    <div class="w-full max-w-md animate-in fade-in zoom-in duration-500">
+<body class="min-h-screen flex items-center justify-center p-6 bg-[#0f172a]">
+    <div class="mesh-bg"></div>
+
+    <div class="w-full max-w-[440px] animate-up">
+        <!-- Logo Area -->
         <div class="text-center mb-10">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-100 mb-4 shadow-inner">
-                <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+            <div class="inline-flex items-center justify-center w-20 h-20 rounded-[2rem] bg-gradient-to-tr from-indigo-500/20 to-emerald-500/20 border border-white/10 mb-6 shadow-2xl relative group transition-all duration-500 hover:scale-110">
+                <div class="absolute inset-0 rounded-[2rem] bg-indigo-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <svg class="w-10 h-10 text-indigo-400 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
                 </svg>
             </div>
-            <h1 class="text-3xl font-bold text-slate-900 mb-2">Create Account</h1>
-            <p class="text-slate-500 font-medium">Join Bitbinders Messenger Platform</p>
+            <h1 class="text-4xl font-extrabold text-white mb-3 tracking-tight">Join Platform</h1>
+            <p class="text-slate-400 font-medium text-lg">Create your secure workspace</p>
         </div>
 
-        <div class="glass border border-slate-200 rounded-[2.5rem] p-8 shadow-2xl">
-            <form id="signupForm" class="space-y-6">
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest pl-1">Choose Username</label>
-                    <input type="text" name="username" required 
-                        class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-800"
-                        placeholder="e.g. admin_zoya">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest pl-1">Set Password</label>
-                    <input type="password" name="password" required 
-                        class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-800"
-                        placeholder="••••••••">
+        <!-- Signup Card -->
+        <div class="glass-card rounded-[2.5rem] p-10 relative overflow-hidden">
+            <div class="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 blur-[60px] rounded-full"></div>
+            
+            <form id="signupForm" class="space-y-7 relative z-10">
+                <div class="space-y-3">
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Username Selection</label>
+                    <div class="relative group">
+                        <span class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                        </span>
+                        <input type="text" name="username" required 
+                            class="w-full input-glass rounded-2xl pl-14 pr-6 py-4 outline-none font-medium text-white placeholder:text-slate-600"
+                            placeholder="Pick a unique name">
+                    </div>
                 </div>
 
-                <div id="statusMsg" class="hidden p-4 rounded-2xl text-xs font-bold border"></div>
+                <div class="space-y-3">
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Secret Password</label>
+                    <div class="relative group">
+                        <span class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        </span>
+                        <input type="password" name="password" required 
+                            class="w-full input-glass rounded-2xl pl-14 pr-6 py-4 outline-none font-medium text-white placeholder:text-slate-600"
+                            placeholder="At least 6 characters">
+                    </div>
+                </div>
+
+                <div id="statusMsg" class="hidden p-4 rounded-2xl text-[11px] font-bold border transition-all duration-300"></div>
 
                 <button type="submit" id="submitBtn"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-500/30 transition-all transform active:scale-95 flex items-center justify-center gap-2">
-                    <span>Create Account</span>
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    class="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-extrabold py-5 rounded-2xl shadow-xl shadow-indigo-500/20 transition-all transform active:scale-[0.98] flex items-center justify-center gap-3 btn-glow-indigo">
+                    <span>CREATE ACCOUNT</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
                 </button>
             </form>
 
-            <div class="mt-8 text-center">
-                <p class="text-slate-500 text-sm font-medium">Already have an account? 
-                    <a href="/login" class="text-indigo-600 font-bold hover:underline">Log in instead</a>
+            <div class="mt-10 text-center relative z-10">
+                <p class="text-slate-500 text-sm font-medium">Already registered? 
+                    <a href="/login" class="text-indigo-400 font-bold hover:text-indigo-300 transition-colors ml-1 decoration-indigo-500/30 underline-offset-4 hover:underline select-none">Log in here</a>
                 </p>
             </div>
         </div>
+
+        <p class="text-center mt-12 text-slate-600 text-[10px] font-bold uppercase tracking-[0.3em] opacity-50">&copy; 2026 Bitbinders Messenger</p>
     </div>
 
     <script>
@@ -66,7 +159,7 @@
             btn.innerHTML = '<span class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>';
             
             statusEl.classList.add('hidden');
-            statusEl.classList.remove('bg-rose-50', 'text-rose-600', 'border-rose-100', 'bg-emerald-50', 'text-emerald-600', 'border-emerald-100');
+            statusEl.className = 'hidden p-4 rounded-2xl text-[11px] font-bold border transition-all duration-300';
 
             const formData = new FormData(e.target);
             try {
@@ -76,18 +169,18 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    statusEl.innerText = data.message;
-                    statusEl.classList.add('bg-emerald-50', 'text-emerald-600', 'border-emerald-100');
+                    statusEl.innerText = 'Neural presence confirmed. Redirecting...';
+                    statusEl.classList.add('bg-emerald-500/10', 'text-emerald-400', 'border-emerald-500/20');
                     statusEl.classList.remove('hidden');
                     setTimeout(() => window.location.href = '/login', 2000);
                 } else {
-                    statusEl.innerText = data.error || 'Signup failed';
-                    statusEl.classList.add('bg-rose-50', 'text-rose-600', 'border-rose-100');
+                    statusEl.innerText = data.error || 'Identity conflict detected';
+                    statusEl.classList.add('bg-rose-500/10', 'text-rose-400', 'border-rose-500/20');
                     statusEl.classList.remove('hidden');
                 }
             } catch (err) {
-                statusEl.innerText = 'Connection error';
-                statusEl.classList.add('bg-rose-50', 'text-rose-600', 'border-rose-100');
+                statusEl.innerText = 'Neural connection timeout';
+                statusEl.classList.add('bg-rose-500/10', 'text-rose-400', 'border-rose-500/20');
                 statusEl.classList.remove('hidden');
             } finally {
                 btn.disabled = false;

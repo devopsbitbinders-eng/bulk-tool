@@ -46,9 +46,14 @@ def safe_json_response(data, status_code=200):
         print(f"DEBUG ERROR: Serialization failed: {str(e)}")
         return JSONResponse(content={"error": "Serialization failed"}, status_code=500)
 
-async def get_active_credentials():
+async def get_user_id(username: str):
     db = await get_db()
-    row = await db.fetch_one("SELECT whatsapp_token as token, phone_number_id as phone_id, waba_id FROM user_credentials WHERE is_active = 1 ORDER BY last_updated DESC LIMIT 1")
+    user = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
+    return user['id'] if user else None
+
+async def get_active_credentials(user_id: int):
+    db = await get_db()
+    row = await db.fetch_one("SELECT whatsapp_token as token, phone_number_id as phone_id, waba_id FROM user_credentials WHERE is_active = 1 AND user_id = :u ORDER BY last_updated DESC LIMIT 1", {"u": user_id})
     return dict(row) if row else None
 
 @asynccontextmanager
@@ -104,36 +109,27 @@ async def campaign_stats():
 async def report():
     return {"message": "No report available"}
 
-async def get_dashboard_stats():
+async def get_dashboard_stats(user_id: int):
     db = await get_db()
     
-    # IST Offset Helper (Manual for consistency)
     ist_delta = datetime.timedelta(hours=5, minutes=30)
     now_ist = datetime.datetime.now(datetime.timezone(ist_delta))
-    
-    # Today Start (Local IST)
     today_start_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
-    # Convert back to UTC for DB queries
     today_str = today_start_ist.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
-    
-    # Last 7 days
     seven_days_ago_ist = today_start_ist - datetime.timedelta(days=7)
     seven_days_str = seven_days_ago_ist.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
     # Total Templates & Approved
-    total_t = await db.fetch_one("SELECT COUNT(*) as count FROM templates")
-    approved_t = await db.fetch_one("SELECT COUNT(*) as count FROM templates WHERE status = 'APPROVED'")
+    total_t = await db.fetch_one("SELECT COUNT(*) as count FROM templates WHERE user_id = :u", {"u": user_id})
+    approved_t = await db.fetch_one("SELECT COUNT(*) as count FROM templates WHERE status = 'APPROVED' AND user_id = :u", {"u": user_id})
 
-    # Incoming (today & 7 days)
-    inc_today = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE direction='inbound' AND timestamp >= :ts", {"ts": today_str})
-    inc_7d = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE direction='inbound' AND timestamp >= :ts", {"ts": seven_days_str})
+    # Incoming
+    inc_today = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :ts", {"u": user_id, "ts": today_str})
+    inc_7d = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
 
-    # Outgoing (today & 7 days)
-    chat_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE direction='outbound' AND timestamp >= :ts", {"ts": today_str})
-    chat_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE direction='outbound' AND timestamp >= :ts", {"ts": seven_days_str})
-    
-    camp_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE timestamp >= :ts", {"ts": today_str})
-    camp_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE timestamp >= :ts", {"ts": seven_days_str})
+    # Outgoing
+    camp_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND timestamp >= :ts", {"u": user_id, "ts": today_str})
+    camp_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
     
     return {
         "templates": {
@@ -159,14 +155,15 @@ async def index(request: Request):
         return RedirectResponse(url="/login", status_code=303)
         
     db = await get_db()
+    u_id = await get_user_id(username)
     
-    # Get linked account info
-    cred = await db.fetch_one("SELECT phone_number FROM user_credentials WHERE is_active = 1 LIMIT 1")
+    # Get linked account info specifically for this user
+    cred = await db.fetch_one("SELECT phone_number FROM user_credentials WHERE is_active = 1 AND user_id = :u LIMIT 1", {"u": u_id})
     linked_phone = cred['phone_number'] if cred else None
 
-    campaigns = await db.fetch_all("SELECT * FROM campaigns ORDER BY timestamp DESC LIMIT 50")
+    campaigns = await db.fetch_all("SELECT * FROM campaigns WHERE user_id = :u ORDER BY timestamp DESC LIMIT 50", {"u": u_id})
     
-    templates_raw = await db.fetch_all("SELECT * FROM templates ORDER BY name ASC")
+    templates_raw = await db.fetch_all("SELECT * FROM templates WHERE user_id = :u ORDER BY name ASC", {"u": u_id})
     templates_list = []
     for row in templates_raw:
         t = dict(row)
@@ -187,7 +184,7 @@ async def index(request: Request):
         "fb_app_id": FB_APP_ID,
         "fb_config_id": FB_CONFIG_ID,
         "linked_phone": linked_phone,
-        "stats": await get_dashboard_stats(),
+        "stats": await get_dashboard_stats(u_id),
         "username": username
     })
 
@@ -252,7 +249,7 @@ async def api_get_templates():
         templates_list.append(t)
     return templates_list
 
-async def process_campaign(campaign_id: int, data: list, phone_col: str, message_template: str, msg_type: str = "text", template_name: str = "", language_code: str = "en_US", report_email: str = None, mappings: dict = None):
+async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col: str, message_template: str, msg_type: str = "text", template_name: str = "", language_code: str = "en_US", report_email: str = None, mappings: dict = None):
     print(f"DEBUG: Starting processing for Campaign {campaign_id} with {len(data)} rows. Type: {msg_type}")
     db = await get_db()
     success_count = 0
@@ -344,7 +341,7 @@ async def process_campaign(campaign_id: int, data: list, phone_col: str, message
             await queue.put(typing_event)
         await asyncio.sleep(delay)
         
-        credentials = await get_active_credentials()
+        credentials = await get_active_credentials(user_id)
         success, response = await send_whatsapp_message(
             phone, message_to_send, msg_type, template_name, language_code, 
             media_url=media_url, template_params=template_params, credentials=credentials
@@ -384,10 +381,10 @@ async def process_campaign(campaign_id: int, data: list, phone_col: str, message
         # Log message status with UTC (browser converts to local)
         now_utc = get_now_utc()
         await db.execute("""
-            INSERT INTO messages (campaign_id, phone, message, status, error_message, whatsapp_message_id, row_data, timestamp)
-            VALUES (:campaign_id, :phone, :message, :status, :error_message, :wa_id, :row_data, :timestamp)
+            INSERT INTO messages (user_id, campaign_id, phone, message, status, error_message, whatsapp_message_id, row_data, timestamp)
+            VALUES (:u, :campaign_id, :phone, :message, :status, :error_message, :wa_id, :row_data, :timestamp)
         """, {
-            "campaign_id": campaign_id, "phone": phone, "message": str(message_to_send), 
+            "u": user_id, "campaign_id": campaign_id, "phone": phone, "message": str(message_to_send), 
             "status": status, "error_message": error, "wa_id": wa_message_id, 
             "row_data": json.dumps(row), "timestamp": now_utc
         })
@@ -543,10 +540,15 @@ async def export_campaign(campaign_id: int):
     return StreamingResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
 
 @app.post("/auth/facebook/unlink")
-async def facebook_unlink():
+async def facebook_unlink(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
     db = await get_db()
-    # Deactivate all credentials
-    await db.execute("UPDATE user_credentials SET is_active = 0")
+    # Deactivate ONLY this user's credentials
+    await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
     return {"message": "WhatsApp unlinked successfully"}
 
 @app.post("/auth/facebook/callback")
@@ -666,18 +668,26 @@ async def facebook_auth_callback(request: Request, data: dict):
         phone_number = "Custom Account"
 
     db = await get_db()
-    # Deactivate other credentials
-    await db.execute("UPDATE user_credentials SET is_active = 0")
-    # Save new credentials
+    # Find user
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+
+    # Deactivate existing credentials for THIS user
+    await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
+    
+    # Save new credentials for THIS user
     await db.execute("""
-        INSERT INTO user_credentials (whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
-        VALUES (:token, :phone_id, :waba_id, :phone, 1)
-    """, {"token": access_token, "phone_id": phone_id, "waba_id": waba_id, "phone": phone_number})
+        INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
+        VALUES (:u, :token, :phone_id, :waba_id, :phone, 1)
+    """, {"u": u_id, "token": access_token, "phone_id": phone_id, "waba_id": waba_id, "phone": phone_number})
     
     return {"message": "WhatsApp Account linked successfully!", "phone": phone_number}
 
 @app.post("/upload")
 async def upload_file(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(None),
     single_mobile: str = Form(None),
@@ -688,6 +698,10 @@ async def upload_file(
     report_email: str = Form(None),
     mappings: str = Form(None)
 ):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
     mappings_dict = None
     if mappings:
         try:
@@ -725,12 +739,13 @@ async def upload_file(
     now_utc = get_now_utc()
     
     campaign_id = await db.execute("""
-        INSERT INTO campaigns (name, total_numbers, status, timestamp) 
-        VALUES (:name, :total, :status, :ts)
-    """, {"name": filename, "total": len(data), "status": 'Processing', "ts": now_utc})
+        INSERT INTO campaigns (user_id, name, total_numbers, status, timestamp) 
+        VALUES (:u, :name, :total, :status, :ts)
+    """, {"u": u_id, "name": filename, "total": len(data), "status": 'Processing', "ts": now_utc})
 
     background_tasks.add_task(
         process_campaign, 
+        u_id,
         campaign_id, 
         data, 
         phone_col, 
@@ -765,15 +780,26 @@ async def events_handler(request: Request):
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/templates")
-async def get_templates_route():
+@app.get("/api/templates")
+async def get_templates_route(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
     db = await get_db()
-    rows = await db.fetch_all("SELECT * FROM templates")
+    rows = await db.fetch_all("SELECT * FROM templates WHERE user_id = :u", {"u": u_id})
     return safe_json_response([dict(r) for r in rows])
 
 @app.post("/templates/sync")
 @app.post("/api/templates/sync")
-async def sync_templates():
-    credentials = await get_active_credentials()
+async def sync_templates(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    credentials = await get_active_credentials(u_id)
     if not credentials:
         return JSONResponse(status_code=400, content={"error": "Please link your WhatsApp account first."})
     
@@ -838,8 +864,13 @@ async def sync_templates():
     return safe_json_response({"message": f"Synced {sync_count} templates from Meta"})
 
 @app.post("/api/templates/delete")
-async def delete_template_api(name: str = Form(...)):
-    credentials = await get_active_credentials()
+async def delete_template_api(request: Request, name: str = Form(...)):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    credentials = await get_active_credentials(u_id)
     db = await get_db()
     
     # 1. Attempt to delete from Meta
@@ -1118,6 +1149,14 @@ async def webhook_handler(request: Request):
         for entry in entries:
             for change in entry.get("changes", []):
                 value = change.get("value", {})
+                
+                # Dynamic User Routing via Meta Metadata
+                metadata = value.get("metadata", {})
+                pn_id = metadata.get("phone_number_id")
+                db = await get_db()
+                cred = await db.fetch_one("SELECT user_id FROM user_credentials WHERE phone_number_id = :p LIMIT 1", {"p": pn_id})
+                u_id = cred['user_id'] if cred else None
+                
                 statuses = value.get("statuses", [])
                 
                 for status_update in statuses:
@@ -1163,10 +1202,10 @@ async def webhook_handler(request: Request):
                         if not existing:
                             clean_from = normalize_phone(from_phone)
                             await db.execute("""
-                                INSERT INTO chat_messages (phone, message, direction, wa_message_id, timestamp)
-                                VALUES (:phone, :message, 'inbound', :id, :ts)
-                            """, {"phone": clean_from, "message": body, "id": wa_message_id, "ts": get_now_utc()})
-                            print(f"DEBUG WEBHOOK: Saved inbound message from {clean_from}")
+                                INSERT INTO chat_messages (user_id, phone, message, direction, wa_message_id, timestamp)
+                                VALUES (:u, :phone, :message, 'inbound', :id, :ts)
+                            """, {"u": u_id, "phone": clean_from, "message": body, "id": wa_message_id, "ts": get_now_utc()})
+                            print(f"DEBUG WEBHOOK: Saved inbound message from {clean_from} for user {u_id}")
                 
     except Exception as e:
         print(f"DEBUG WEBHOOK: Error processing: {str(e)}")
@@ -1235,6 +1274,7 @@ async def mark_chat_read(phone: str):
 
 @app.post("/api/templates/update")
 async def update_template_api(
+    request: Request,
     name: str = Form(...),
     category: str = Form(...),
     body_text: str = Form(...),
@@ -1244,7 +1284,12 @@ async def update_template_api(
     import json
     from whatsapp_service import update_whatsapp_template
     
-    credentials = await get_active_credentials()
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    credentials = await get_active_credentials(u_id)
     if not credentials:
         return JSONResponse({"error": "No active WhatsApp account linked"}, status_code=401)
     
@@ -1391,8 +1436,13 @@ class TemplateFormJSONReq(BaseModel):
     components: List[TemplateComponentReq]
 
 @app.put("/api/templates/update")
-async def update_template_json(req: TemplateFormJSONReq):
-    credentials = await get_active_credentials()
+async def update_template_json(request: Request, req: TemplateFormJSONReq):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    credentials = await get_active_credentials(u_id)
     
     success, error_msg = update_whatsapp_template(
         name=req.name, 
@@ -1410,8 +1460,13 @@ async def update_template_json(req: TemplateFormJSONReq):
     return {"message": "Template updated successfully on Meta."}
 
 @app.post("/api/templates/create")
-async def create_template_json(req: TemplateFormJSONReq):
-    credentials = await get_active_credentials()
+async def create_template_json(request: Request, req: TemplateFormJSONReq):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    credentials = await get_active_credentials(u_id)
     
     success, error_msg = create_whatsapp_template(
         name=req.name, 
