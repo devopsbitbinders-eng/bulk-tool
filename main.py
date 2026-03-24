@@ -59,8 +59,8 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 # SSE event queues for real-time updates
 event_queues = []
 
-# Media Upload Directory
-UPLOAD_DIR = os.path.join(os.getcwd(), "static", "uploads")
+# Media Upload Directory — use /tmp on Vercel (read-only filesystem), fallback to static/uploads locally
+UPLOAD_DIR = "/tmp/uploads" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "static", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.post("/api/upload-media")
