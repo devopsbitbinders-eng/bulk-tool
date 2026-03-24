@@ -28,7 +28,8 @@ async def init_db():
     text_type = "VARCHAR(255)" if is_mysql else "TEXT"
     
     # Charset for MySQL
-    charset = "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci" if is_mysql else ""
+    charset = "" # Deprecated for columns
+    table_opts = "DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci" if is_mysql else ""
 
     # Create Chat Messages Table
     await db.execute(f"""
@@ -47,13 +48,13 @@ async def init_db():
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS campaigns (
             id INTEGER PRIMARY KEY {auto_inc},
-            name TEXT {charset},
+            name TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             total_numbers INTEGER,
             sent_success INTEGER DEFAULT 0,
             sent_failed INTEGER DEFAULT 0,
-            status TEXT {charset}
-        ) {charset}
+            status TEXT
+        ) {table_opts}
     """)
 
     # 2. Messages Table
@@ -61,42 +62,42 @@ async def init_db():
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY {auto_inc},
             campaign_id INTEGER,
-            phone TEXT {charset},
-            message TEXT {charset},
-            status TEXT {charset},
-            error_message TEXT {charset},
-            whatsapp_message_id TEXT {charset},
-            row_data TEXT {charset},
+            phone TEXT,
+            message TEXT,
+            status TEXT,
+            error_message TEXT,
+            whatsapp_message_id TEXT,
+            row_data TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        ) {charset}
+        ) {table_opts}
     """)
 
     # 3. Templates Table
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS templates (
             id INTEGER PRIMARY KEY {auto_inc},
-            name {text_type} UNIQUE {charset},
-            category TEXT {charset},
-            language TEXT {charset},
-            status TEXT {charset},
-            content TEXT {charset},
-            components TEXT {charset},
-            variable_map TEXT {charset},
+            name {text_type} UNIQUE,
+            category TEXT,
+            language TEXT,
+            status TEXT,
+            content TEXT,
+            components TEXT,
+            variable_map TEXT,
             last_synced DATETIME DEFAULT CURRENT_TIMESTAMP
-        ) {charset}
+        ) {table_opts}
     """)
 
     # 4. User Credentials Table
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS user_credentials (
             id INTEGER PRIMARY KEY {auto_inc},
-            whatsapp_token TEXT {charset},
-            phone_number_id TEXT {charset},
-            waba_id TEXT {charset},
-            phone_number TEXT {charset},
+            whatsapp_token TEXT,
+            phone_number_id TEXT,
+            waba_id TEXT,
+            phone_number TEXT,
             is_active INTEGER DEFAULT 1,
             last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
-        ) {charset}
+        ) {table_opts}
     """)
 
     # Migrations for existing SQLite/MySQL
