@@ -200,6 +200,10 @@ async def login_page(request: Request):
 async def signup_page(request: Request):
     return templates.TemplateResponse(request=request, name="signup.html", context={"request": request})
 
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request):
+    return templates.TemplateResponse(request=request, name="privacy.html", context={"request": request})
+
 @app.post("/api/auth/signup")
 async def register(username: str = Form(...), password: str = Form(...)):
     db = await get_db()

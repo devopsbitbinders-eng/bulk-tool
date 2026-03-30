@@ -7,11 +7,6 @@
   ],
   "routes": [
     {
-      "src": "/privacy",
-      "dest": "https://spread.bitbinders.in/privacy",
-      "status": 308
-    },
-    {
       "src": "/(.*)",
       "dest": "api/index.py"
     }
