@@ -17,7 +17,7 @@ from database import init_db, get_db
 from utils import extract_phone_numbers, substitute_template, sync_to_google_sheet, send_email_report, get_now_utc, normalize_phone
 from whatsapp_service import send_whatsapp_message, get_whatsapp_templates, create_whatsapp_template, create_whatsapp_otp_template, fetch_meta_templates, delete_whatsapp_template, upload_whatsapp_media
 import datetime
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse, PlainTextResponse
 from auth_utils import hash_password, verify_password, create_session_token, verify_session_token
 
 # Settings
@@ -81,6 +81,10 @@ event_queues = []
 # Media Upload Directory — use /tmp on Vercel (read-only filesystem), fallback to static/uploads locally
 UPLOAD_DIR = "/tmp/uploads" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "static", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt():
+    return "User-agent: *\nAllow: /\nUser-agent: facebookexternalhit\nAllow: /"
 
 @app.post("/api/upload-media")
 async def upload_media(file: UploadFile = File(...)):
