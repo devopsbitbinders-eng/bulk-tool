@@ -1,4 +1,5 @@
-from fastapi import FastAPI, UploadFile, Form, Request, BackgroundTasks, File
+from fastapi import FastAPI, UploadFile, Form, Request, BackgroundTasks, File, staticfiles
+from fastapi.staticfiles import StaticFiles
 from typing import Optional, List
 import re
 import os
@@ -70,6 +71,7 @@ async def lifespan(app: FastAPI):
     # Shutdown logic
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
