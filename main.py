@@ -207,6 +207,7 @@ async def signup_page(request: Request):
     return templates.TemplateResponse(request=request, name="signup.html", context={"request": request})
 
 @app.get("/privacy", response_class=HTMLResponse)
+@app.head("/privacy")
 async def privacy_page(request: Request):
     return templates.TemplateResponse(request=request, name="privacy.html", context={"request": request})
 
