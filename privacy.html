@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Privacy Policy – WhatsApp Campaign Tool | BitBinders</title>
+  
+  <!-- Open Graph / Facebook Meta Tags -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://spread.bitbinders.in/privacy">
+  <meta property="og:title" content="Privacy Policy – WhatsApp Campaign Tool | BitBinders">
+  <meta property="og:description" content="Official Privacy Policy for the Bit Binders WhatsApp Campaign Tool. Compliant with Meta Platform Policy.">
+  <meta property="og:image" content="https://spread.bitbinders.in/static/icon.png">
+
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --green: #25D366;
+      --green-dark: #128C7E;
+      --green-light: #dcf8e8;
+      --ink: #111827;
+      --muted: #6B7280;
+      --border: #E5E7EB;
+      --bg: #F9FBFA;
+      --white: #ffffff;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.8;
+    }
+
+    header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--green);
+    }
+
+    .logo-icon img { width: 36px; height: 36px; object-fit: cover; border-radius: 10px; }
+
+    .logo-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      font-weight: 500;
+      background: var(--green-light);
+      color: var(--green-dark);
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.03em;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0f2418 0%, #1a3d2b 60%, #0e2c1e 100%);
+      color: white;
+      padding: 72px 2rem 60px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 70% 30%, rgba(37,211,102,0.15) 0%, transparent 60%);
+    }
+
+    .hero-tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 16px;
+      font-weight: 500;
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .hero p {
+      font-size: 1rem;
+      color: rgba(255,255,255,0.65);
+      max-width: 520px;
+      margin: 0 auto 24px;
+    }
+
+    .hero-meta {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      font-size: 0.82rem;
+      color: rgba(255,255,255,0.5);
+    }
+
+    .hero-meta span { display: flex; align-items: center; gap: 6px; }
+    .hero-meta span::before { content: '•'; color: var(--green); }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 40px;
+      padding: 48px 0 80px;
+      align-items: start;
+    }
+
+    .toc {
+      position: sticky;
+      top: 80px;
+    }
+
+    .toc-title {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+
+    .toc ul { list-style: none; }
+
+    .toc ul li {
+      border-left: 2px solid var(--border);
+      transition: border-color 0.2s;
+    }
+
+    .toc ul li:hover { border-color: var(--green); }
+
+    .toc ul li a {
+      display: block;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .toc ul li a:hover { color: var(--ink); }
+
+    .content section {
+      margin-bottom: 44px;
+      scroll-margin-top: 80px;
+    }
+
+    .section-num {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--green);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .content h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 14px;
+      line-height: 1.3;
+    }
+
+    .content p {
+      font-size: 0.95rem;
+      color: #374151;
+      margin-bottom: 12px;
+    }
+
+    .content ul {
+      margin: 10px 0 14px 0;
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .content ul li {
+      position: relative;
+      padding: 6px 0 6px 22px;
+      font-size: 0.93rem;
+      color: #374151;
+    }
+
+    .content ul li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--green);
+      font-weight: 700;
+      font-size: 0.8rem;
+      top: 8px;
+    }
+
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 24px;
+      margin: 16px 0;
+    }
+
+    .card.highlight {
+      border-color: var(--green);
+      background: var(--green-light);
+    }
+
+    .card.highlight p {
+      color: #0f4c2a;
+      font-size: 0.92rem;
+      margin: 0;
+    }
+
+    .contact-box {
+      background: linear-gradient(135deg, #0f2418, #1a3d2b);
+      border-radius: 16px;
+      padding: 32px;
+      color: white;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    .contact-box h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      margin-bottom: 10px;
+    }
+
+    .contact-box p {
+      color: rgba(255,255,255,0.65);
+      font-size: 0.9rem;
+      margin-bottom: 18px;
+    }
+
+    .contact-box a {
+      display: inline-block;
+      background: var(--green);
+      color: white;
+      padding: 10px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+
+    .contact-box a:hover { background: var(--green-dark); }
+
+    footer {
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      text-align: center;
+      padding: 24px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 700px) {
+      .layout { grid-template-columns: 1fr; }
+      .toc { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <a href="/" class="logo">
+    <div class="logo-icon">
+      <img src="/static/icon.png" alt="Bit Binders Logo">
+    </div>
+    <span class="logo-name">Bit Binders</span>
+  </a>
+  <span class="badge">Privacy Policy</span>
+</header>
+
+<!-- Hero -->
+<div class="hero">
+  <span class="hero-tag">Legal &amp; Compliance</span>
+  <h1>Privacy Policy</h1>
+  <p>How we collect, use, and protect your data when using our WhatsApp Campaign Tool.</p>
+  <div class="hero-meta">
+    <span>Effective: March 18, 2026</span>
+    <span>Last Updated: March 19, 2026</span>
+    <span>Compliant with Meta Platform Policy</span>
+  </div>
+</div>
+
+<!-- Body -->
+<div class="container">
+  <div class="layout">
+
+    <!-- TOC -->
+    <nav class="toc">
+      <p class="toc-title">On this page</p>
+      <ul>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#data-collected">Data We Collect</a></li>
+        <li><a href="#how-we-use">How We Use Data</a></li>
+        <li><a href="#facebook-login">Facebook Login &amp; WhatsApp</a></li>
+        <li><a href="#recipients">Recipient Data</a></li>
+        <li><a href="#sharing">Data Sharing</a></li>
+        <li><a href="#security">Security</a></li>
+        <li><a href="#retention">Data Retention</a></li>
+        <li><a href="#data-deletion">Data Deletion</a></li>
+        <li><a href="#user-rights">Your Rights</a></li>
+        <li><a href="#children">Children</a></li>
+        <li><a href="#changes">Policy Changes</a></li>
+        <li><a href="#contact">Contact Us</a></li>
+      </ul>
+    </nav>
+
+    <!-- Content -->
+    <main class="content">
+
+      <section id="overview">
+        <span class="section-num">01</span>
+        <h2>Overview</h2>
+        <p>Bit Binders ("we", "our", or "us") operates the WhatsApp Campaign Tool — a platform that enables businesses to send bulk WhatsApp messages to their opted-in contacts using the WhatsApp Business API via Meta's platform.</p>
+        <p>This policy governs the <strong>Bit Binders</strong> application (App ID: <strong>916270141105838</strong>) and its integration with the WhatsApp Business API.</p>
+        <p>This Privacy Policy explains what information we collect, how we use it, and how we protect it. By using our tool, you agree to the practices described in this policy.</p>
+        <div class="card highlight">
+          <p>⚠️ We are committed to complying with Meta's Platform Policies, WhatsApp Business Policy, and all applicable data protection laws including GDPR and India's Digital Personal Data Protection Act, 2023.</p>
+        </div>
+      </section>
+
+      <section id="data-collected">
+        <span class="section-num">02</span>
+        <h2>Data We Collect</h2>
+        <p>We collect the following categories of information when you use our tool:</p>
+        <div class="card">
+          <strong style="display:block;margin-bottom:8px;font-size:0.9rem;">Account &amp; Authentication Data</strong>
+          <ul>
+            <li>Facebook account name and profile ID (via Facebook Login)</li>
+            <li>Connected WhatsApp Business Account (WABA) details</li>
+            <li>Phone number ID linked to your WhatsApp Business Account</li>
+            <li>OAuth access tokens provided by Meta</li>
+          </ul>
+        </div>
+        <div class="card">
+          <strong style="display:block;margin-bottom:8px;font-size:0.9rem;">Campaign &amp; Usage Data</strong>
+          <ul>
+            <li>CSV / XLSX files uploaded containing recipient phone numbers</li>
+            <li>Message templates selected or created by you</li>
+            <li>Campaign name, launch date/time, and status</li>
+            <li>Message delivery status per recipient (Sent / Failed)</li>
+            <li>Report email address (if provided)</li>
+          </ul>
+        </div>
+        <div class="card">
+          <strong style="display:block;margin-bottom:8px;font-size:0.9rem;">Technical Data</strong>
+          <ul>
+            <li>IP address and browser/device information</li>
+            <li>Log data (errors, API call timestamps)</li>
+            <li>Session identifiers</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="how-we-use">
+        <span class="section-num">03</span>
+        <h2>How We Use Your Data</h2>
+        <p>We use collected data only for the purposes listed below:</p>
+        <ul>
+          <li>To authenticate your identity via Facebook Login and connect your WhatsApp Business Account</li>
+          <li>To process uploaded recipient lists and send WhatsApp messages on your behalf</li>
+          <li>To track and record the delivery status of each message in the campaign</li>
+          <li>To generate and deliver campaign reports to your specified email</li>
+          <li>To maintain campaign history accessible within your dashboard</li>
+          <li>To maintain security, prevent abuse, and ensure platform stability</li>
+          <li>To comply with Meta's Platform Policies and legal obligations</li>
+        </ul>
+        <p>We do <strong>not</strong> use your data for advertising, profiling, or sell it to any third party.</p>
+      </section>
+
+      <section id="facebook-login">
+        <span class="section-num">04</span>
+        <h2>Facebook Login &amp; WhatsApp Integration</h2>
+        <p>Our tool uses <strong>Facebook Login</strong> to authenticate users and connect to their WhatsApp Business Account through Meta's official API. By logging in, you authorize us to:</p>
+        <ul>
+          <li>Access your Facebook profile name and user ID</li>
+          <li>Access your connected WhatsApp Business Account and phone numbers</li>
+          <li>Send messages on your behalf using your approved WhatsApp templates</li>
+          <li>Read message delivery status from the WhatsApp Business API</li>
+        </ul>
+        <div class="card highlight">
+          <p>🔒 We only request the minimum permissions required. We do not access your personal Facebook posts, friends list, messages, or any data unrelated to the WhatsApp Business API.</p>
+        </div>
+        <p>You can revoke our app's access at any time from your <a href="https://www.facebook.com/settings?tab=applications" style="color:var(--green-dark);">Facebook App Settings</a>. Upon revocation, we will immediately stop accessing your WhatsApp account.</p>
+      </section>
+
+      <section id="recipients">
+        <span class="section-num">05</span>
+        <h2>Recipient Data (Uploaded Contact Lists)</h2>
+        <p>When you upload a CSV or XLSX file with recipient phone numbers, you represent and warrant that:</p>
+        <ul>
+          <li>All recipients have <strong>explicitly opted in</strong> to receive WhatsApp messages from you</li>
+          <li>You have obtained proper consent in compliance with applicable laws</li>
+          <li>You have informed recipients of the nature of messages they will receive</li>
+          <li>You will honor opt-out requests from recipients promptly</li>
+        </ul>
+        <p>Uploaded recipient data is used solely to dispatch the campaign messages you initiate. We do not store recipient phone numbers beyond what is necessary to complete the campaign and generate your delivery report.</p>
+        <div class="card">
+          <p style="margin:0;font-size:0.9rem;color:#374151;">Recipient files are processed in-memory and associated records are retained only for the duration needed to display your campaign history. You may clear your history at any time using the "Clear All" option in the dashboard.</p>
+        </div>
+      </section>
+
+      <section id="sharing">
+        <span class="section-num">06</span>
+        <h2>Data Sharing &amp; Third Parties</h2>
+        <p>We do not sell, trade, or rent your personal information. We share data only in the following limited circumstances:</p>
+        <ul>
+          <li><strong>Meta / WhatsApp:</strong> Message content and recipient numbers are transmitted to Meta's WhatsApp Business API to deliver your messages. This is governed by Meta's own Privacy Policy.</li>
+          <li><strong>Email delivery:</strong> If you provide a report email, we use an email service provider to send you your campaign report.</li>
+          <li><strong>Legal requirements:</strong> We may disclose data if required by law, court order, or governmental authority.</li>
+        </ul>
+        <p>No other third parties receive your data.</p>
+        <div class="card highlight">
+          <p>🇮🇳 <strong>India Data Localization:</strong> In compliance with Indian data regulations, all recipient contact lists uploaded to Bit Binders are processed on secure servers and are not shared with any third party other than Meta for the sole purpose of message delivery.</p>
+        </div>
+      </section>
+
+      <section id="security">
+        <span class="section-num">07</span>
+        <h2>Security</h2>
+        <p>We implement industry-standard security measures to protect your data:</p>
+        <ul>
+          <li>All data transmitted between your browser and our servers is encrypted using HTTPS/TLS</li>
+          <li>OAuth tokens from Meta are stored securely and never exposed to third parties</li>
+          <li>Access to backend systems is restricted to authorized personnel only</li>
+          <li>Uploaded files are processed securely and not stored publicly</li>
+        </ul>
+        <p>While we take all reasonable steps to protect your data, no method of transmission over the internet is 100% secure. We encourage you to protect your Facebook account with a strong password and two-factor authentication.</p>
+      </section>
+
+      <section id="retention">
+        <span class="section-num">08</span>
+        <h2>Data Retention</h2>
+        <p>We retain your data only as long as necessary:</p>
+        <ul>
+          <li><strong>Account data:</strong> Retained while your account is active or as required by law</li>
+          <li><strong>Campaign history:</strong> Retained until you manually clear it from your dashboard</li>
+          <li><strong>Uploaded recipient files:</strong> Processed for campaign delivery and not retained permanently after processing</li>
+          <li><strong>Log data:</strong> Retained for up to 90 days for security and debugging purposes</li>
+        </ul>
+        <p>Upon account deletion or access revocation, we will delete your personal data within 30 days, except where retention is required by law.</p>
+      </section>
+
+      <section id="data-deletion">
+        <span class="section-num">08.1</span>
+        <h2>How to Request Data Deletion</h2>
+        <div class="card highlight">
+          <p>🗑️ <strong>Data Deletion Instructions:</strong> Users may request the permanent deletion of their data (including OAuth tokens and uploaded contact lists) by emailing <a href="mailto:info@bitbinders.in" style="color:var(--green-dark);font-weight:600;">info@bitbinders.in</a>. We will acknowledge the request within 24 hours and complete the deletion from our production servers within 10 business days.</p>
+        </div>
+        <p>Your deletion request must include your registered email address or Facebook account name so we can locate and remove your data accurately. Once deleted, this action cannot be undone.</p>
+        <ul>
+          <li>OAuth tokens are revoked and removed from our systems immediately</li>
+          <li>Uploaded contact lists and campaign history are permanently deleted</li>
+          <li>Log data associated with your account is purged within 10 business days</li>
+          <li>A confirmation email will be sent once deletion is complete</li>
+        </ul>
+      </section>
+
+      <section id="user-rights">
+        <span class="section-num">09</span>
+        <h2>Your Rights</h2>
+        <p>You have the following rights regarding your personal data:</p>
+        <ul>
+          <li><strong>Access:</strong> Request a copy of data we hold about you</li>
+          <li><strong>Correction:</strong> Request correction of inaccurate data</li>
+          <li><strong>Deletion:</strong> Request deletion of your personal data</li>
+          <li><strong>Portability:</strong> Request your data in a portable format</li>
+          <li><strong>Objection:</strong> Object to processing of your data in certain circumstances</li>
+          <li><strong>Revocation:</strong> Revoke Facebook/WhatsApp access at any time via Facebook App Settings</li>
+        </ul>
+        <p>To exercise any of these rights, contact us at the email address below. We will respond within 30 days.</p>
+      </section>
+
+      <section id="children">
+        <span class="section-num">10</span>
+        <h2>Children's Privacy</h2>
+        <p>Our WhatsApp Campaign Tool is intended for business use only and is not directed at individuals under the age of 18. We do not knowingly collect personal information from minors. If you believe we have inadvertently collected such data, please contact us immediately for deletion.</p>
+      </section>
+
+      <section id="changes">
+        <span class="section-num">11</span>
+        <h2>Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time to reflect changes in our practices, legal requirements, or Meta's platform policies. When we make significant changes, we will:</p>
+        <ul>
+          <li>Update the "Last Updated" date at the top of this page</li>
+          <li>Notify active users via email or an in-app notice</li>
+        </ul>
+        <p>Your continued use of the tool after any changes constitutes your acceptance of the updated policy.</p>
+      </section>
+
+      <section id="contact">
+        <span class="section-num">12</span>
+        <h2>Contact Us</h2>
+        <p>If you have any questions, concerns, or requests regarding this Privacy Policy or your personal data, please contact us:</p>
+        <div class="contact-box">
+          <h3>Bit Binders</h3>
+          <p>We're happy to address any privacy concerns you have. Reach out and we'll respond within 2 business days.</p>
+          <a href="mailto:info@bitbinders.in">info@bitbinders.in</a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Bit Binders. All rights reserved. &nbsp;|&nbsp; This Privacy Policy is compliant with Meta Platform Policy &amp; WhatsApp Business Policy.</p>
+</footer>
+
+</body>
+</html>
