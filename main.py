@@ -83,8 +83,12 @@ UPLOAD_DIR = "/tmp/uploads" if os.environ.get("VERCEL") else os.path.join(os.get
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
+@app.head("/robots.txt")
 async def robots_txt():
-    return "User-agent: *\nAllow: /\nUser-agent: facebookexternalhit\nAllow: /"
+    return PlainTextResponse(
+        content="User-agent: *\nAllow: /\nUser-agent: facebookexternalhit\nAllow: /",
+        headers={"X-Robots-Tag": "index, follow, noarchive"}
+    )
 
 @app.post("/api/upload-media")
 async def upload_media(file: UploadFile = File(...)):
@@ -209,7 +213,9 @@ async def signup_page(request: Request):
 @app.get("/privacy", response_class=HTMLResponse)
 @app.head("/privacy")
 async def privacy_page(request: Request):
-    return templates.TemplateResponse(request=request, name="privacy.html", context={"request": request})
+    response = templates.TemplateResponse(request=request, name="privacy.html", context={"request": request})
+    response.headers["X-Robots-Tag"] = "index, follow, noarchive"
+    return response
 
 @app.post("/api/auth/signup")
 async def register(username: str = Form(...), password: str = Form(...)):
