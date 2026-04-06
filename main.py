@@ -327,6 +327,8 @@ async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col
                     if found:
                         placeholders = [p.strip().lower() for p in found]
                         break
+                
+                # Substitution variable into text log for Chat UI
                 normalized_row = {str(k).strip().lower(): v for k, v in row.items()}
                 template_params = [str(normalized_row.get(p, "")) for p in placeholders]
                 # Substitute variable into text log for Chat UI
@@ -627,12 +629,22 @@ async def facebook_auth_callback(request: Request, data: dict):
                 
                 granular = debug_data.get('granular_scopes', [])
                 for scope_item in granular:
-                    if scope_item.get('scope') in ['whatsapp_business_management', 'whatsapp_business_messaging']:
-                        target_ids = scope_item.get('target_ids', [])
-                        if target_ids:
-                            waba_id = target_ids[0]
-                            print(f"DEBUG FB: Found WABA ID in granular scopes: {waba_id}")
-                            break
+                    sc_name = scope_item.get('scope')
+                    target_ids = scope_item.get('target_ids', [])
+                    if sc_name == 'whatsapp_business_management' and target_ids:
+                        waba_id = target_ids[0]
+                        print(f"DEBUG FB: Found WABA ID in management scope: {waba_id}")
+                        break
+                
+                if not waba_id or waba_id == "AUTO_DETECT":
+                    for scope_item in granular:
+                        if scope_item.get('scope') == 'whatsapp_business_messaging':
+                            target_ids = scope_item.get('target_ids', [])
+                            if target_ids:
+                                waba_id = target_ids[0]
+                                print(f"DEBUG FB: Found WABA ID in messaging scope fallback: {waba_id}")
+                                break
+
                 if not waba_id or waba_id == "AUTO_DETECT":
                     return JSONResponse({
                         "error": "No WhatsApp Business Accounts found.", 

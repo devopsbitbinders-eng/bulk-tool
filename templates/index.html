@@ -210,6 +210,8 @@
             fjs.parentNode.insertBefore(js, fjs);
         }(document, 'script', 'facebook-jssdk'));
 
+        let lastAuthIds = null;
+
         // Listen for message from Meta Embedded Signup popup
         window.addEventListener('message', (event) => {
             if (event.origin !== "https://www.facebook.com" && event.origin !== "https://web.facebook.com") return;
@@ -219,10 +221,11 @@
                     console.log('WA Embedded Signup Event:', data);
                     if (data.event === 'FINISH') {
                         const { whatsapp_business_account_id, phone_number_id } = data.data;
-                        // Use the last auth response we got, or just trigger the callback
+                        lastAuthIds = { wabaId: whatsapp_business_account_id, phoneId: phone_number_id };
+                        
                         FB.getLoginStatus(function(response) {
                             if (response.status === 'connected') {
-                                handleFBResponse(response.authResponse, whatsapp_business_account_id, phone_number_id);
+                                handleFBResponse(response, lastAuthIds.wabaId, lastAuthIds.phoneId);
                             }
                         });
                     }
@@ -231,7 +234,10 @@
         });
 
         async function launchFBLogin() {
+            lastAuthIds = null; // Reset
             FB.login(function(response) {
+                // If we already handled this via the 'message' event above, skip
+                if (lastAuthIds) return;
                 handleFBResponse(response);
             }, {
                 config_id: '{{ fb_config_id }}', 
@@ -247,10 +253,10 @@
 
         async function handleFBResponse(response, wabaId = 'AUTO_DETECT', phoneId = 'AUTO_DETECT') {
             const auth = response.authResponse;
-            const code = auth ? auth.code : null;
+            const code = auth ? auth.code : (response.code || null);
             
             // If the user cancelled or something went wrong
-            if (!auth || (!code && !auth.accessToken)) {
+            if (!auth && !response.code) {
                 return;
             }
 
