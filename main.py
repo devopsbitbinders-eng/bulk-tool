@@ -27,7 +27,7 @@ USE_REAL_API = True # Set to False for local testing without sending real messag
 # The user should configure these in their Meta App Dashboard
 FB_APP_ID = "916270141105838" 
 FB_APP_SECRET = "3f58694b5b0ec480d6992dabc16e6ece"
-FB_CONFIG_ID = "1819547065399749" # Configuration ID for Business Login
+FB_CONFIG_ID = "2015666162711485" # Configuration ID for Business Login
 
 # --- System SMTP Configuration (Fixed Sender) ---
 SYSTEM_EMAIL = os.environ.get('SYSTEM_EMAIL', 'devopsbitbinders@gmail.com')
@@ -581,24 +581,21 @@ async def facebook_auth_callback(request: Request, data: dict):
     # 0. Exchange code for access_token if needed (Security Upgrade)
     if code and not access_token:
         try:
-            # Reconstruct the origin from headers
-            proto = request.headers.get('x-forwarded-proto', 'https') 
-            host = request.headers.get('x-forwarded-host') or request.headers.get('host') or "127.0.0.1:8000"
-            origin = f"{proto}://{host}"
-            referer = request.headers.get('referer', '').split('?')[0].split('#')[0]
-
-            redirect_uris = [origin.rstrip('/') + '/', origin.rstrip('/'), referer.rstrip('/') + '/', referer.rstrip('/'), ""]
+            # In Meta v2 Signup (JS SDK 'code' flow), redirect_uri must be empty or match the original
+            exchange_url = "https://graph.facebook.com/v21.0/oauth/access_token"
+            data_payload = {
+                "client_id": FB_APP_ID, 
+                "client_secret": FB_APP_SECRET, 
+                "code": code,
+                "redirect_uri": "" # Empty for JS SDK 'code' flow
+            }
             
-            for r_uri in redirect_uris:
-                exchange_url = "https://graph.facebook.com/v21.0/oauth/access_token"
-                data_payload = {"client_id": FB_APP_ID, "client_secret": FB_APP_SECRET, "code": code}
-                if r_uri: data_payload["redirect_uri"] = r_uri
-                
-                res = requests.post(exchange_url, data=data_payload)
-                res_json = res.json()
-                if "access_token" in res_json:
-                    access_token = res_json["access_token"]
-                    break
+            res = requests.post(exchange_url, data=data_payload)
+            res_json = res.json()
+            if "access_token" in res_json:
+                access_token = res_json["access_token"]
+            else:
+                print(f"ERROR FB: Token exchange failed: {res_json}")
 
         except Exception as e:
             print(f"ERROR FB: Token exchange exception: {str(e)}")
@@ -623,7 +620,7 @@ async def facebook_auth_callback(request: Request, data: dict):
             print(f"DEBUG FB: WABA Check Response: {waba_json}")
             
             if not waba_data:
-                # Fallback: Check debug_token for granular scopes (common for Test Accounts)
+                # Fallback: Check debug_token for granular scopes
                 debug_url = f"https://graph.facebook.com/v21.0/debug_token?input_token={access_token}&access_token={FB_APP_ID}|{FB_APP_SECRET}"
                 debug_data = requests.get(debug_url).json().get('data', {})
                 print(f"DEBUG FB: Fallback Debug Info: {debug_data}")
@@ -633,13 +630,9 @@ async def facebook_auth_callback(request: Request, data: dict):
                     if scope_item.get('scope') in ['whatsapp_business_management', 'whatsapp_business_messaging']:
                         target_ids = scope_item.get('target_ids', [])
                         if target_ids:
-                            # If multiple, prioritize one that might be a 'test' one if we can tell, 
-                            # otherwise pick first. Meta doesn't explicitly flag 'Test' in ID, 
-                            # but usually the user selects it in the popup.
                             waba_id = target_ids[0]
                             print(f"DEBUG FB: Found WABA ID in granular scopes: {waba_id}")
                             break
-                
                 if not waba_id or waba_id == "AUTO_DETECT":
                     return JSONResponse({
                         "error": "No WhatsApp Business Accounts found.", 
@@ -647,11 +640,10 @@ async def facebook_auth_callback(request: Request, data: dict):
                         "meta_response": waba_json
                     }, status_code=404)
             else:
-                # If multiple WABAs, try to find one that says 'Test' in its name if possible
-                # (Standard detection usually only returns what the user selected)
+                # Pick the first WABA, prioritizing non-test one
                 waba_id = waba_data[0]['id']
                 for w in waba_data:
-                    if "test" in w.get('name', '').lower():
+                    if "test" not in w.get('name', '').lower():
                         waba_id = w['id']
                         break
                 print(f"DEBUG FB: Selected WABA ID: {waba_id}")
@@ -671,14 +663,15 @@ async def facebook_auth_callback(request: Request, data: dict):
                     "meta_response": phone_json
                 }, status_code=404)
             
-            # Prioritize Test Number if available
+            # Pick first number, but prefer one that is NOT a "test" number
             phone_id = phone_data[0]['id']
             phone_number = phone_data[0].get('display_phone_number', 'Linked Account')
             
             for p in phone_data:
-                if "test" in p.get('display_phone_number', '').lower() or "test" in p.get('verified_name', '').lower():
+                is_test = "test" in p.get('display_phone_number', '').lower() or "test" in p.get('verified_name', '').lower()
+                if not is_test:
                     phone_id = p['id']
-                    phone_number = p.get('display_phone_number', 'Test Number')
+                    phone_number = p.get('display_phone_number', 'Linked Account')
                     break
                     
             print(f"DEBUG FB: Selected Phone ID: {phone_id} ({phone_number})")
@@ -1674,4 +1667,13 @@ if __name__ == "__main__":
     port = int(os.environ.get('PORT', 8000))
     # Listen on 0.0.0.0 for cloud, but 127.0.0.1 is fine for local
     host = "127.0.0.1" if not os.environ.get('PORT') else "0.0.0.0"
+    
+    # Auto-open browser when running locally
+    if not os.environ.get('PORT'):
+        try:
+            import webbrowser
+            webbrowser.open(f"http://127.0.0.1:{port}")
+        except:
+            pass
+
     uvicorn.run(app, host=host, port=port)
