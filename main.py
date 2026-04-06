@@ -1040,8 +1040,8 @@ async def create_complex_template(
     utc_now = get_now_utc()
     if is_mysql:
         query = """
-            INSERT INTO templates (name, category, language, status, content, components, variable_map, last_synced)
-            VALUES (:name, :category, :language, :status, :content, :components, :var_map, :last_synced)
+            INSERT INTO templates (user_id, name, category, language, status, content, components, variable_map, last_synced)
+            VALUES (:u_id, :name, :category, :language, :status, :content, :components, :var_map, :last_synced)
             ON DUPLICATE KEY UPDATE
                 category = VALUES(category),
                 language = VALUES(language),
@@ -1053,9 +1053,9 @@ async def create_complex_template(
         """
     else:
         query = """
-            INSERT INTO templates (name, category, language, status, content, components, variable_map, last_synced)
-            VALUES (:name, :category, :language, :status, :content, :components, :var_map, :last_synced)
-            ON CONFLICT(name) DO UPDATE SET
+            INSERT INTO templates (user_id, name, category, language, status, content, components, variable_map, last_synced)
+            VALUES (:u_id, :name, :category, :language, :status, :content, :components, :var_map, :last_synced)
+            ON CONFLICT(user_id, name) DO UPDATE SET
                 category = excluded.category,
                 language = excluded.language,
                 status = 'PENDING',
@@ -1066,7 +1066,7 @@ async def create_complex_template(
         """
 
     await db.execute(query, {
-        "name": name, "category": category, "language": language, 
+        "u_id": u_id, "name": name, "category": category, "language": language, 
         "status": 'PENDING', "content": content, "components": json.dumps(components), 
         "var_map": variable_map, "last_synced": utc_now
     })
@@ -1635,8 +1635,8 @@ async def create_otp_template(request: Request):
     is_mysql = "mysql" in str(db.url).lower() or "mariadb" in str(db.url).lower()
     if is_mysql:
         query = """
-            INSERT INTO templates (name, category, language, status, content, components, user_id, last_synced)
-            VALUES (:name, 'AUTHENTICATION', :language, 'PENDING', :content, :components, :user_id, :last_synced)
+            INSERT INTO templates (user_id, name, category, language, status, content, components, last_synced)
+            VALUES (:user_id, :name, 'AUTHENTICATION', :language, 'PENDING', :content, :components, :last_synced)
             ON DUPLICATE KEY UPDATE
                 category = VALUES(category),
                 status = 'PENDING',
@@ -1646,9 +1646,9 @@ async def create_otp_template(request: Request):
         """
     else:
         query = """
-            INSERT INTO templates (name, category, language, status, content, components, user_id, last_synced)
-            VALUES (:name, 'AUTHENTICATION', :language, 'PENDING', :content, :components, :user_id, :last_synced)
-            ON CONFLICT(name) DO UPDATE SET
+            INSERT INTO templates (user_id, name, category, language, status, content, components, last_synced)
+            VALUES (:user_id, :name, 'AUTHENTICATION', :language, 'PENDING', :content, :components, :last_synced)
+            ON CONFLICT(user_id, name) DO UPDATE SET
                 category = excluded.category,
                 status = 'PENDING',
                 content = excluded.content,
