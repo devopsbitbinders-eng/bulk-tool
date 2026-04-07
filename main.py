@@ -168,8 +168,9 @@ async def index(request: Request):
     u_id = await get_user_id(username)
     
     # Get linked account info specifically for this user
-    cred = await db.fetch_one("SELECT phone_number FROM user_credentials WHERE is_active = 1 AND user_id = :u LIMIT 1", {"u": u_id})
+    cred = await db.fetch_one("SELECT phone_number, waba_id FROM user_credentials WHERE is_active = 1 AND user_id = :u LIMIT 1", {"u": u_id})
     linked_phone = cred['phone_number'] if cred else None
+    waba_id = cred['waba_id'] if cred else None
 
     campaigns = await db.fetch_all("SELECT * FROM campaigns WHERE user_id = :u ORDER BY timestamp DESC LIMIT 50", {"u": u_id})
     
@@ -194,6 +195,7 @@ async def index(request: Request):
         "fb_app_id": FB_APP_ID,
         "fb_config_id": FB_CONFIG_ID,
         "linked_phone": linked_phone,
+        "waba_id": waba_id,
         "stats": await get_dashboard_stats(u_id),
         "username": username
     })
@@ -711,6 +713,46 @@ async def facebook_auth_callback(request: Request, data: dict):
     """, {"u": u_id, "token": access_token, "phone_id": phone_id, "waba_id": waba_id, "phone": phone_number})
     
     return {"message": "WhatsApp Account linked successfully!", "phone": phone_number}
+
+@app.post("/api/auth/manual")
+async def manual_auth(request: Request):
+    """Allows manual entry of WABA ID, Phone ID, and Token (useful for System User tokens)."""
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+
+    body = await request.json()
+    token = body.get("token")
+    waba_id = body.get("waba_id")
+    phone_id = body.get("phone_id")
+
+    if not all([token, waba_id, phone_id]):
+        return JSONResponse(status_code=400, content={"error": "All fields are required."})
+
+    # Try to verify and get the phone number for display
+    phone_number = "Manual Account"
+    try:
+        url = f"https://graph.facebook.com/v21.0/{phone_id}"
+        headers = {"Authorization": f"Bearer {token}"}
+        res = requests.get(url, headers=headers)
+        if res.status_code == 200:
+            data = res.json()
+            phone_number = data.get("display_phone_number", "Manual Account")
+    except:
+        pass
+
+    db = await get_db()
+    # Deactivate existing
+    await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
+    
+    # Save new
+    await db.execute("""
+        INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
+        VALUES (:u, :token, :phone_id, :waba_id, :phone, 1)
+    """, {"u": u_id, "token": token, "phone_id": phone_id, "waba_id": waba_id, "phone": phone_number})
+
+    return {"message": "Credentials updated successfully!", "phone": phone_number}
 
 @app.post("/upload")
 async def upload_file(

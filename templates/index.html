@@ -135,6 +135,9 @@
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                         {% if linked_phone %}Linked ✓{% else %}Connect WhatsApp{% endif %}
                     </button>
+                    <button onclick="openManualAuthModal()" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors bg-white rounded-xl border border-slate-100 shadow-sm" title="Manual Credential Setup">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                    </button>
                     {% if linked_phone %}
                     <div class="flex items-center gap-1">
                         <button onclick="unlinkAccount()" class="p-2 text-slate-400 hover:text-amber-500 transition-colors bg-slate-50 rounded-xl border border-slate-100" title="Disconnect WhatsApp (Keep Login)">
@@ -154,9 +157,14 @@
                 </div>
                 <div class="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100">
                     <span id="apiStatusDot" class="w-2 h-2 {% if linked_phone %}bg-green-500{% else %}bg-slate-300{% endif %} rounded-full {% if linked_phone %}animate-pulse{% endif %}"></span>
-                    <span id="apiStatusText" class="text-[10px] font-bold text-slate-600">
-                        {% if linked_phone %}ACTIVE: {{ linked_phone }}{% else %}DISCONNECTED{% endif %}
-                    </span>
+                    <div class="flex flex-col">
+                        <span id="apiStatusText" class="text-[10px] font-bold text-slate-600 leading-tight">
+                            {% if linked_phone %}ACTIVE: {{ linked_phone }}{% else %}DISCONNECTED{% endif %}
+                        </span>
+                        {% if linked_phone %}
+                        <span class="text-[8px] text-slate-400 font-medium">WABA: {{ waba_id }}</span>
+                        {% endif %}
+                    </div>
                 </div>
 
                 <!-- Profile Dropdown -->
@@ -293,7 +301,84 @@
                 btn.innerHTML = `Connect WhatsApp`;
             }
         }
+
+        // --- Manual Auth Modal Logic ---
+        function openManualAuthModal() {
+            document.getElementById('manualAuthModal').classList.remove('hidden');
+            document.getElementById('manualAuthModal').classList.add('flex');
+        }
+
+        function closeManualAuthModal() {
+            document.getElementById('manualAuthModal').classList.add('hidden');
+            document.getElementById('manualAuthModal').classList.remove('flex');
+        }
+
+        async function submitManualAuth() {
+            const token = document.getElementById('manual_token').value.strip ? document.getElementById('manual_token').value.trim() : document.getElementById('manual_token').value;
+            const wabaId = document.getElementById('manual_waba').value.strip ? document.getElementById('manual_waba').value.trim() : document.getElementById('manual_waba').value;
+            const phoneId = document.getElementById('manual_phone').value.strip ? document.getElementById('manual_phone').value.trim() : document.getElementById('manual_phone').value;
+
+            if (!token || !wabaId || !phoneId) return showToast('All fields are required', 'error');
+
+            const saveBtn = document.getElementById('saveManualBtn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<span class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span> Saving...`;
+
+            try {
+                const res = await fetch('/api/auth/manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, waba_id: wabaId, phone_id: phoneId })
+                });
+
+                if (res.ok) {
+                    showToast('Credentials updated successfully!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    const err = await res.json();
+                    showToast(err.error || 'Setup failed', 'error');
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = `Save Credentials`;
+                }
+            } catch (err) {
+                showToast('Network error during setup', 'error');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `Save Credentials`;
+            }
+        }
     </script>
+
+    <!-- Manual Auth Modal -->
+    <div id="manualAuthModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h5 class="font-bold text-slate-900 text-xl">Manual Meta Setup</h5>
+                    <p class="text-xs text-slate-500">Paste your credentials for manual linking</p>
+                </div>
+                <button onclick="closeManualAuthModal()" class="p-2 text-slate-400 hover:text-rose-500 bg-white rounded-xl shadow-sm transition-all border border-slate-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-8 space-y-6">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">WhatsApp Business Account ID (WABA)</label>
+                    <input type="text" id="manual_waba" placeholder="e.g. 104986..." class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm font-medium">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Phone Number ID</label>
+                    <input type="text" id="manual_phone" placeholder="e.g. 100228..." class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm font-medium">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">System Access Token</label>
+                    <textarea id="manual_token" rows="4" placeholder="EAANBV..." class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm font-medium custom-scrollbar"></textarea>
+                </div>
+                <button id="saveManualBtn" onclick="submitManualAuth()" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+                    Save Credentials
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 pb-12">
