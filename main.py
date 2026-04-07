@@ -723,9 +723,9 @@ async def manual_auth(request: Request):
     u_id = await get_user_id(username)
 
     body = await request.json()
-    token = body.get("token")
-    waba_id = body.get("waba_id")
-    phone_id = body.get("phone_id")
+    token = body.get("token", "").strip() if body.get("token") else ""
+    waba_id = body.get("waba_id", "").strip() if body.get("waba_id") else ""
+    phone_id = body.get("phone_id", "").strip() if body.get("phone_id") else ""
 
     if not all([token, waba_id, phone_id]):
         return JSONResponse(status_code=400, content={"error": "All fields are required."})

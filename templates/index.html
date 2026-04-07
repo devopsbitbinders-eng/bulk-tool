@@ -314,9 +314,9 @@
         }
 
         async function submitManualAuth() {
-            const token = document.getElementById('manual_token').value.strip ? document.getElementById('manual_token').value.trim() : document.getElementById('manual_token').value;
-            const wabaId = document.getElementById('manual_waba').value.strip ? document.getElementById('manual_waba').value.trim() : document.getElementById('manual_waba').value;
-            const phoneId = document.getElementById('manual_phone').value.strip ? document.getElementById('manual_phone').value.trim() : document.getElementById('manual_phone').value;
+            const token = document.getElementById('manual_token').value.trim();
+            const wabaId = document.getElementById('manual_waba').value.trim();
+            const phoneId = document.getElementById('manual_phone').value.trim();
 
             if (!token || !wabaId || !phoneId) return showToast('All fields are required', 'error');
 
