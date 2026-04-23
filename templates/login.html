@@ -48,14 +48,44 @@
                 </button>
             </form>
 
-            <div class="mt-8 text-center">
+            <div class="mt-8 text-center space-y-4">
                 <p class="text-slate-500 text-sm font-medium">Don't have an account? 
                     <a href="/signup" class="text-emerald-600 font-bold hover:underline">Sign up now</a>
                 </p>
+                <div class="pt-4 border-t border-slate-100">
+                    <button onclick="toggleRequestModal()" class="text-xs font-bold text-slate-400 hover:text-emerald-600 transition-colors uppercase tracking-widest flex items-center justify-center gap-2 mx-auto">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                        Request Access Key
+                    </button>
+                </div>
             </div>
         </div>
 
         <p class="text-center mt-8 text-slate-400 text-xs font-medium uppercase tracking-widest">&copy; 2026 Bitbinders Messenger</p>
+    </div>
+
+    <!-- Request Access Modal -->
+    <div id="requestModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-6">
+        <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-300">
+            <h3 class="text-xl font-bold text-slate-900 mb-2 text-center">Request Access</h3>
+            <p class="text-slate-500 text-xs text-center mb-6">Admin will review your request and share a unique key.</p>
+            
+            <form id="requestForm" class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Full Name</label>
+                    <input type="text" name="name" required placeholder="Your Name" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">WhatsApp / Contact</label>
+                    <input type="text" name="contact" required placeholder="+91 ..." class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm font-medium">
+                </div>
+                <div id="requestStatus" class="hidden p-3 rounded-xl text-[10px] font-bold text-center border"></div>
+                <button type="submit" id="requestBtn" class="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2">
+                    Send Request
+                </button>
+                <button type="button" onclick="toggleRequestModal()" class="w-full text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest py-2">Cancel</button>
+            </form>
+        </div>
     </div>
 
     <script>
@@ -88,6 +118,38 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
+            }
+        };
+
+        function toggleRequestModal() {
+            const modal = document.getElementById('requestModal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        document.getElementById('requestForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('requestBtn');
+            const status = document.getElementById('requestStatus');
+            const formData = new FormData(e.target);
+            
+            btn.disabled = true;
+            btn.innerHTML = 'Sending...';
+            status.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/auth/request-access', { method: 'POST', body: formData });
+                const data = await res.json();
+                status.innerText = data.message;
+                status.className = `p-3 rounded-xl text-[10px] font-bold text-center border ${res.ok ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`;
+                status.classList.remove('hidden');
+                if (res.ok) e.target.reset();
+            } catch (err) {
+                status.innerText = 'Error sending request';
+                status.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Send Request';
             }
         };
     </script>
