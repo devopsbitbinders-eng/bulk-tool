@@ -26,11 +26,6 @@ import secrets
 # Settings
 USE_REAL_API = True # Set to False for local testing without sending real messages
 
-def generate_invite_code():
-    # Generates a random code like BB-7K2X-9P
-    chars = string.ascii_uppercase + string.digits
-    code = ''.join(secrets.choice(chars) for _ in range(8))
-    return f"BB-{code[:4]}-{code[4:]}"
 
 # Meta App Credentials (for Token Exchange)
 # The user should configure these in their Meta App Dashboard
@@ -234,14 +229,6 @@ async def privacy_page(request: Request):
     response.headers["X-Robots-Tag"] = "index, follow, noarchive"
     return response
 
-@app.post("/api/auth/request-access")
-async def request_access(name: str = Form(...), contact: str = Form(...)):
-    db = await get_db()
-    await db.execute(
-        "INSERT INTO access_requests (name, contact) VALUES (:n, :c)",
-        {"n": name, "c": contact}
-    )
-    return {"message": "Request sent successfully! Admin will contact you with a key."}
 
 @app.post("/api/auth/signup")
 async def register(username: str = Form(...), password: str = Form(...)):
@@ -320,30 +307,6 @@ async def admin_get_users(request: Request):
     users = await db.fetch_all("SELECT id, username, is_approved, is_admin, created_at FROM users ORDER BY created_at DESC")
     return [dict(u) for u in users]
 
-@app.get("/api/admin/requests")
-async def admin_get_requests(request: Request):
-    session_token = request.cookies.get("session_token")
-    username = verify_session_token(session_token)
-    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-    db = await get_db()
-    admin_check = await db.fetch_one("SELECT is_admin FROM users WHERE username = :u", {"u": username})
-    if not admin_check or not admin_check['is_admin']: return JSONResponse(status_code=403, content={"error": "Access Denied"})
-    
-    reqs = await db.fetch_all("SELECT * FROM access_requests ORDER BY created_at DESC")
-    return [dict(r) for r in reqs]
-
-@app.post("/api/admin/generate-invite")
-async def admin_generate_invite(request: Request):
-    session_token = request.cookies.get("session_token")
-    username = verify_session_token(session_token)
-    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-    db = await get_db()
-    admin_check = await db.fetch_one("SELECT is_admin FROM users WHERE username = :u", {"u": username})
-    if not admin_check or not admin_check['is_admin']: return JSONResponse(status_code=403, content={"error": "Access Denied"})
-    
-    new_code = generate_invite_code()
-    await db.execute("INSERT INTO invite_keys (key_code) VALUES (:k)", {"k": new_code})
-    return {"key": new_code}
 
 @app.post("/api/admin/approve/{user_id}")
 async def admin_approve_user(user_id: int, request: Request):
