@@ -41,6 +41,8 @@ async def init_db():
             direction TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             wa_message_id TEXT,
+            status TEXT DEFAULT 'sent',
+            error_message TEXT,
             is_read BOOLEAN DEFAULT 0
         )
     """)
@@ -170,6 +172,12 @@ async def init_db():
     try: await db.execute("ALTER TABLE templates ADD COLUMN components TEXT")
     except: pass
     try: await db.execute("ALTER TABLE templates ADD COLUMN variable_map TEXT")
+    except: pass
+    
+    # Migration: chat_messages status and error_message
+    try: await db.execute("ALTER TABLE chat_messages ADD COLUMN status TEXT DEFAULT 'sent'")
+    except: pass
+    try: await db.execute("ALTER TABLE chat_messages ADD COLUMN error_message TEXT")
     except: pass
 
     pass # Keep connection pool alive for the actual request

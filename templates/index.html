@@ -1681,6 +1681,7 @@
         let currentFileColumns = [];
         let currentTemplateVars = [];
         let currentHeaderType = "NONE";
+        let selectedTemplateLang = "en_US";
 
         function toggleDeliveryMethod(method) {
             const bulkArea = document.getElementById('bulkDeliveryArea');
@@ -1745,6 +1746,7 @@
             // Check for Media Header
             const header = components.find(c => c.type === 'HEADER');
             currentHeaderType = header ? header.format : "NONE";
+            selectedTemplateLang = template.language || "en_US";
 
             document.getElementById('mappingArea').classList.remove('hidden');
             renderMappingUI(varMap);
@@ -1864,6 +1866,7 @@
                 });
                 
                 formData.append('mappings', JSON.stringify(mappings));
+                formData.append('language_code', selectedTemplateLang);
                 // Include disabled text area value
                 formData.append('message', document.getElementById('messageInput').value);
             } else {
@@ -3111,6 +3114,11 @@
                     formData.append('phone', currentChatPhone);
                     formData.append('template_name', name);
                     formData.append('msg_type', 'template');
+                    
+                    const t = chatTemplatesList.find(temp => temp.name === name);
+                    if (t && t.language) {
+                        formData.append('language_code', t.language);
+                    }
                     
                     const response = await fetch('/api/chat/send', {
                         method: 'POST',

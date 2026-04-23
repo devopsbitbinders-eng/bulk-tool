@@ -38,7 +38,7 @@ FB_APP_ID = "916270141105838"
 FB_APP_SECRET = "3f58694b5b0ec480d6992dabc16e6ece"
 FB_CONFIG_ID = "2015666162711485" # Configuration ID for Business Login
 REGISTRATION_KEY = os.environ.get("REGISTRATION_KEY", "BITBINDERS_PRO_2024")
-MASTER_ADMIN_KEY = os.environ.get("MASTER_ADMIN_KEY", "ADMIN_BIT_2024")
+# Admin Key system removed for maximum security. Use promote_admin.py instead.
 
 # --- System SMTP Configuration (Fixed Sender) ---
 SYSTEM_EMAIL = os.environ.get('SYSTEM_EMAIL', 'devopsbitbinders@gmail.com')
@@ -244,19 +244,13 @@ async def request_access(name: str = Form(...), contact: str = Form(...)):
     return {"message": "Request sent successfully! Admin will contact you with a key."}
 
 @app.post("/api/auth/signup")
-async def register(username: str = Form(...), password: str = Form(...), reg_key: Optional[str] = Form(None)):
+async def register(username: str = Form(...), password: str = Form(...)):
     db = await get_db()
     
+    # Default is a regular, unapproved user.
+    # To make someone an admin, run the promote_admin.py script.
     is_admin = 0
     is_approved = 0
-    
-    # 1. Check if it's the Master Admin Key
-    if reg_key and reg_key == MASTER_ADMIN_KEY:
-        is_admin = 1
-        is_approved = 1
-    
-    # No more invite key requirement for regular users
-    # They just sign up and wait for approval
 
     # Check if user exists
     existing = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
@@ -1390,10 +1384,14 @@ async def webhook_handler(request: Request):
                     print(f"DEBUG WEBHOOK: Status update for {wa_message_id}: {new_status}")
                     
                     db = await get_db()
-                    # Check if message exists
-                    msg = await db.fetch_one("SELECT campaign_id FROM messages WHERE whatsapp_message_id = :id", {"id": wa_message_id})
-                    if msg:
-                        print(f"DEBUG WEBHOOK: Found message {wa_message_id}. Current campaign: {msg['campaign_id']}. New status: {new_status}")
+                    # 1. Update Campaigns/Bulk Messages Table
+                    msg = await db.fetch_one("SELECT id FROM messages WHERE whatsapp_message_id = :id", {"id": wa_message_id})
+                    
+                    # 2. Update Individual Chat Messages Table
+                    chat_msg = await db.fetch_one("SELECT id FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
+                    
+                    if msg or chat_msg:
+                        print(f"DEBUG WEBHOOK: Found message {wa_message_id} in {'messages' if msg else 'chat_messages'}. New status: {new_status}")
                         
                         # Update message status and error message if failed
                         error_msg = None
@@ -1403,13 +1401,15 @@ async def webhook_handler(request: Request):
                                 error_msg = errors[0].get("message", "Unknown Meta Error")
                         
                         if error_msg:
-                            await db.execute("""
-                                UPDATE messages SET status = :status, error_message = :err WHERE whatsapp_message_id = :id
-                            """, {"status": new_status, "err": error_msg, "id": wa_message_id})
+                            if msg:
+                                await db.execute("UPDATE messages SET status = :status, error_message = :err WHERE whatsapp_message_id = :id", {"status": new_status, "err": error_msg, "id": wa_message_id})
+                            if chat_msg:
+                                await db.execute("UPDATE chat_messages SET status = :status, error_message = :err WHERE wa_message_id = :id", {"status": new_status, "err": error_msg, "id": wa_message_id})
                         else:
-                            await db.execute("""
-                                UPDATE messages SET status = :status WHERE whatsapp_message_id = :id
-                            """, {"status": new_status, "id": wa_message_id})
+                            if msg:
+                                await db.execute("UPDATE messages SET status = :status WHERE whatsapp_message_id = :id", {"status": new_status, "id": wa_message_id})
+                            if chat_msg:
+                                await db.execute("UPDATE chat_messages SET status = :status WHERE wa_message_id = :id", {"status": new_status, "id": wa_message_id})
                     else:
                         print(f"DEBUG WEBHOOK: Message ID {wa_message_id} not found in DB")
                 # Check if it's an incoming message
@@ -1577,7 +1577,8 @@ async def send_chat_reply(
     message: str = Form(""),
     file: UploadFile = File(None),
     template_name: str = Form(None),
-    msg_type: str = Form("text")
+    msg_type: str = Form("text"),
+    language_code: str = Form("en_US")
 ):
     if not phone:
         return JSONResponse(status_code=400, content={"error": "Phone number is required"})
@@ -1639,20 +1640,19 @@ async def send_chat_reply(
         msg_type=msg_type,
         media_id=media_id,
         template_name=template_name,
+        language_code=language_code,
         credentials=credentials
     )
     
     print(f"DEBUG CHAT: Send to {phone} result: {success}. Response: {response}")
     
     if success:
-        wa_id = None
-        if isinstance(response, dict) and "messages" in response:
-            wa_id = response["messages"][0].get("id")
+        wa_id = response.get("wa_id")
             
-        # Save to Chat History with user_id
+        # Save to Chat History with user_id and initial status
         await db.execute("""
-            INSERT INTO chat_messages (user_id, phone, message, direction, wa_message_id, is_read, timestamp)
-            VALUES (:u, :phone, :message, 'outbound', :id, 1, :ts)
+            INSERT INTO chat_messages (user_id, phone, message, direction, wa_message_id, status, is_read, timestamp)
+            VALUES (:u, :phone, :message, 'outbound', :id, 'sent', 1, :ts)
         """, {"u": u_id, "phone": phone, "message": display_message, "id": wa_id, "ts": get_now_utc()})
         
         return {"status": "ok", "wa_id": wa_id}
