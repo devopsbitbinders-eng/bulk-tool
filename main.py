@@ -289,8 +289,8 @@ async def login(username: str = Form(...), password: str = Form(...)):
         if not user:
             return JSONResponse(status_code=401, content={"error": "Invalid username or password"})
         
-        # Check password with correct hash/salt order
-        is_valid = verify_password(password, user['password_hash'], user['salt'])
+        # Check password with correct hash/salt order (password, salt, hash)
+        is_valid = verify_password(password, user['salt'], user['password_hash'])
         if not is_valid:
             return JSONResponse(status_code=401, content={"error": "Invalid username or password"})
         
