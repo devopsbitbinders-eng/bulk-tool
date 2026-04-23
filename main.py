@@ -282,18 +282,33 @@ async def register(username: str = Form(...), password: str = Form(...), reg_key
 
 @app.post("/api/auth/login")
 async def login(username: str = Form(...), password: str = Form(...)):
-    db = await get_db()
-    user = await db.fetch_one("SELECT * FROM users WHERE username = :u", {"u": username})
-    if not user or not verify_password(password, user['salt'], user['password_hash']):
-        return JSONResponse(status_code=401, content={"error": "Invalid username or password"})
-    
-    if not user.get('is_approved'):
-        return JSONResponse(status_code=403, content={"error": "Your account is pending administrator approval."})
-    
-    token = create_session_token(username)
-    response = JSONResponse(content={"message": "Logged in successfully", "redirect": "/"})
-    response.set_cookie(key="session_token", value=token, httponly=True, max_age=604800) # 7 days
-    return response
+    try:
+        db = await get_db()
+        user = await db.fetch_one("SELECT * FROM users WHERE username = :u", {"u": username})
+        
+        if not user:
+            return JSONResponse(status_code=401, content={"error": "Invalid username or password"})
+        
+        # Check password with correct hash/salt order
+        is_valid = verify_password(password, user['password_hash'], user['salt'])
+        if not is_valid:
+            return JSONResponse(status_code=401, content={"error": "Invalid username or password"})
+        
+        # Safe check for is_approved column
+        is_approved = 1
+        if 'is_approved' in user.keys():
+            is_approved = user['is_approved']
+        
+        if not is_approved:
+            return JSONResponse(status_code=403, content={"error": "Your account is pending administrator approval."})
+        
+        token = create_session_token(username)
+        response = JSONResponse(content={"message": "Logged in successfully", "redirect": "/"})
+        response.set_cookie(key="session_token", value=token, httponly=True, max_age=604800) # 7 days
+        return response
+    except Exception as e:
+        print(f"CRITICAL LOGIN ERROR: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": f"Database Error: {str(e)}"})
 
 @app.get("/logout")
 async def logout():

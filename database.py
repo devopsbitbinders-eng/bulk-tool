@@ -149,25 +149,10 @@ async def init_db():
             except: pass
     
     # Migration: Ensure columns exist in the 'users' table
-    # We use a more robust check for MySQL/SQLite
-    user_columns = await db.fetch_all("PRAGMA table_info(users)") if not is_mysql else []
-    if is_mysql:
-        # For MySQL, we check information_schema
-        cols = await db.fetch_all("SELECT COLUMN_NAME FROM information_schema.columns WHERE table_name = 'users' AND table_schema = DATABASE()")
-        existing_cols = [c['COLUMN_NAME'] for c in cols]
-        
-        if 'is_approved' not in existing_cols:
-            try: await db.execute("ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT 0")
-            except: pass
-        if 'is_admin' not in existing_cols:
-            try: await db.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
-            except: pass
-    else:
-        # SQLite logic
-        try: await db.execute("ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT 0")
-        except: pass
-        try: await db.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
-        except: pass
+    try: await db.execute("ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT 0")
+    except: pass
+    try: await db.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
+    except: pass
 
     # Other migrations
     try: await db.execute("ALTER TABLE chat_messages ADD COLUMN user_id INTEGER")
