@@ -169,6 +169,9 @@ async def index(request: Request):
     u_id = await get_user_id(username)
     
     # Get linked account info specifically for this user
+    user_data = await db.fetch_one("SELECT is_admin FROM users WHERE id = :u", {"u": u_id})
+    is_admin = user_data['is_admin'] if user_data else 0
+
     cred = await db.fetch_one("SELECT phone_number, waba_id FROM user_credentials WHERE is_active = 1 AND user_id = :u LIMIT 1", {"u": u_id})
     linked_phone = cred['phone_number'] if cred else None
     waba_id = cred['waba_id'] if cred else None
@@ -198,7 +201,8 @@ async def index(request: Request):
         "linked_phone": linked_phone,
         "waba_id": waba_id,
         "stats": await get_dashboard_stats(u_id),
-        "username": username
+        "username": username,
+        "is_admin": is_admin
     })
 
 @app.get("/login", response_class=HTMLResponse)
@@ -259,6 +263,54 @@ async def logout():
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie("session_token")
     return response
+
+# --- Admin API ---
+@app.get("/api/admin/users")
+async def admin_get_users(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    
+    db = await get_db()
+    admin_check = await db.fetch_one("SELECT is_admin FROM users WHERE username = :u", {"u": username})
+    if not admin_check or not admin_check['is_admin']:
+        return JSONResponse(status_code=403, content={"error": "Access Denied"})
+    
+    users = await db.fetch_all("SELECT id, username, is_approved, is_admin, created_at FROM users ORDER BY created_at DESC")
+    return [dict(u) for u in users]
+
+@app.post("/api/admin/approve/{user_id}")
+async def admin_approve_user(user_id: int, request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    
+    db = await get_db()
+    admin_check = await db.fetch_one("SELECT is_admin FROM users WHERE username = :u", {"u": username})
+    if not admin_check or not admin_check['is_admin']:
+        return JSONResponse(status_code=403, content={"error": "Access Denied"})
+    
+    await db.execute("UPDATE users SET is_approved = 1 WHERE id = :id", {"id": user_id})
+    return {"message": "User approved successfully"}
+
+@app.post("/api/admin/delete/{user_id}")
+async def admin_delete_user(user_id: int, request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    
+    db = await get_db()
+    admin_check = await db.fetch_one("SELECT is_admin FROM users WHERE username = :u", {"u": username})
+    if not admin_check or not admin_check['is_admin']:
+        return JSONResponse(status_code=403, content={"error": "Access Denied"})
+    
+    # Don't delete yourself
+    me = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
+    if me and me['id'] == user_id:
+        return JSONResponse(status_code=400, content={"error": "You cannot delete your own account"})
+
+    await db.execute("DELETE FROM users WHERE id = :id", {"id": user_id})
+    return {"message": "User deleted successfully"}
 
 @app.get("/api/templates")
 async def api_get_templates(request: Request):

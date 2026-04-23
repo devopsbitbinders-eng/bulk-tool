@@ -114,6 +114,7 @@ async def init_db():
             password_hash TEXT,
             salt TEXT,
             is_approved BOOLEAN DEFAULT 0,
+            is_admin BOOLEAN DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         ) {table_opts}
     """)
@@ -144,6 +145,8 @@ async def init_db():
     try: await db.execute("ALTER TABLE templates ADD COLUMN variable_map TEXT")
     except: pass
     try: await db.execute("ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT 0")
+    except: pass
+    try: await db.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
     except: pass
 
     pass # Keep connection pool alive for the actual request
