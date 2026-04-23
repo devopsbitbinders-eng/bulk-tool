@@ -119,10 +119,31 @@ async def init_db():
         ) {table_opts}
     """)
 
+    # 6. Access Requests Table
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS access_requests (
+            id INTEGER PRIMARY KEY {auto_inc},
+            name TEXT,
+            contact TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) {table_opts}
+    """)
+
+    # 7. Invite Keys Table
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS invite_keys (
+            id INTEGER PRIMARY KEY {auto_inc},
+            key_code {text_type} UNIQUE,
+            is_used BOOLEAN DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) {table_opts}
+    """)
+
     # Migrations for existing SQLite/MySQL
     if is_mysql:
         # For MySQL, ensure existing tables are converted
-        tables = ["campaigns", "messages", "templates", "user_credentials", "users"]
+        tables = ["campaigns", "messages", "templates", "user_credentials", "users", "access_requests", "invite_keys"]
         for table in tables:
             try: await db.execute(f"ALTER TABLE {table} CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
             except: pass

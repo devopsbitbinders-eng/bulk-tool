@@ -20,8 +20,17 @@ import datetime
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse, PlainTextResponse
 from auth_utils import hash_password, verify_password, create_session_token, verify_session_token
 
+import string
+import secrets
+
 # Settings
 USE_REAL_API = True # Set to False for local testing without sending real messages
+
+def generate_invite_code():
+    # Generates a random code like BB-7K2X-9P
+    chars = string.ascii_uppercase + string.digits
+    code = ''.join(secrets.choice(chars) for _ in range(8))
+    return f"BB-{code[:4]}-{code[4:]}"
 
 # Meta App Credentials (for Token Exchange)
 # The user should configure these in their Meta App Dashboard
@@ -29,6 +38,7 @@ FB_APP_ID = "916270141105838"
 FB_APP_SECRET = "3f58694b5b0ec480d6992dabc16e6ece"
 FB_CONFIG_ID = "2015666162711485" # Configuration ID for Business Login
 REGISTRATION_KEY = os.environ.get("REGISTRATION_KEY", "BITBINDERS_PRO_2024")
+MASTER_ADMIN_KEY = os.environ.get("MASTER_ADMIN_KEY", "ADMIN_BIT_2024")
 
 # --- System SMTP Configuration (Fixed Sender) ---
 SYSTEM_EMAIL = os.environ.get('SYSTEM_EMAIL', 'devopsbitbinders@gmail.com')
@@ -224,24 +234,51 @@ async def privacy_page(request: Request):
     response.headers["X-Robots-Tag"] = "index, follow, noarchive"
     return response
 
+@app.post("/api/auth/request-access")
+async def request_access(name: str = Form(...), contact: str = Form(...)):
+    db = await get_db()
+    await db.execute(
+        "INSERT INTO access_requests (name, contact) VALUES (:n, :c)",
+        {"n": name, "c": contact}
+    )
+    return {"message": "Request sent successfully! Admin will contact you with a key."}
+
 @app.post("/api/auth/signup")
 async def register(username: str = Form(...), password: str = Form(...), reg_key: str = Form(...)):
-    if reg_key != REGISTRATION_KEY:
-        return JSONResponse(status_code=403, content={"error": "Invalid Registration Key. Please contact the administrator."})
-
     db = await get_db()
+    
+    is_admin = 0
+    is_approved = 0
+    
+    # 1. Check if it's the Master Admin Key
+    if reg_key == MASTER_ADMIN_KEY:
+        is_admin = 1
+        is_approved = 1
+    else:
+        # 2. Check if the unique invite key exists and is not used
+        key_record = await db.fetch_one("SELECT * FROM invite_keys WHERE key_code = :k AND is_used = 0", {"k": reg_key})
+        if not key_record:
+            return JSONResponse(status_code=403, content={"error": "Invalid or expired Invite Key. Please request a new one."})
+        
+        # Mark the key as used
+        await db.execute("UPDATE invite_keys SET is_used = 1 WHERE id = :id", {"id": key_record['id']})
+
     # Check if user exists
     existing = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
     if existing:
         return JSONResponse(status_code=400, content={"error": "Username already exists"})
     
     pwd_hash, salt = hash_password(password)
-    # Default is_approved = 0 (Requires manual approval)
     await db.execute(
-        "INSERT INTO users (username, password_hash, salt, is_approved) VALUES (:u, :p, :s, 0)",
-        {"u": username, "p": pwd_hash, "s": salt}
+        "INSERT INTO users (username, password_hash, salt, is_approved, is_admin) VALUES (:u, :p, :s, :a, :adm)",
+        {"u": username, "p": pwd_hash, "s": salt, "a": is_approved, "adm": is_admin}
     )
-    return {"message": "Account created successfully! Please wait for the administrator to approve your account."}
+    
+    msg = "Account created successfully! Admin will approve your login shortly."
+    if is_admin:
+        msg = "Admin account created! You can now log in."
+        
+    return {"message": msg}
 
 @app.post("/api/auth/login")
 async def login(username: str = Form(...), password: str = Form(...)):
@@ -278,6 +315,31 @@ async def admin_get_users(request: Request):
     
     users = await db.fetch_all("SELECT id, username, is_approved, is_admin, created_at FROM users ORDER BY created_at DESC")
     return [dict(u) for u in users]
+
+@app.get("/api/admin/requests")
+async def admin_get_requests(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    db = await get_db()
+    admin_check = await db.fetch_one("SELECT is_admin FROM users WHERE username = :u", {"u": username})
+    if not admin_check or not admin_check['is_admin']: return JSONResponse(status_code=403, content={"error": "Access Denied"})
+    
+    reqs = await db.fetch_all("SELECT * FROM access_requests ORDER BY created_at DESC")
+    return [dict(r) for r in reqs]
+
+@app.post("/api/admin/generate-invite")
+async def admin_generate_invite(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    db = await get_db()
+    admin_check = await db.fetch_one("SELECT is_admin FROM users WHERE username = :u", {"u": username})
+    if not admin_check or not admin_check['is_admin']: return JSONResponse(status_code=403, content={"error": "Access Denied"})
+    
+    new_code = generate_invite_code()
+    await db.execute("INSERT INTO invite_keys (key_code) VALUES (:k)", {"k": new_code})
+    return {"key": new_code}
 
 @app.post("/api/admin/approve/{user_id}")
 async def admin_approve_user(user_id: int, request: Request):
