@@ -113,6 +113,7 @@ async def init_db():
             username {text_type} UNIQUE,
             password_hash TEXT,
             salt TEXT,
+            is_approved BOOLEAN DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         ) {table_opts}
     """)
@@ -120,7 +121,7 @@ async def init_db():
     # Migrations for existing SQLite/MySQL
     if is_mysql:
         # For MySQL, ensure existing tables are converted
-        tables = ["campaigns", "messages", "templates", "user_credentials"]
+        tables = ["campaigns", "messages", "templates", "user_credentials", "users"]
         for table in tables:
             try: await db.execute(f"ALTER TABLE {table} CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
             except: pass
@@ -141,6 +142,8 @@ async def init_db():
     try: await db.execute("ALTER TABLE templates ADD COLUMN components TEXT")
     except: pass
     try: await db.execute("ALTER TABLE templates ADD COLUMN variable_map TEXT")
+    except: pass
+    try: await db.execute("ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT 0")
     except: pass
 
     pass # Keep connection pool alive for the actual request

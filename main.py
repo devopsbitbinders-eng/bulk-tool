@@ -28,6 +28,7 @@ USE_REAL_API = True # Set to False for local testing without sending real messag
 FB_APP_ID = "916270141105838" 
 FB_APP_SECRET = "3f58694b5b0ec480d6992dabc16e6ece"
 FB_CONFIG_ID = "2015666162711485" # Configuration ID for Business Login
+REGISTRATION_KEY = os.environ.get("REGISTRATION_KEY", "BITBINDERS_PRO_2024")
 
 # --- System SMTP Configuration (Fixed Sender) ---
 SYSTEM_EMAIL = os.environ.get('SYSTEM_EMAIL', 'devopsbitbinders@gmail.com')
@@ -220,7 +221,10 @@ async def privacy_page(request: Request):
     return response
 
 @app.post("/api/auth/signup")
-async def register(username: str = Form(...), password: str = Form(...)):
+async def register(username: str = Form(...), password: str = Form(...), reg_key: str = Form(...)):
+    if reg_key != REGISTRATION_KEY:
+        return JSONResponse(status_code=403, content={"error": "Invalid Registration Key. Please contact the administrator."})
+
     db = await get_db()
     # Check if user exists
     existing = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
@@ -228,11 +232,12 @@ async def register(username: str = Form(...), password: str = Form(...)):
         return JSONResponse(status_code=400, content={"error": "Username already exists"})
     
     pwd_hash, salt = hash_password(password)
+    # Default is_approved = 0 (Requires manual approval)
     await db.execute(
-        "INSERT INTO users (username, password_hash, salt) VALUES (:u, :p, :s)",
+        "INSERT INTO users (username, password_hash, salt, is_approved) VALUES (:u, :p, :s, 0)",
         {"u": username, "p": pwd_hash, "s": salt}
     )
-    return {"message": "User created successfully. You can now login."}
+    return {"message": "Account created successfully! Please wait for the administrator to approve your account."}
 
 @app.post("/api/auth/login")
 async def login(username: str = Form(...), password: str = Form(...)):
@@ -240,6 +245,9 @@ async def login(username: str = Form(...), password: str = Form(...)):
     user = await db.fetch_one("SELECT * FROM users WHERE username = :u", {"u": username})
     if not user or not verify_password(password, user['salt'], user['password_hash']):
         return JSONResponse(status_code=401, content={"error": "Invalid username or password"})
+    
+    if not user.get('is_approved'):
+        return JSONResponse(status_code=403, content={"error": "Your account is pending administrator approval."})
     
     token = create_session_token(username)
     response = JSONResponse(content={"message": "Logged in successfully", "redirect": "/"})
