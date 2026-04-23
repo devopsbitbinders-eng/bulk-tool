@@ -244,24 +244,19 @@ async def request_access(name: str = Form(...), contact: str = Form(...)):
     return {"message": "Request sent successfully! Admin will contact you with a key."}
 
 @app.post("/api/auth/signup")
-async def register(username: str = Form(...), password: str = Form(...), reg_key: str = Form(...)):
+async def register(username: str = Form(...), password: str = Form(...), reg_key: Optional[str] = Form(None)):
     db = await get_db()
     
     is_admin = 0
     is_approved = 0
     
     # 1. Check if it's the Master Admin Key
-    if reg_key == MASTER_ADMIN_KEY:
+    if reg_key and reg_key == MASTER_ADMIN_KEY:
         is_admin = 1
         is_approved = 1
-    else:
-        # 2. Check if the unique invite key exists and is not used
-        key_record = await db.fetch_one("SELECT * FROM invite_keys WHERE key_code = :k AND is_used = 0", {"k": reg_key})
-        if not key_record:
-            return JSONResponse(status_code=403, content={"error": "Invalid or expired Invite Key. Please request a new one."})
-        
-        # Mark the key as used
-        await db.execute("UPDATE invite_keys SET is_used = 1 WHERE id = :id", {"id": key_record['id']})
+    
+    # No more invite key requirement for regular users
+    # They just sign up and wait for approval
 
     # Check if user exists
     existing = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
