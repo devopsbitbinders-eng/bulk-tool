@@ -163,6 +163,10 @@ async def init_db():
     except: pass
     try: await db.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
     except: pass
+    try: await db.execute(f"ALTER TABLE users ADD COLUMN business_name {text_type}")
+    except: pass
+    try: await db.execute("ALTER TABLE users ADD COLUMN expiry_date DATETIME")
+    except: pass
 
     # Other migrations
     try: await db.execute("ALTER TABLE chat_messages ADD COLUMN user_id INTEGER")

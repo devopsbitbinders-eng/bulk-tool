@@ -181,15 +181,12 @@ async def index(request: Request):
     
     # NEW: Check for auto-revocation on load
     if user_data and user_data['expiry_date']:
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc)
-        exp = user_data['expiry_date']
-        # Handle both string and datetime objects from different DB drivers
-        if isinstance(exp, str):
-            try: exp = datetime.strptime(exp, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
-            except: pass
+        now_str = get_now_utc()
+        exp_val = user_data['expiry_date']
+        # Convert to string if it's a datetime object (MySQL)
+        exp_str = exp_val if isinstance(exp_val, str) else exp_val.strftime('%Y-%m-%d %H:%M:%S')
             
-        if exp and now > exp:
+        if exp_str and now_str > exp_str:
             await db.execute("UPDATE users SET is_approved = 0 WHERE id = :u", {"u": u_id})
             return RedirectResponse(url="/login?error=expired", status_code=303)
     
@@ -299,14 +296,11 @@ async def login(username: str = Form(...), password: str = Form(...)):
         
         # Check Expiry
         if user['expiry_date']:
-            from datetime import datetime, timezone
-            now = datetime.now(timezone.utc)
-            exp = user['expiry_date']
-            if isinstance(exp, str):
-                try: exp = datetime.strptime(exp, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
-                except: pass
+            now_str = get_now_utc()
+            exp_val = user['expiry_date']
+            exp_str = exp_val if isinstance(exp_val, str) else exp_val.strftime('%Y-%m-%d %H:%M:%S')
             
-            if exp and now > exp:
+            if exp_str and now_str > exp_str:
                 await db.execute("UPDATE users SET is_approved = 0 WHERE id = :u", {"u": user['id']})
                 return JSONResponse(status_code=403, content={"error": "Your access has expired. Please contact the administrator."})
         
