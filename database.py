@@ -179,6 +179,12 @@ async def init_db():
     except: pass
     try: await db.execute("ALTER TABLE chat_messages ADD COLUMN error_message TEXT")
     except: pass
+    
+    # Indexes for performance
+    try: await db.execute("CREATE INDEX IF NOT EXISTS idx_messages_wa_id ON messages (whatsapp_message_id(50))")
+    except: pass
+    try: await db.execute("CREATE INDEX IF NOT EXISTS idx_chat_wa_id ON chat_messages (wa_message_id(50))")
+    except: pass
 
     pass # Keep connection pool alive for the actual request
 

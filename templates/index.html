@@ -1606,7 +1606,9 @@
             }
         }
 
+        window.currentHistoryCampaignId = null;
         async function viewCampaignDetails(id, name, date) {
+            currentHistoryCampaignId = id;
             const modal = document.getElementById('historyDetailModal');
             document.getElementById('detailCampaignName').innerText = name;
             document.getElementById('detailCampaignDate').innerText = formatDateTime(date);
@@ -2733,10 +2735,17 @@
             const statusInfo = document.getElementById('statusInfo');
             const statusMessage = document.getElementById('statusMessage');
 
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
+            eventSource.onmessage = (e) => {
+                const data = JSON.parse(e.data);
                 const lastEventEl = document.getElementById('lastEvent');
                 
+                // Live Status Updates (from Webhooks)
+                if (data.type === 'status_update') {
+                    // Update any visible message rows (if we implement a live list)
+                    console.log("Live status update received:", data);
+                    return;
+                }
+
                 if (data.is_waiting) {
                     if (lastEventEl) lastEventEl.innerHTML = `<span class="text-amber-600 font-medium italic">${data.status_text}</span>`;
                     return;
@@ -2757,7 +2766,6 @@
                     document.getElementById('progressPercent').innerText = '100%';
                     if (lastEventEl) lastEventEl.innerHTML = `<span class="text-emerald-600 font-bold">Campaign Finished!</span>`;
                     
-                    // Reset Landing Button
                     const submitBtn = document.getElementById('submitBtn');
                     if (submitBtn) {
                         submitBtn.disabled = false;
@@ -2765,8 +2773,6 @@
                     }
                     
                     showToast('Campaign Completed Successfully!', 'success');
-                    
-                    // Force refresh history after a short delay
                     setTimeout(() => location.reload(), 1500);
                     return;
                 }

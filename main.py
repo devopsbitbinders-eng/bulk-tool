@@ -1385,6 +1385,15 @@ async def webhook_handler(request: Request):
                                 await db.execute("UPDATE messages SET status = :status WHERE whatsapp_message_id = :id", {"status": new_status, "id": wa_message_id})
                             if chat_msg:
                                 await db.execute("UPDATE chat_messages SET status = :status WHERE wa_message_id = :id", {"status": new_status, "id": wa_message_id})
+                        
+                        # BROADCAST to Live UI (SSE)
+                        update_event = json.dumps({
+                            "type": "status_update",
+                            "wa_id": wa_message_id,
+                            "new_status": new_status
+                        })
+                        for queue in event_queues:
+                            await queue.put(update_event)
                     else:
                         print(f"DEBUG WEBHOOK: Message ID {wa_message_id} not found in DB")
                 # Check if it's an incoming message
