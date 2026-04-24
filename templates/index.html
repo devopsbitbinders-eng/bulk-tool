@@ -1884,9 +1884,11 @@
                 const response = await fetch('/upload', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (response.ok) {
-                    showToast('Campaign launched successfully!', 'success');
+                    showToast('Campaign queued!', 'success');
                     document.getElementById('progressCard').classList.remove('hidden');
                     setupSSE();
+                    // Start the resilient batching loop
+                    startBatchProcessing(result.campaign_id);
                 } else {
                     showToast(result.error || 'Failed to start campaign', 'error');
                     submitBtn.disabled = false;
@@ -2730,6 +2732,46 @@
             });
         }
 
+        async function startBatchProcessing(id) {
+            let completed = false;
+            let retryCount = 0;
+            
+            while (!completed) {
+                try {
+                    const res = await fetch(`/api/campaigns/${id}/process`, { method: 'POST' });
+                    if (!res.ok) throw new Error('Batch failed');
+                    
+                    const data = await res.json();
+                    if (data.completed || data.processed === 0) {
+                        completed = true;
+                    }
+                    retryCount = 0; // Reset on success
+                    
+                    // Small cooldown between batches to keep Vercel happy
+                    await new Promise(r => setTimeout(r, 2000));
+                } catch (e) {
+                    console.error("Batch processing error:", e);
+                    retryCount++;
+                    if (retryCount > 10) break; // Stop after 10 consecutive failures
+                    await new Promise(r => setTimeout(r, 5000));
+                }
+            }
+        }
+
+        async function resumeActiveCampaigns() {
+            try {
+                const res = await fetch('/api/history');
+                const campaigns = await res.json();
+                const active = campaigns.find(c => c.status === 'Processing' || c.status === 'Pending');
+                if (active) {
+                    console.log("Resuming active campaign:", active.id);
+                    document.getElementById('progressCard').classList.remove('hidden');
+                    setupSSE();
+                    startBatchProcessing(active.id);
+                }
+            } catch (e) { console.error("Auto-resume error", e); }
+        }
+
         function setupSSE() {
             const eventSource = new EventSource('/events');
             const statusInfo = document.getElementById('statusInfo');
@@ -2788,6 +2830,7 @@
         }
         // Auto-sync on load
         window.addEventListener('load', () => {
+            resumeActiveCampaigns();
             const isLinked = "{{ linked_phone }}";
             if (isLinked && isLinked !== "") {
                 const lastSync = localStorage.getItem('lastAutoSync');

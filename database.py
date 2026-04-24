@@ -57,7 +57,13 @@ async def init_db():
             total_numbers INTEGER,
             sent_success INTEGER DEFAULT 0,
             sent_failed INTEGER DEFAULT 0,
-            status TEXT
+            status TEXT,
+            message_template TEXT,
+            msg_type TEXT,
+            template_name TEXT,
+            language_code TEXT,
+            mappings TEXT,
+            phone_col TEXT
         ) {table_opts}
     """)
 
