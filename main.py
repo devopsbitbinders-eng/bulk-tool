@@ -1332,6 +1332,15 @@ async def webhook_verify(request: Request):
 @app.post("/webhook")
 async def webhook_handler(request: Request):
     data = await request.json()
+    db = await get_db()
+    
+    # LOG THE RAW PAYLOAD FOR DEBUGGING
+    try:
+        await db.execute("INSERT INTO webhook_logs (payload) VALUES (:p)", {"p": json.dumps(data)})
+        # Keep only last 50 logs to save space
+        await db.execute("DELETE FROM webhook_logs WHERE id NOT IN (SELECT id FROM (SELECT id FROM webhook_logs ORDER BY id DESC LIMIT 50) as t)")
+    except Exception as e:
+        print(f"DEBUG WEBHOOK LOG ERROR: {e}")
     print(f"DEBUG WEBHOOK: Received update: {json.dumps(data)}")
 
     # Check if it's a WhatsApp status update
@@ -1923,6 +1932,16 @@ async def create_otp_template(request: Request):
     })
 
     return {"message": "OTP Template submitted to Meta. It will appear as PENDING until approved."}
+
+@app.get("/api/debug/webhooks")
+async def get_webhook_debug_logs(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    
+    db = await get_db()
+    rows = await db.fetch_all("SELECT * FROM webhook_logs ORDER BY id DESC LIMIT 20")
+    return safe_json_response([dict(r) for r in rows])
 
 if __name__ == "__main__":
     import uvicorn

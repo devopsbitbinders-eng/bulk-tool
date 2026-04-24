@@ -186,6 +186,15 @@ async def init_db():
     try: await db.execute("CREATE INDEX IF NOT EXISTS idx_chat_wa_id ON chat_messages (wa_message_id(50))")
     except: pass
 
+    # Webhook Logs for debugging
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS webhook_logs (
+            id INTEGER PRIMARY KEY {auto_inc},
+            payload TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) {table_opts}
+    """)
+
     pass # Keep connection pool alive for the actual request
 
 async def get_db():
