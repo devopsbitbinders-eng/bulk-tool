@@ -1533,8 +1533,8 @@ async def create_complex_template(
             if h_text and "/static/uploads/" in h_text:
                 try:
                     filename = h_text.split("/")[-1]
-                    # The UPLOAD_DIR is defined globally as os.path.join(os.getcwd(), "static", "uploads")
-                    local_path = os.path.join(os.getcwd(), "static", "uploads", filename)
+                    # Use absolute path from current file location to be safe
+                    local_path = os.path.join(os.path.dirname(__file__), "static", "uploads", filename)
                     
                     if os.path.exists(local_path):
                         with open(local_path, "rb") as f:
