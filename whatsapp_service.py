@@ -325,7 +325,7 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
         }
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, headers=headers, content=json.dumps(payload))
             if response.status_code not in [200, 201]:
                 print(f"DEBUG ERROR: Meta API {response.status_code} - {response.text}")

@@ -1056,7 +1056,9 @@ async def facebook_auth_callback(request: Request, data: dict):
                 "redirect_uri": "" # Empty for JS SDK 'code' flow
             }
             
-            res = requests.post(exchange_url, data=data_payload)
+            # Use a timeout to prevent hanging the whole processing loop
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                res = await client.post(exchange_url, data=data_payload)
             res_json = res.json()
             if "access_token" in res_json:
                 access_token = res_json["access_token"]
@@ -1275,7 +1277,8 @@ async def upload_file(
             return JSONResponse(status_code=400, content={"error": str(e)})
         filename = file.filename
         
-    db = await get_db()
+    if not data or len(data) == 0:
+        return JSONResponse(status_code=400, content={"error": "No valid contacts found in the uploaded file. Please ensure your file has at least one phone number."})
     now_utc = get_now_utc()
     
     # Handle media file upload if provided
@@ -1655,8 +1658,8 @@ async def create_complex_template(
     utc_now = get_now_utc()
     if is_mysql:
         query = """
-            INSERT INTO templates (user_id, name, category, language, status, content, components, variable_map, media_url, last_synced)
-            VALUES (:u_id, :name, :category, :language, :status, :content, :components, :var_map, :m_url, :last_synced)
+            INSERT INTO templates (user_id, name, category, language, status, content, components, variable_map, last_synced)
+            VALUES (:u_id, :name, :category, :language, :status, :content, :components, :var_map, :last_synced)
             ON DUPLICATE KEY UPDATE
                 category = VALUES(category),
                 language = VALUES(language),
@@ -1664,13 +1667,12 @@ async def create_complex_template(
                 content = VALUES(content),
                 components = VALUES(components),
                 variable_map = VALUES(variable_map),
-                media_url = VALUES(media_url),
                 last_synced = VALUES(last_synced)
         """
     else:
         query = """
-            INSERT INTO templates (user_id, name, category, language, status, content, components, variable_map, media_url, last_synced)
-            VALUES (:u_id, :name, :category, :language, :status, :content, :components, :var_map, :m_url, :last_synced)
+            INSERT INTO templates (user_id, name, category, language, status, content, components, variable_map, last_synced)
+            VALUES (:u_id, :name, :category, :language, :status, :content, :components, :var_map, :last_synced)
             ON CONFLICT(user_id, name) DO UPDATE SET
                 category = excluded.category,
                 language = excluded.language,
@@ -1678,15 +1680,13 @@ async def create_complex_template(
                 content = excluded.content,
                 components = excluded.components,
                 variable_map = excluded.variable_map,
-                media_url = excluded.media_url,
                 last_synced = :last_synced
         """
 
     await db.execute(query, {
         "u_id": u_id, "name": name, "category": category, "language": language, 
         "status": 'PENDING', "content": content, "components": json.dumps(components), 
-        "var_map": variable_map, "m_url": h_text if header_type in ['IMAGE', 'VIDEO', 'DOCUMENT'] else None,
-        "last_synced": utc_now
+        "var_map": variable_map, "last_synced": utc_now
     })
     
     return {"message": "Template created and submitted to Meta!"}
@@ -2156,6 +2156,8 @@ async def send_chat_reply(
         file_bytes = await file.read()
         mime_type = file.content_type
         filename = file.filename
+        
+        db = await get_db()
         
         # Determine msg_type
         if mime_type.startswith("image/"): msg_type = "image"
