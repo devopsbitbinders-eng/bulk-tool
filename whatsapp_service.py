@@ -1,4 +1,5 @@
 import requests
+import httpx
 import json
 import asyncio
 import random
@@ -197,33 +198,33 @@ async def get_meta_header_handle(file_bytes, mime_type, credentials):
         "access_token": token
     }
     try:
-        res = requests.post(url, params=params)
-        if res.status_code != 200:
-            err_data = res.text
-            print(f"DEBUG Meta Upload Session ERROR: {err_data}")
-            return None, f"Meta Session Error: {err_data}"
+        async with httpx.AsyncClient() as client:
+            res = await client.post(url, params=params)
+            if res.status_code != 200:
+                err_data = res.text
+                print(f"DEBUG Meta Upload Session ERROR: {err_data}")
+                return None, f"Meta Session Error: {err_data}"
+                
+            upload_id = res.json().get('id')
             
-        upload_id = res.json().get('id')
-        
-        # 2. Upload the file data
-        url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{upload_id}"
-        headers = {
-            "Authorization": f"OAuth {token}"
-        }
-        res = requests.post(url, headers=headers, data=file_bytes)
-        if res.status_code != 200:
-            err_data = res.text
-            print(f"DEBUG Meta File Upload ERROR: {err_data}")
-            return None, f"Meta File Error: {err_data}"
-        
-        handle = res.json().get('h')
-        return handle, None
+            # 2. Upload the file data
+            url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{upload_id}"
+            headers = {
+                "Authorization": f"OAuth {token}"
+            }
+            res = await client.post(url, headers=headers, content=file_bytes)
+            if res.status_code != 200:
+                err_data = res.text
+                print(f"DEBUG Meta File Upload ERROR: {err_data}")
+                return None, f"Meta File Error: {err_data}"
+            
+            handle = res.json().get('h')
+            return handle, None
     except Exception as e:
         print(f"DEBUG Meta Upload EXCEPTION: {str(e)}")
         return None, str(e)
 
 async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
-    import requests
     token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     phone_id = credentials.get('phone_id', WHATSAPP_PHONE_NUMBER_ID) if credentials else WHATSAPP_PHONE_NUMBER_ID
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{phone_id}/media"
@@ -233,11 +234,12 @@ async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
     }
     data = {'messaging_product': 'whatsapp'}
     try:
-        response = requests.post(url, headers=headers, data=data, files=files)
-        if response.status_code == 200:
-            return response.json().get('id')
-        print(f"DEBUG ERROR: Media Upload Failed {response.status_code} - {response.text}")
-        return None
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, data=data, files=files)
+            if response.status_code == 200:
+                return response.json().get('id')
+            print(f"DEBUG ERROR: Media Upload Failed {response.status_code} - {response.text}")
+            return None
     except Exception as e:
         print(f"DEBUG: Error in upload_whatsapp_media: {str(e)}")
         return None
@@ -323,14 +325,15 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
         }
 
     try:
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
-        if response.status_code not in [200, 201]:
-            print(f"DEBUG ERROR: Meta API {response.status_code} - {response.text}")
-        
-        if response.status_code == 200 or response.status_code == 201:
-            return True, response.json()
-        else:
-            return False, response.text
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, content=json.dumps(payload))
+            if response.status_code not in [200, 201]:
+                print(f"DEBUG ERROR: Meta API {response.status_code} - {response.text}")
+            
+            if response.status_code == 200 or response.status_code == 201:
+                return True, response.json()
+            else:
+                return False, response.text
     except Exception as e:
         print(f"DEBUG: Error in send_whatsapp_message: {str(e)}")
         return False, str(e)
