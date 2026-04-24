@@ -376,3 +376,17 @@ def update_whatsapp_template(name, category, components, credentials=None):
             return False, err
     except Exception as e:
         return False, str(e)
+
+async def subscribe_waba_to_app(waba_id, token):
+    """Subscribes the WABA to the app's webhooks. Essential for Embedded Signup."""
+    url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{waba_id}/subscribed_apps"
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    try:
+        response = requests.post(url, headers=headers)
+        print(f"DEBUG WABA SYNC: Subscription Response: {response.status_code} - {response.text}")
+        return response.status_code == 200
+    except Exception as e:
+        print(f"DEBUG WABA SYNC ERROR: {e}")
+        return False

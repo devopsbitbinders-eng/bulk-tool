@@ -17,7 +17,7 @@ import requests
 from contextlib import asynccontextmanager
 from database import init_db, get_db
 from utils import extract_phone_numbers, substitute_template, sync_to_google_sheet, send_email_report, get_now_utc, normalize_phone
-from whatsapp_service import send_whatsapp_message, get_whatsapp_templates, create_whatsapp_template, create_whatsapp_otp_template, fetch_meta_templates, delete_whatsapp_template, upload_whatsapp_media
+from whatsapp_service import send_whatsapp_message, get_whatsapp_templates, create_whatsapp_template, create_whatsapp_otp_template, fetch_meta_templates, delete_whatsapp_template, upload_whatsapp_media, subscribe_waba_to_app
 import datetime
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse, PlainTextResponse
 from auth_utils import hash_password, verify_password, create_session_token, verify_session_token
@@ -806,6 +806,9 @@ async def facebook_auth_callback(request: Request, data: dict):
         VALUES (:u, :token, :phone_id, :waba_id, :phone, 1)
     """, {"u": u_id, "token": access_token, "phone_id": phone_id, "waba_id": waba_id, "phone": phone_number})
     
+    # SUBSCRIBE THE WABA TO OUR APP WEBHOOKS (CRITICAL FOR EMBEDDED SIGNUP)
+    await subscribe_waba_to_app(waba_id, access_token)
+    
     return {"message": "WhatsApp Account linked successfully!", "phone": phone_number}
 
 @app.post("/api/auth/manual")
@@ -845,6 +848,9 @@ async def manual_auth(request: Request):
         INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
         VALUES (:u, :token, :phone_id, :waba_id, :phone, 1)
     """, {"u": u_id, "token": token, "phone_id": phone_id, "waba_id": waba_id, "phone": phone_number})
+    
+    # SUBSCRIBE THE WABA TO OUR APP WEBHOOKS
+    await subscribe_waba_to_app(waba_id, token)
 
     return {"message": "Credentials updated successfully!", "phone": phone_number}
 
