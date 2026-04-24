@@ -1128,6 +1128,13 @@
                                     </button>
                                 </div>
                                 <input type="file" id="wiz_media_file" class="hidden" onchange="handleWizardMedia(this)">
+                                <div id="wiz_media_status" class="hidden flex items-center gap-2 mt-2 p-2 bg-green-50 border border-green-100 rounded-lg">
+                                    <div class="bg-green-500 text-white rounded-full p-0.5">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    </div>
+                                    <span class="text-[10px] font-bold text-green-700">Upload complete:</span>
+                                    <span id="wiz_media_filename" class="text-[10px] text-green-600 truncate max-w-[150px]"></span>
+                                </div>
                                 <p id="wiz_media_size_label" class="text-[9px] text-slate-400 font-medium italic mt-1"></p>
                             </div>
                         </div>
@@ -2115,6 +2122,15 @@
                     // Prepend origin for absolute URL required by Meta
                     const absoluteUrl = window.location.origin + data.url;
                     document.getElementById('wiz_header_sample_url').value = absoluteUrl;
+                    
+                    // Show status
+                    const statusEl = document.getElementById('wiz_media_status');
+                    const nameEl = document.getElementById('wiz_media_filename');
+                    if (statusEl && nameEl) {
+                        statusEl.classList.remove('hidden');
+                        nameEl.innerText = file.name;
+                    }
+                    
                     updateTemplatePreview();
                     showToast('Media uploaded successfully!', 'success');
                 } else {
