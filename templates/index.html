@@ -2204,6 +2204,7 @@
 
         function updateTemplatePreview() {
             const name = document.getElementById('wiz_name').value || 'New Template';
+            const templateType = document.getElementById('wiz_template_type').value;
             const headerType = document.getElementById('wiz_header_type').value;
             const headerText = document.getElementById('wiz_header_text').value;
             const bodyText = document.getElementById('wiz_body').value || 'Your template message will appear here...';
@@ -2218,42 +2219,48 @@
             const headerTextArea = document.getElementById('prev_header_text');
             const headerMediaArea = document.getElementById('prev_header_media');
             const mediaImg = document.getElementById('prev_media_img');
+            const videoPrev = document.getElementById('prev_media_video');
             const mediaPlaceholder = document.getElementById('prev_media_placeholder');
 
+            // Reset
             headerArea.classList.add('hidden');
             headerTextArea.classList.add('hidden');
             headerMediaArea.classList.add('hidden');
+            mediaImg.classList.add('hidden');
+            if (videoPrev) videoPrev.classList.add('hidden');
+            mediaPlaceholder.classList.add('hidden');
 
-            if (headerType === 'TEXT' && headerText) {
+            if (templateType === 'CAROUSEL') {
+                headerArea.classList.remove('hidden');
+                headerMediaArea.classList.remove('hidden');
+                mediaPlaceholder.classList.remove('hidden');
+                mediaPlaceholder.innerHTML = `
+                    <div class="flex flex-col items-center gap-1 p-4">
+                        <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        <span class="text-[8px] font-bold">CAROUSEL (MULTIPLES CARDS)</span>
+                    </div>
+                `;
+            } else if (headerType === 'TEXT' && headerText) {
                 headerArea.classList.remove('hidden');
                 headerTextArea.classList.remove('hidden');
                 headerTextArea.innerText = headerText;
             } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerType)) {
                 headerArea.classList.remove('hidden');
                 headerMediaArea.classList.remove('hidden');
-                const videoPrev = document.getElementById('prev_media_video');
                 
                 if (mediaUrl) {
                     if (headerType === 'IMAGE') {
                         mediaImg.src = mediaUrl;
                         mediaImg.classList.remove('hidden');
-                        if(videoPrev) videoPrev.classList.add('hidden');
-                        mediaPlaceholder.classList.add('hidden');
                     } else if (headerType === 'VIDEO') {
                         if(videoPrev) {
                             videoPrev.src = mediaUrl;
                             videoPrev.classList.remove('hidden');
                         }
-                        mediaImg.classList.add('hidden');
-                        mediaPlaceholder.classList.add('hidden');
                     } else {
-                        mediaImg.classList.add('hidden');
-                        if(videoPrev) videoPrev.classList.add('hidden');
                         mediaPlaceholder.classList.remove('hidden');
                     }
                 } else {
-                    mediaImg.classList.add('hidden');
-                    if(videoPrev) videoPrev.classList.add('hidden');
                     mediaPlaceholder.classList.remove('hidden');
                 }
             }
