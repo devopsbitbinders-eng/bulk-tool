@@ -730,15 +730,15 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
         else:
             message_to_send = substitute_template(message_template or "", row)
         
-        # Human mimicry delay
-        delay = random.randint(10, 35) if USE_REAL_API else random.randint(1, 2)
+        # Human mimicry delay (Reduced for speed)
+        delay = random.randint(2, 6) if USE_REAL_API else random.randint(1, 2)
         
-        # Batching break
+        # Batching break (Reduced for speed)
         if USE_REAL_API and i > 0 and i % 5 == 0:
-            batch_break = random.randint(60, 120)
+            batch_break = random.randint(10, 25)
             break_event = json.dumps({
                 "campaign_id": campaign_id,
-                "status_text": f"Taking a human break ({batch_break}s)...",
+                "status_text": f"Optimizing queue ({batch_break}s)...",
                 "is_waiting": True
             })
             for queue in event_queues:
