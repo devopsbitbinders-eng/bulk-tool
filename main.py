@@ -385,7 +385,8 @@ async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col
     # --- Template Intelligence: Pre-fetch template to identify Header vs Body variables ---
     template_def = None
     if msg_type == "template" and template_name:
-        template_def = await db.fetch_one("SELECT components FROM templates WHERE name = :name AND user_id = :u LIMIT 1", {"name": template_name, "u": user_id})
+        # Search by name (case-insensitive for safety)
+        template_def = await db.fetch_one("SELECT components FROM templates WHERE LOWER(name) = LOWER(:name) AND user_id = :u LIMIT 1", {"name": template_name, "u": user_id})
 
     for i, row in enumerate(data):
         raw_phone = str(row.get(phone_col, ""))
@@ -400,54 +401,56 @@ async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col
         if msg_type == "template":
             message_to_send = message_template or f"Template: {template_name}"
             
-            # --- SMART COMPONENT BUILDING ---
             header_params = []
             body_params = []
             
-            # Parse template components to know where vars go
             comp_list = []
             if template_def and template_def['components']:
                 try: comp_list = json.loads(template_def['components'])
                 except: pass
             
-            # Identify which index {{n}} belongs to which component
-            # Most templates follow: {{1}} in header, {{2}},{{3}} in body.
-            # We count variables in each component.
             header_var_count = 0
             body_var_count = 0
             has_media_header = False
             
-            for c in comp_list:
-                ctype = c.get('type', '').upper()
-                ctext = c.get('text', '')
-                if ctype == 'HEADER':
-                    header_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
-                    if c.get('format') in ['IMAGE', 'VIDEO', 'DOCUMENT']:
-                        has_media_header = True
-                elif ctype == 'BODY':
-                    body_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
-
+            if comp_list:
+                for c in comp_list:
+                    ctype = str(c.get('type', '')).upper()
+                    ctext = str(c.get('text', ''))
+                    if ctype == 'HEADER':
+                        header_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
+                        if c.get('format') in ['IMAGE', 'VIDEO', 'DOCUMENT']:
+                            has_media_header = True
+                    elif ctype == 'BODY':
+                        body_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
+            else:
+                # FALLBACK: If template def is missing, assume 1 variable goes to BODY.
+                # If you suspect it is in the header, we will try to detect from message_template
+                if message_template and '{{1}}' in message_template:
+                    body_var_count = 1
+            
             if mappings:
                 vars_map = mappings.get('vars', {})
+                # Sort by numeric key
                 sorted_keys = sorted(vars_map.keys(), key=lambda x: int(x))
                 
-                # Distribute values: First 'header_var_count' go to header, rest to body
                 for idx, k in enumerate(sorted_keys):
-                    val = str(row.get(vars_map[k], ""))
+                    val = str(row.get(vars_map[k], "")).strip()
+                    if not val: val = " " # Meta fails on empty params
+                    
                     if idx < header_var_count:
                         header_params.append({"type": "text", "text": val})
                     else:
                         body_params.append({"type": "text", "text": val})
                     
-                    # Update preview text
+                    # Update preview
                     pattern = r'\{\{\s*' + re.escape(str(idx + 1)) + r'\s*\}\}'
                     message_to_send = re.sub(pattern, val, message_to_send, flags=re.IGNORECASE)
                 
-                # Media Header mapping
                 if mappings.get('header'):
                     media_url = row.get(mappings['header'])
 
-            # BUILD THE FINAL Meta COMPONENTS LIST
+            # BUILD FINAL COMPONENTS
             if has_media_header and media_url:
                 fmt = "image"
                 if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
@@ -462,6 +465,13 @@ async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col
             if body_params:
                 forced_components.append({"type": "body", "parameters": body_params})
             
+            # FINAL SAFETY: If we expected a header variable but didn't send one, add a blank one
+            if header_var_count > 0 and not header_params:
+                 forced_components.append({"type": "header", "parameters": [{"type": "text", "text": " "}]})
+            # FINAL SAFETY: If we expected a body variable but didn't send one, add a blank one
+            if body_var_count > 0 and not body_params:
+                 forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
+
             print(f"DEBUG: Smart Components for {phone}: {json.dumps(forced_components)}")
         else:
             message_to_send = substitute_template(message_template or "", row)
