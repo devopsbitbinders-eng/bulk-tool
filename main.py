@@ -986,6 +986,7 @@ async def sync_templates(request: Request):
         status = t.get('status')
         content = t.get('content')
         components = t.get('components')
+        print(f"DEBUG SYNC: Template '{name}' Category from Meta: {category}")
         
         utc_now = get_now_utc()
         if is_mysql:
@@ -1940,8 +1941,19 @@ async def get_webhook_debug_logs(request: Request):
     if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     
     db = await get_db()
-    rows = await db.fetch_all("SELECT * FROM webhook_logs ORDER BY id DESC LIMIT 20")
-    return safe_json_response([dict(r) for r in rows])
+    # ENSURE TABLE EXISTS (Fixes 500 error on fresh DBs)
+    try:
+        await db.execute("CREATE TABLE IF NOT EXISTS webhook_logs (id INTEGER PRIMARY KEY AUTO_INCREMENT, payload TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    except:
+        # Fallback for SQLite
+        try: await db.execute("CREATE TABLE IF NOT EXISTS webhook_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, payload TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
+        except: pass
+        
+    try:
+        rows = await db.fetch_all("SELECT * FROM webhook_logs ORDER BY id DESC LIMIT 20")
+        return safe_json_response([dict(r) for r in rows])
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 if __name__ == "__main__":
     import uvicorn
