@@ -63,7 +63,8 @@ async def init_db():
             template_name TEXT,
             language_code TEXT,
             mappings TEXT,
-            phone_col TEXT
+            phone_col TEXT,
+            scheduled_at DATETIME
         ) {table_opts}
     """)
 
@@ -214,4 +215,14 @@ async def get_db():
     # This function is kept for backward compatibility if needed.
     if not db.is_connected:
         await db.connect()
+    # Check for scheduled_at
+    try:
+        await db.execute("SELECT scheduled_at FROM campaigns LIMIT 1")
+    except:
+        print("MIGRATION: Adding scheduled_at to campaigns table")
+        try:
+            await db.execute("ALTER TABLE campaigns ADD COLUMN scheduled_at DATETIME")
+        except Exception as e:
+            print(f"MIGRATION ERROR (scheduled_at): {e}")
+
     return db

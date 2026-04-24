@@ -74,9 +74,13 @@ async def lifespan(app: FastAPI):
         print("DEBUG: Database initialized successfully.")
     except Exception as e:
         print(f"DEBUG: Error during database init: {str(e)}")
+    
+    # Start Campaign Scheduler
+    scheduler_task = asyncio.create_task(campaign_scheduler())
         
     yield
     # Shutdown logic
+    scheduler_task.cancel()
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -617,6 +621,33 @@ async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col
     background_tasks.add_task(process_campaign_batch, campaign_id)
     
     return {"message": "Campaign queued", "campaign_id": campaign_id}
+
+async def campaign_scheduler():
+    """Background task that checks for scheduled campaigns and starts them."""
+    print("DEBUG: Campaign Scheduler started.")
+    while True:
+        try:
+            db = await get_db()
+            now_utc = get_now_utc() # Format: YYYY-MM-DD HH:MM:SS
+            
+            # Find campaigns that are 'Scheduled' and have reached their time
+            # We use string comparison for consistency with our date storage
+            scheduled_campaigns = await db.fetch_all(
+                "SELECT id FROM campaigns WHERE status = 'Scheduled' AND scheduled_at <= :now",
+                {"now": now_utc}
+            )
+            
+            for c in scheduled_campaigns:
+                cid = c['id']
+                print(f"SCHEDULER: Starting campaign {cid}...")
+                await db.execute("UPDATE campaigns SET status = 'Processing' WHERE id = :id", {"id": cid})
+                # Start processing in background
+                asyncio.create_task(process_campaign_batch(cid))
+                
+        except Exception as e:
+            print(f"SCHEDULER ERROR: {e}")
+            
+        await asyncio.sleep(30) # Check every 30 seconds
     
 async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, phone_col: str, message_template: str, msg_type: str = "text", template_name: str = "", language_code: str = "en_US", report_email: str = None, mappings: dict = None):
     print(f"DEBUG: Starting processing for Campaign {campaign_id} with {len(data)} rows. Type: {msg_type}")
@@ -1162,7 +1193,8 @@ async def upload_file(
     template_name: str = Form(None),
     language_code: str = Form("en_US"),
     report_email: str = Form(None),
-    mappings: str = Form(None)
+    mappings: str = Form(None),
+    scheduled_at: str = Form(None)
 ):
     session_token = request.cookies.get("session_token")
     username = verify_session_token(session_token)
@@ -1205,14 +1237,21 @@ async def upload_file(
     now_utc = get_now_utc()
     
     # 1. Create Campaign with Metadata
+    status = 'Scheduled' if scheduled_at else 'Pending'
+    # Format scheduled_at to match our DB string format (YYYY-MM-DD HH:MM:SS)
+    final_schedule = None
+    if scheduled_at:
+        # datetime-local format is YYYY-MM-DDTHH:MM
+        final_schedule = scheduled_at.replace('T', ' ') + ":00"
+
     campaign_id = await db.execute("""
         INSERT INTO campaigns (user_id, name, total_numbers, status, timestamp, 
-                              message_template, msg_type, template_name, language_code, mappings, phone_col) 
-        VALUES (:u, :name, :total, :status, :ts, :msg, :mtype, :tname, :lang, :maps, :pcol)
+                              message_template, msg_type, template_name, language_code, mappings, phone_col, scheduled_at) 
+        VALUES (:u, :name, :total, :status, :ts, :msg, :mtype, :tname, :lang, :maps, :pcol, :sch)
     """, {
-        "u": u_id, "name": filename, "total": len(data), "status": 'Pending', "ts": now_utc,
+        "u": u_id, "name": filename, "total": len(data), "status": status, "ts": now_utc,
         "msg": message, "mtype": msg_type, "tname": template_name, "lang": language_code, 
-        "maps": json.dumps(mappings_dict), "pcol": phone_col
+        "maps": json.dumps(mappings_dict), "pcol": phone_col, "sch": final_schedule
     })
 
     # 2. Bulk Insert pending messages
