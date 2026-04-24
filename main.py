@@ -447,24 +447,27 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
         db = await get_db()
     
         # 1. Fetch Campaign Metadata
-        campaign = await db.fetch_one("SELECT * FROM campaigns WHERE id = :id", {"id": campaign_id})
-        if not campaign:
-            return {"error": "Campaign not found"}
-    
-        user_id = campaign['user_id']
-        msg_type = campaign['msg_type']
-        message_template = campaign['message_template']
-        template_name = campaign['template_name']
-        language_code = campaign['language_code']
-        phone_col = campaign['phone_col']
-        mappings = json.loads(campaign['mappings']) if campaign['mappings'] else None
+        raw_campaign = await db.fetch_one("SELECT * FROM campaigns WHERE id = :id", {"id": campaign_id})
+        if not raw_campaign:
+            return {"error": "Campaign not found", "completed": True}
+        campaign = dict(raw_campaign)
+        
+        user_id = campaign.get('user_id')
+        msg_type = campaign.get('msg_type')
+        message_template = campaign.get('message_template')
+        template_name = campaign.get('template_name')
+        language_code = campaign.get('language_code')
+        phone_col = campaign.get('phone_col')
+        m_raw = campaign.get('mappings')
+        mappings = json.loads(m_raw) if m_raw else None
         campaign_media_url = campaign.get('media_url')
         
         # 2. Fetch pending messages
-        pending_messages = await db.fetch_all(
+        pending_raw = await db.fetch_all(
             "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit",
             {"id": campaign_id, "limit": batch_size}
         )
+        pending_messages = [dict(m) for m in pending_raw]
         
         if not pending_messages:
             await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
