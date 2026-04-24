@@ -2181,12 +2181,52 @@
             document.getElementById('templateStep2').classList.add('hidden');
         }
 
+        function updateWizSubtypes(category) {
+            const area = document.getElementById('wizSubtypeArea');
+            if (!area) return;
+
+            if (category === 'AUTHENTICATION') {
+                area.innerHTML = `
+                    <label class="flex items-start gap-4 p-4 rounded-2xl border-2 border-indigo-100 bg-indigo-50/30">
+                        <input type="radio" name="wiz_subtype" value="OTP" checked class="mt-1 w-4 h-4 text-indigo-600">
+                        <div>
+                            <p class="text-sm font-bold text-indigo-800">One-Time Password</p>
+                            <p class="text-xs text-indigo-400">Send codes to verify your customers' identity.</p>
+                        </div>
+                    </label>
+                `;
+            } else {
+                area.innerHTML = `
+                    <label class="flex items-start gap-4 p-4 rounded-2xl border-2 border-green-100 bg-green-50/30">
+                        <input type="radio" name="wiz_subtype" value="DEFAULT" checked class="mt-1 w-4 h-4 text-green-600">
+                        <div>
+                            <p class="text-sm font-bold text-green-800">Default</p>
+                            <p class="text-xs text-green-400">Standard message with media and buttons.</p>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-all cursor-pointer">
+                        <input type="radio" name="wiz_subtype" value="CATALOG" class="mt-1 w-4 h-4 text-green-600">
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">Catalogue</p>
+                            <p class="text-xs text-slate-400">Showcase your products to your customers.</p>
+                        </div>
+                    </label>
+                `;
+            }
+        }
+
         function goToStep2() {
-            currentWizStep = 2;
+            let name = document.getElementById('wiz_name').value;
+            // Enforce Meta naming rules: lowercase and underscores only
+            name = name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+            document.getElementById('wiz_name').value = name;
+            
+            if (!name) return showToast('Template name is required', 'error');
+            
             const type = document.getElementById('wiz_template_type').value;
             const headerSelect = document.getElementById('wiz_header_type');
             
-            // Auto-configure editor based on selection
+            // Auto-configure header based on type
             if (type === 'STANDARD') {
                 if (headerSelect) headerSelect.value = 'NONE';
             } else if (type === 'MEDIA') {
@@ -2420,8 +2460,12 @@
             const name = document.getElementById('wiz_name').value;
             if (!name) return showToast('Template name is required', 'error');
             
-            const category = document.querySelector('input[name="wiz_category"]:checked').value;
-            const subtype = document.querySelector('input[name="wiz_subtype"]:checked').value;
+            const categoryRadio = document.querySelector('input[name="wiz_category"]:checked');
+            const subtypeRadio = document.querySelector('input[name="wiz_subtype"]:checked');
+            if (!categoryRadio || !subtypeRadio) return showToast('Please select category and type', 'error');
+            
+            const category = categoryRadio.value;
+            const subtype = subtypeRadio.value;
             const language = document.getElementById('wiz_language').value;
             let body = document.getElementById('wiz_body').value;
             const footer = document.getElementById('wiz_footer').value;
