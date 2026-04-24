@@ -1109,25 +1109,21 @@
                             </div>
                         </div>
 
-                        <!-- Header Section -->
+                        <!-- Media Sample Section (Meta Style) -->
                         <div class="p-5 rounded-2xl bg-slate-50 border border-slate-100 space-y-3">
                             <div class="flex justify-between items-center">
-                                <h4 class="text-sm font-bold text-slate-800">Header <span class="text-[10px] font-normal text-slate-400 ml-1">(Optional)</span></h4>
-                                <select id="wiz_header_type" class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold outline-none" onchange="toggleHeaderInput(); updateTemplatePreview()">
+                                <h4 class="text-sm font-bold text-slate-800">Media Sample <span class="text-[10px] font-normal text-slate-400 ml-1">(Optional)</span></h4>
+                                <select id="wiz_media_type" class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold outline-none" onchange="toggleWizMediaSection()">
                                     <option value="NONE">None</option>
-                                    <option value="TEXT">Text</option>
                                     <option value="IMAGE">Image</option>
                                     <option value="VIDEO">Video</option>
                                     <option value="DOCUMENT">Document</option>
                                 </select>
                             </div>
-                            <div id="headerTextInput" class="hidden">
-                                <input type="text" id="wiz_header_text" placeholder="Special Offer for You!" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" oninput="updateTemplatePreview()">
-                            </div>
                             <div id="headerMediaInfo" class="hidden space-y-2">
                                 <div class="flex items-center gap-2">
-                                    <input type="text" id="wiz_header_sample_url" placeholder="https://example.com/image.jpg" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 outline-none text-xs" oninput="updateTemplatePreview()">
-                                    <button onclick="triggerMediaUpload()" class="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-slate-600 shadow-sm shadow-indigo-50">
+                                    <input type="text" id="wiz_header_sample_url" placeholder="Paste URL or upload..." class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 outline-none text-xs" oninput="updateTemplatePreview()">
+                                    <button onclick="triggerMediaUpload()" class="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-slate-600 shadow-sm">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                                     </button>
                                 </div>
@@ -1135,6 +1131,13 @@
                                 <p id="wiz_media_size_label" class="text-[9px] text-slate-400 font-medium italic mt-1"></p>
                             </div>
                         </div>
+
+                        <!-- Header Section (Text) -->
+                        <div id="headerTextSection" class="p-5 rounded-2xl bg-white border border-slate-100 space-y-3">
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Header Text <span class="lowercase font-normal ml-1">(Optional)</span></label>
+                            <input type="text" id="wiz_header_text" maxlength="60" placeholder="Enter header text..." class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" oninput="updateTemplatePreview()">
+                        </div>
+                        <input type="hidden" id="wiz_header_type" value="NONE">
 
                         <!-- Body Section -->
                         <div class="space-y-2">
@@ -2429,24 +2432,30 @@
             updateTemplatePreview();
         }
 
-        function toggleHeaderInput() {
-            const type = document.getElementById('wiz_header_type').value;
-            // headerTextInput - for TEXT
-            // headerMediaInfo - for IMAGE, VIDEO, DOCUMENT
-            const hText = document.getElementById('headerTextInput');
-            const hMedia = document.getElementById('headerMediaInfo');
-            const sizeLabel = document.getElementById('wiz_media_size_label');
+        function toggleWizMediaSection() {
+            const mediaType = document.getElementById('wiz_media_type').value;
+            const mediaInfo = document.getElementById('headerMediaInfo');
+            const headerTextSection = document.getElementById('headerTextSection');
+            const headerTypeInput = document.getElementById('wiz_header_type');
+            const headerTextInput = document.getElementById('wiz_header_text');
             
-            if (hText) hText.classList.toggle('hidden', type !== 'TEXT');
-            if (hMedia) {
-                hMedia.classList.toggle('hidden', !['IMAGE', 'VIDEO', 'DOCUMENT'].includes(type));
+            if (mediaType === 'NONE') {
+                mediaInfo.classList.add('hidden');
+                headerTextSection.classList.remove('hidden');
+                headerTypeInput.value = headerTextInput.value.trim() ? 'TEXT' : 'NONE';
+            } else {
+                mediaInfo.classList.remove('hidden');
+                headerTextSection.classList.add('hidden');
+                headerTypeInput.value = mediaType;
+                headerTextInput.value = '';
                 
-                // Update size label
-                if (type === 'IMAGE') sizeLabel.innerText = "Max size: 5 MB";
-                else if (type === 'VIDEO') sizeLabel.innerText = "Max size: 16 MB";
-                else if (type === 'DOCUMENT') sizeLabel.innerText = "Max size: 100 MB";
+                const sizeLabel = document.getElementById('wiz_media_size_label');
+                if (mediaType === 'IMAGE') sizeLabel.innerText = "Max size: 5 MB";
+                else if (mediaType === 'VIDEO') sizeLabel.innerText = "Max size: 16 MB";
+                else if (mediaType === 'DOCUMENT') sizeLabel.innerText = "Max size: 100 MB";
                 else sizeLabel.innerText = "";
             }
+            updateTemplatePreview();
         }
 
         async function submitWizardTemplate() {
