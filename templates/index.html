@@ -1735,7 +1735,8 @@
             const template = templatesList.find(t => t.name === templateName);
             if (!template) return;
 
-            const content = template.content || "";
+            // USE full_content if available (includes Header/Body/Footer) to detect ALL variables {{n}}
+            const content = template.full_content || template.content || "";
             const components = template.components || [];
             const varMap = template.variable_map || {};
             

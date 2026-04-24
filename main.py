@@ -476,6 +476,9 @@ async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col
             # Response is usually {'messaging_product': 'whatsapp', 'contacts': [...], 'messages': [{'id': '...'}]}
             if isinstance(response, dict) and 'messages' in response:
                 wa_message_id = response['messages'][0].get('id')
+                print(f"DEBUG: Campaign Message {i+1} to {phone} SUCCESS. Meta ID: {wa_message_id}")
+            else:
+                print(f"DEBUG: Campaign Message {i+1} to {phone} SUCCESS but ID not found in response: {response}")
         else:
             failed_count += 1
             try:
@@ -1344,17 +1347,22 @@ async def webhook_handler(request: Request):
                 for status_update in statuses:
                     wa_message_id = status_update.get("id")
                     new_status = status_update.get("status") # sent, delivered, read, failed
-                    print(f"DEBUG WEBHOOK: Status update for {wa_message_id}: {new_status}")
+                    print(f"DEBUG WEBHOOK: Received {new_status} update for ID: {wa_message_id}")
                     
                     db = await get_db()
                     # 1. Update Campaigns/Bulk Messages Table
-                    msg = await db.fetch_one("SELECT id FROM messages WHERE whatsapp_message_id = :id", {"id": wa_message_id})
+                    msg = await db.fetch_one("SELECT id, status FROM messages WHERE whatsapp_message_id = :id", {"id": wa_message_id})
                     
                     # 2. Update Individual Chat Messages Table
-                    chat_msg = await db.fetch_one("SELECT id FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
+                    chat_msg = await db.fetch_one("SELECT id, status FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
+                    
+                    if not msg and not chat_msg:
+                        print(f"DEBUG WEBHOOK: Message ID {wa_message_id} NOT FOUND in database (checked 'messages' and 'chat_messages')")
                     
                     if msg or chat_msg:
-                        print(f"DEBUG WEBHOOK: Found message {wa_message_id} in {'messages' if msg else 'chat_messages'}. New status: {new_status}")
+                        table_name = 'messages' if msg else 'chat_messages'
+                        old_status = msg['status'] if msg else chat_msg['status']
+                        print(f"DEBUG WEBHOOK: Updating {table_name} for {wa_message_id}: {old_status} -> {new_status}")
                         
                         # Update message status and error message if failed
                         error_msg = None
@@ -1610,7 +1618,12 @@ async def send_chat_reply(
     print(f"DEBUG CHAT: Send to {phone} result: {success}. Response: {response}")
     
     if success:
-        wa_id = response.get("wa_id")
+        wa_id = None
+        if isinstance(response, dict) and 'messages' in response:
+            wa_id = response['messages'][0].get('id')
+        
+        if not wa_id:
+            print(f"DEBUG CHAT: Message sent to {phone} but could not extract ID from: {response}")
             
         # Save to Chat History with user_id and initial status
         await db.execute("""

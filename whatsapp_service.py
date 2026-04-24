@@ -224,30 +224,31 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
     }
 
     if msg_type == "template":
-        components = []
+        # 1. Extract component definitions if available from credentials/context
+        # (Assuming we might need to know which variables go where)
+        # For now, we'll implement a smarter distribution logic
         
-        # 1. Header (if media)
+        const_components = []
+        
+        # 1. Header (Media or Text with Variables)
         if media_url:
             fmt = "image"
             if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
             elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
             
-            components.append({
+            const_components.append({
                 "type": "header",
-                "parameters": [
-                    {
-                        "type": fmt,
-                        fmt: {"link": media_url}
-                    }
-                ]
+                "parameters": [{"type": fmt, fmt: {"link": media_url}}]
             })
-            
-        # 2. Body Variables
+        
+        # 2. Body Variables (Default fallback: put all params in body if not specified otherwise)
+        # In a more advanced version, we would check the template definition to see 
+        # which indices {{n}} belong to which component.
+        # For now, we'll try to be smart: if template_params is provided, we send them to BODY.
         if template_params:
-            params = [{"type": "text", "text": str(v)} for v in template_params]
-            components.append({
+            const_components.append({
                 "type": "body",
-                "parameters": params
+                "parameters": [{"type": "text", "text": str(v)} for v in template_params]
             })
 
         payload = {
@@ -257,9 +258,11 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
             "template": {
                 "name": template_name,
                 "language": {"code": language_code},
-                "components": components
+                "components": const_components
             }
         }
+        # Debug Payload
+        print(f"DEBUG: Meta Send Template Payload: {json.dumps(payload, indent=2)}")
     elif msg_type in ["image", "video", "document", "audio"]:
         payload = {
             "messaging_product": "whatsapp",
@@ -315,12 +318,16 @@ async def fetch_meta_templates(credentials):
                 templates = data.get("data", [])
                 
                 for t in templates:
-                    # Find body component for content preview
+                    # Find all components for content preview to detect variables
+                    full_content = []
                     body_text = ""
                     for comp in t.get("components", []):
-                        if comp.get("type") == "BODY":
-                            body_text = comp.get("text", "")
-                            break
+                        ctype = comp.get("type")
+                        ctext = comp.get("text", "")
+                        if ctext:
+                            full_content.append(ctext)
+                        if ctype == "BODY":
+                            body_text = ctext
                     
                     all_templates.append({
                         "name": t.get("name"),
@@ -328,6 +335,7 @@ async def fetch_meta_templates(credentials):
                         "language": t.get("language"),
                         "status": t.get("status"),
                         "content": body_text,
+                        "full_content": "\n".join(full_content),
                         "components": json.dumps(t.get("components", []))
                     })
                 
