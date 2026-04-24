@@ -64,8 +64,19 @@ async def get_user_id(username: str):
 
 async def get_active_credentials(user_id: int):
     db = await get_db()
+    # First, try to find active credentials
     row = await db.fetch_one("SELECT whatsapp_token as token, phone_number_id as phone_id, waba_id FROM user_credentials WHERE is_active = 1 AND user_id = :u ORDER BY last_updated DESC LIMIT 1", {"u": user_id})
-    return dict(row) if row else None
+    if row:
+        return dict(row)
+    
+    # Fallback: Check if any credentials exist at all (maybe inactive?)
+    any_creds = await db.fetch_one("SELECT id FROM user_credentials WHERE user_id = :u LIMIT 1", {"u": user_id})
+    if any_creds:
+        print(f"DEBUG: User {user_id} has credentials but NONE ARE ACTIVE.")
+    else:
+        print(f"DEBUG: User {user_id} has NO credentials in the database.")
+        
+    return None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -1476,7 +1487,8 @@ async def create_complex_template(
     
     credentials = await get_active_credentials(u_id)
     if not credentials:
-        return JSONResponse(status_code=400, content={"error": "Please link your WhatsApp account first."})
+        print(f"ERROR: Template creation failed for user {username} (ID: {u_id}) - No active credentials.")
+        return JSONResponse(status_code=400, content={"error": "Active WhatsApp credentials not found. Please go to the 'Link Account' tab and re-link your WhatsApp account to activate it."})
     
     # Normalize newlines in body content
     # 1. Convert Windows \r\n to standard \n
