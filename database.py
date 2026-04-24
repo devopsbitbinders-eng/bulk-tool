@@ -119,6 +119,7 @@ async def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY {auto_inc},
             username {text_type} UNIQUE,
+            business_name {text_type},
             password_hash TEXT,
             salt TEXT,
             is_approved BOOLEAN DEFAULT 0,

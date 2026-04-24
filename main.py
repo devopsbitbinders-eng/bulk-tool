@@ -233,7 +233,7 @@ async def privacy_page(request: Request):
 
 
 @app.post("/api/auth/signup")
-async def register(username: str = Form(...), password: str = Form(...)):
+async def register(username: str = Form(...), business_name: str = Form(...), password: str = Form(...)):
     db = await get_db()
     
     # Default is a regular, unapproved user.
@@ -248,8 +248,8 @@ async def register(username: str = Form(...), password: str = Form(...)):
     
     pwd_hash, salt = hash_password(password)
     await db.execute(
-        "INSERT INTO users (username, password_hash, salt, is_approved, is_admin) VALUES (:u, :p, :s, :a, :adm)",
-        {"u": username, "p": pwd_hash, "s": salt, "a": is_approved, "adm": is_admin}
+        "INSERT INTO users (username, business_name, password_hash, salt, is_approved, is_admin) VALUES (:u, :b, :p, :s, :a, :adm)",
+        {"u": username, "b": business_name, "p": pwd_hash, "s": salt, "a": is_approved, "adm": is_admin}
     )
     
     msg = "Account created successfully! Admin will approve your login shortly."
@@ -306,7 +306,7 @@ async def admin_get_users(request: Request):
     if not admin_check or not admin_check['is_admin']:
         return JSONResponse(status_code=403, content={"error": "Access Denied"})
     
-    users = await db.fetch_all("SELECT id, username, is_approved, is_admin, created_at FROM users ORDER BY created_at DESC")
+    users = await db.fetch_all("SELECT id, username, business_name, is_approved, is_admin, created_at FROM users ORDER BY created_at DESC")
     return [dict(u) for u in users]
 
 
