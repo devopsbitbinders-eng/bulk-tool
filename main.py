@@ -1525,16 +1525,18 @@ async def create_complex_template(
                     max_h_idx = max(int(m) for m in header_vars)
                     header_comp["example"] = {"header_text": ["sample" for _ in range(max_h_idx)]}
                 
-                components.append(header_comp)
-        else:
-            # Media headers (IMAGE, VIDEO, DOCUMENT)
-            # 1. Try to get a real header_handle by uploading the sample to Meta's Resumable Upload API
+                components.append(header_comp)            # Media headers (IMAGE, VIDEO, DOCUMENT)
             handle = None
+            upload_error = "Unknown Error"
+            
+            print(f"DEBUG: Media header requested. Sample text: {h_text}")
+            
             if h_text and "/static/uploads/" in h_text:
                 try:
                     filename = h_text.split("/")[-1]
-                    # Use absolute path from current file location to be safe
-                    local_path = os.path.join(os.path.dirname(__file__), "static", "uploads", filename)
+                    # Use the globally defined UPLOAD_DIR
+                    local_path = os.path.join(UPLOAD_DIR, filename)
+                    print(f"DEBUG: Looking for local file at: {local_path}")
                     
                     if os.path.exists(local_path):
                         with open(local_path, "rb") as f:
@@ -1553,20 +1555,26 @@ async def create_complex_template(
                         if handle:
                             print(f"DEBUG: Successfully obtained header_handle: {handle}")
                         else:
-                            print(f"DEBUG: Failed to get header_handle: {upload_error}")
-                            # If it's a specific Meta error, return it to the user so they know WHY
-                            return JSONResponse(status_code=400, content={"error": f"Media Sample Upload Failed: {upload_error}. Please ensure your WhatsApp account is correctly linked and has appropriate permissions."})
+                            print(f"DEBUG: Meta handle creation failed: {upload_error}")
+                    else:
+                        upload_error = f"File not found on server: {local_path}"
+                        print(f"DEBUG: {upload_error}")
                 except Exception as e:
-                    print(f"DEBUG: Failed to get header_handle: {str(e)}")
+                    upload_error = str(e)
+                    print(f"DEBUG: Exception during handle creation: {upload_error}")
+            else:
+                upload_error = "No valid sample media URL provided. Please upload an image/video/document."
+                print(f"DEBUG: {upload_error}")
 
-            # Fallback to the URL if handle failed (though Meta might reject it)
-            final_handle = handle if handle else (h_text if (h_text and h_text.startswith('http')) else "https://www.bitbinders.in/sample-media.jpg")
+            if not handle:
+                return JSONResponse(status_code=400, content={"error": f"Media Header Error: {upload_error}. Media templates REQUIRE a valid sample file to be uploaded and registered with Meta."})
 
             components.append({
                 "type": "HEADER", 
                 "format": header_type, 
-                "example": {"header_handle": [final_handle]}
+                "example": {"header_handle": [handle]}
             })
+
 
     # 2. Body
     # Meta requires exactly n examples for variables {{1}} through {{n}}.
