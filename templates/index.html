@@ -2250,7 +2250,7 @@
                 
                 if (mediaUrl) {
                     if (headerType === 'IMAGE') {
-                        mediaImg.src = mediaUrl + (mediaUrl.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+                        mediaImg.src = mediaUrl;
                         mediaImg.classList.remove('hidden');
                     } else if (headerType === 'VIDEO') {
                         if(videoPrev) {
