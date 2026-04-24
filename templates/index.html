@@ -2379,7 +2379,13 @@
                 // Check for Media Header
                 const header = components.find(c => c.type === 'HEADER');
                 currentHeaderType = header ? header.format : "NONE";
+                
+                // Smart Auto-Fill: Try _original_url first, then localStorage
                 currentHeaderSampleUrl = (header && header.example) ? (header.example._original_url || "") : "";
+                if (!currentHeaderSampleUrl && currentHeaderType !== 'NONE' && currentHeaderType !== 'TEXT') {
+                    currentHeaderSampleUrl = localStorage.getItem(`last_header_url_${templateName}`) || "";
+                }
+                
                 selectedTemplateLang = template.language || "en_US";
 
                 document.getElementById('mappingArea').classList.remove('hidden');
@@ -2538,6 +2544,13 @@
                             showToast('Campaign scheduled successfully!', 'success');
                             setTimeout(() => location.reload(), 2000);
                         } else {
+                            // Remember the Header URL for next time
+                            const tName = document.getElementById('templateName').value;
+                            const hInput = document.querySelector('input[name="val_header"]');
+                            if (tName && hInput && hInput.value) {
+                                localStorage.setItem(`last_header_url_${tName}`, hInput.value);
+                            }
+
                             showToast('Campaign queued!', 'success');
                             document.getElementById('progressCard').classList.remove('hidden');
                             setupSSE();
