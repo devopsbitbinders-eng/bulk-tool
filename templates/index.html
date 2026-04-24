@@ -3194,7 +3194,13 @@
                 if (response.ok) {
                     await loadChatHistory(currentChatPhone);
                 } else {
-                    showToast(result.error || 'Failed to send message', 'error');
+                    if (result.code === 'WINDOW_CLOSED') {
+                        showConfirm('24-Hour Window Closed', `${result.error}\n\nWould you like to open the Template picker?`, () => {
+                            toggleChatTemplates();
+                        }, 'Open Templates');
+                    } else {
+                        showToast(result.error || 'Failed to send message', 'error');
+                    }
                 }
             } catch (err) {
                 showToast('Network error', 'error');

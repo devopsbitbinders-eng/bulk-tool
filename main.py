@@ -1338,9 +1338,13 @@ async def webhook_handler(request: Request):
                 # Dynamic User Routing via Meta Metadata
                 metadata = value.get("metadata", {})
                 pn_id = metadata.get("phone_number_id")
+                print(f"DEBUG WEBHOOK: Data: {json.dumps(data)}")
+                print(f"DEBUG WEBHOOK: Metadata Phone ID: {pn_id}")
+                
                 db = await get_db()
-                cred = await db.fetch_one("SELECT user_id FROM user_credentials WHERE phone_number_id = :p LIMIT 1", {"p": pn_id})
+                cred = await db.fetch_one("SELECT user_id FROM user_credentials WHERE phone_number_id = :p LIMIT 1", {"p": str(pn_id)})
                 u_id = cred['user_id'] if cred else None
+                print(f"DEBUG WEBHOOK: Initial u_id lookup: {u_id}")
                 
                 statuses = value.get("statuses", [])
                 
@@ -1390,18 +1394,50 @@ async def webhook_handler(request: Request):
                     from_phone = msg_data.get("from")
                     msg_type = msg_data.get("type")
                     
+                    # Fallback User ID lookup if phone_number_id failed
+                    # We check who was the last user to message this phone number
+                    if u_id is None:
+                        print(f"DEBUG WEBHOOK: u_id is None for inbound from {from_phone}. Attempting fallback lookup...")
+                        last_msg = await db.fetch_one("SELECT user_id FROM messages WHERE phone LIKE :p ORDER BY timestamp DESC LIMIT 1", {"p": f"%{from_phone[-10:]}"})
+                        if not last_msg:
+                            last_msg = await db.fetch_one("SELECT user_id FROM chat_messages WHERE phone LIKE :p ORDER BY timestamp DESC LIMIT 1", {"p": f"%{from_phone[-10:]}"})
+                        
+                        if last_msg:
+                            u_id = last_msg['user_id']
+                            print(f"DEBUG WEBHOOK: Fallback u_id found: {u_id}")
+                        else:
+                            # Final fallback: just use the first active admin user if any
+                            first_user = await db.fetch_one("SELECT id FROM users WHERE is_approved = 1 LIMIT 1")
+                            u_id = first_user['id'] if first_user else None
+                            print(f"DEBUG WEBHOOK: Final fallback u_id: {u_id}")
+
+                    body = ""
                     if msg_type == "text":
                         body = msg_data.get("text", {}).get("body")
-                        db = await get_db()
-                        # Avoid duplicates
-                        existing = await db.fetch_one("SELECT id FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
-                        if not existing:
-                            clean_from = normalize_phone(from_phone)
-                            await db.execute("""
-                                INSERT INTO chat_messages (user_id, phone, message, direction, wa_message_id, timestamp)
-                                VALUES (:u, :phone, :message, 'inbound', :id, :ts)
-                            """, {"u": u_id, "phone": clean_from, "message": body, "id": wa_message_id, "ts": get_now_utc()})
-                            print(f"DEBUG WEBHOOK: Saved inbound message from {clean_from} for user {u_id}")
+                    elif msg_type == "image":
+                        caption = msg_data.get("image", {}).get("caption", "")
+                        body = f"[Received Image] {caption}".strip()
+                    elif msg_type == "video":
+                        caption = msg_data.get("video", {}).get("caption", "")
+                        body = f"[Received Video] {caption}".strip()
+                    elif msg_type == "document":
+                        filename = msg_data.get("document", {}).get("filename", "file")
+                        body = f"[Received Document: {filename}]"
+                    elif msg_type == "audio":
+                        body = "[Received Audio]"
+                    else:
+                        body = f"[Received {msg_type}]"
+
+                    db = await get_db()
+                    # Avoid duplicates
+                    existing = await db.fetch_one("SELECT id FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
+                    if not existing:
+                        clean_from = normalize_phone(from_phone)
+                        await db.execute("""
+                            INSERT INTO chat_messages (user_id, phone, message, direction, wa_message_id, is_read, timestamp)
+                            VALUES (:u, :phone, :message, 'inbound', :id, 0, :ts)
+                        """, {"u": u_id, "phone": clean_from, "message": body, "id": wa_message_id, "ts": get_now_utc()})
+                        print(f"DEBUG WEBHOOK: Saved inbound {msg_type} from {clean_from} for user {u_id}")
                 
     except Exception as e:
         print(f"DEBUG WEBHOOK: Error processing: {str(e)}")
@@ -1633,7 +1669,13 @@ async def send_chat_reply(
         
         return {"status": "ok", "wa_id": wa_id}
     else:
-        return JSONResponse(status_code=400, content={"error": f"WhatsApp Error: {str(response)}"})
+        err_msg = str(response)
+        error_code = "UNKNOWN"
+        if "24 hours" in err_msg or "outside of allowed window" in err_msg or "131047" in err_msg:
+            error_code = "WINDOW_CLOSED"
+            err_msg = "The 24-hour window has closed. You must use a Template to message this user."
+        
+        return JSONResponse(status_code=400, content={"error": err_msg, "code": error_code})
 
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
