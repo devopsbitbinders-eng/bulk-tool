@@ -85,17 +85,18 @@ async def lifespan(app: FastAPI):
     scheduler_task.cancel()
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="static"), name="static")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-
-# SSE event queues for real-time updates
 event_queues = []
 
 # Media Upload Directory — use /tmp on Vercel (read-only filesystem), fallback to static/uploads locally
 UPLOAD_DIR = "/tmp/uploads" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "static", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# SPECIFIC MOUNT FOR UPLOADS (High Priority)
 app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads_mount")
+# General static mount
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
 @app.head("/robots.txt")
@@ -119,6 +120,7 @@ async def upload_media(file: UploadFile = File(...)):
             buffer.write(content)
             
         url = f"/static/uploads/{unique_name}"
+        print(f"DEBUG: File uploaded to {save_path}, URL: {url}")
         return {"url": url}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
