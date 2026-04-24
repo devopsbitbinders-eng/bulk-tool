@@ -1549,9 +1549,13 @@ async def create_complex_template(
                         }
                         mime = mime_map.get(ext, "image/jpeg")
                         
-                        handle = await get_meta_header_handle(file_bytes, mime, credentials)
+                        handle, upload_error = await get_meta_header_handle(file_bytes, mime, credentials)
                         if handle:
                             print(f"DEBUG: Successfully obtained header_handle: {handle}")
+                        else:
+                            print(f"DEBUG: Failed to get header_handle: {upload_error}")
+                            # If it's a specific Meta error, return it to the user so they know WHY
+                            return JSONResponse(status_code=400, content={"error": f"Media Sample Upload Failed: {upload_error}. Please ensure your WhatsApp account is correctly linked and has appropriate permissions."})
                 except Exception as e:
                     print(f"DEBUG: Failed to get header_handle: {str(e)}")
 
