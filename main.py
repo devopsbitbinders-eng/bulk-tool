@@ -1533,7 +1533,7 @@ async def create_complex_template(
             components.append({
                 "type": "HEADER", 
                 "format": header_type, 
-                "example": {"link": [media_url]}
+                "example": {"header_handle": [media_url]}
             })
 
     # 2. Body
