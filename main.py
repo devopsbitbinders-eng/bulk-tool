@@ -1528,12 +1528,40 @@ async def create_complex_template(
                 components.append(header_comp)
         else:
             # Media headers (IMAGE, VIDEO, DOCUMENT)
-            # Use provided URL or a placeholder if empty
-            media_url = h_text if (h_text and h_text.startswith('http')) else "https://www.bitbinders.in/sample-media.jpg"
+            # 1. Try to get a real header_handle by uploading the sample to Meta's Resumable Upload API
+            handle = None
+            if h_text and "/static/uploads/" in h_text:
+                try:
+                    filename = h_text.split("/")[-1]
+                    # The UPLOAD_DIR is defined globally as os.path.join(os.getcwd(), "static", "uploads")
+                    local_path = os.path.join(os.getcwd(), "static", "uploads", filename)
+                    
+                    if os.path.exists(local_path):
+                        with open(local_path, "rb") as f:
+                            file_bytes = f.read()
+                        
+                        from whatsapp_service import get_meta_header_handle
+                        # Detect MIME type
+                        ext = filename.split(".")[-1].lower()
+                        mime_map = {
+                            "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                            "mp4": "video/mp4", "pdf": "application/pdf"
+                        }
+                        mime = mime_map.get(ext, "image/jpeg")
+                        
+                        handle = await get_meta_header_handle(file_bytes, mime, credentials)
+                        if handle:
+                            print(f"DEBUG: Successfully obtained header_handle: {handle}")
+                except Exception as e:
+                    print(f"DEBUG: Failed to get header_handle: {str(e)}")
+
+            # Fallback to the URL if handle failed (though Meta might reject it)
+            final_handle = handle if handle else (h_text if (h_text and h_text.startswith('http')) else "https://www.bitbinders.in/sample-media.jpg")
+
             components.append({
                 "type": "HEADER", 
                 "format": header_type, 
-                "example": {"header_handle": [media_url]}
+                "example": {"header_handle": [final_handle]}
             })
 
     # 2. Body

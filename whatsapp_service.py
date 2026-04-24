@@ -182,6 +182,40 @@ async def delete_whatsapp_template(name, credentials=None):
     except Exception as e:
         return False, str(e)
 
+async def get_meta_header_handle(file_bytes, mime_type, credentials):
+    """Obtains a header_handle from Meta for template examples using Resumable Uploads."""
+    token = credentials.get('token', WHATSAPP_TOKEN)
+    app_id = "916270141105838" # From main.py
+    
+    # 1. Start Upload Session
+    url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{app_id}/uploads"
+    params = {
+        "file_length": len(file_bytes),
+        "file_type": mime_type,
+        "access_token": token
+    }
+    try:
+        res = requests.post(url, params=params)
+        if res.status_code != 200:
+            print(f"DEBUG: Meta Upload Session Error: {res.text}")
+            return None
+        upload_id = res.json().get('id')
+        
+        # 2. Upload the file data
+        url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{upload_id}"
+        headers = {
+            "Authorization": f"OAuth {token}"
+        }
+        res = requests.post(url, headers=headers, data=file_bytes)
+        if res.status_code != 200:
+            print(f"DEBUG: Meta File Upload Error: {res.text}")
+            return None
+        
+        return res.json().get('h') # This is the header_handle
+    except Exception as e:
+        print(f"DEBUG: Exception in get_meta_header_handle: {str(e)}")
+        return None
+
 async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
     import requests
     token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
