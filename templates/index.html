@@ -566,7 +566,7 @@
                                     <input type="file" id="campaignMediaFile" name="media_file" class="hidden" onchange="handleCampaignMedia(this)">
                                 </label>
                             </div>
-                            <p class="mt-1 text-[10px] text-slate-400">Add an image, video, or document to your message. URLs are also supported.</p>
+                            <p class="mt-1 text-[10px] text-slate-400 font-medium italic">Max size: Images 5MB, Video 16MB, Documents 100MB.</p>
                         </div>
 
                         <div class="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
@@ -1120,6 +1120,7 @@
                                     </button>
                                 </div>
                                 <input type="file" id="wiz_media_file" class="hidden" onchange="handleWizardMedia(this)">
+                                <p id="wiz_media_size_label" class="text-[9px] text-slate-400 font-medium italic mt-1"></p>
                             </div>
                         </div>
 
@@ -2077,6 +2078,13 @@
                 return showToast('Please select a video file', 'error');
             }
 
+            // Size validation
+            const sizeMB = file.size / (1024 * 1024);
+            const limits = { 'IMAGE': 5, 'VIDEO': 16, 'DOCUMENT': 100 };
+            if (limits[type] && sizeMB > limits[type]) {
+                return showToast(`File too large! Max ${limits[type]}MB for ${type.toLowerCase()}s.`, 'error');
+            }
+
             const formData = new FormData();
             formData.append('file', file);
 
@@ -2104,6 +2112,12 @@
         async function handleCampaignMedia(input) {
             if (!input.files || !input.files[0]) return;
             const file = input.files[0];
+            
+            // Basic generic size validation (100MB max for documents, lower for others is handled by Meta but we check 100MB total)
+            if (file.size > 100 * 1024 * 1024) {
+                return showToast('File too large! Max 100MB allowed.', 'error');
+            }
+
             const formData = new FormData();
             formData.append('file', file);
 
@@ -2340,8 +2354,18 @@
             // headerMediaInfo - for IMAGE, VIDEO, DOCUMENT
             const hText = document.getElementById('headerTextInput');
             const hMedia = document.getElementById('headerMediaInfo');
+            const sizeLabel = document.getElementById('wiz_media_size_label');
+            
             if (hText) hText.classList.toggle('hidden', type !== 'TEXT');
-            if (hMedia) hMedia.classList.toggle('hidden', !['IMAGE', 'VIDEO', 'DOCUMENT'].includes(type));
+            if (hMedia) {
+                hMedia.classList.toggle('hidden', !['IMAGE', 'VIDEO', 'DOCUMENT'].includes(type));
+                
+                // Update size label
+                if (type === 'IMAGE') sizeLabel.innerText = "Max size: 5 MB";
+                else if (type === 'VIDEO') sizeLabel.innerText = "Max size: 16 MB";
+                else if (type === 'DOCUMENT') sizeLabel.innerText = "Max size: 100 MB";
+                else sizeLabel.innerText = "";
+            }
         }
 
         async function submitWizardTemplate() {
