@@ -208,7 +208,7 @@ async def init_db():
     except: pass
 
     # Webhook Logs for debugging
-    await db.execute("""
+    await db.execute(f"""
         CREATE TABLE IF NOT EXISTS webhook_logs (
             id INTEGER PRIMARY KEY {auto_inc},
             payload TEXT,
