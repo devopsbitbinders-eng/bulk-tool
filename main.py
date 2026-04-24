@@ -330,7 +330,7 @@ async def admin_get_users(request: Request):
     if not admin_check or not admin_check['is_admin']:
         return JSONResponse(status_code=403, content={"error": "Access Denied"})
     
-    users = await db.fetch_all("SELECT id, username, business_name, is_approved, is_admin, expiry_date, created_at FROM users ORDER BY created_at DESC")
+    users = await db.fetch_all("SELECT id, username, business_name, is_approved, is_admin, expiry_date, created_at FROM users WHERE is_admin = 0 ORDER BY created_at DESC")
     return [dict(u) for u in users]
 
 
