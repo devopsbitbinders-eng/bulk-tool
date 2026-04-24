@@ -552,6 +552,22 @@
                                 <p class="mt-2 text-xs text-slate-500">Use <code class="bg-slate-200 px-1 rounded">[column_name]</code> to personalize.</p>
                             </div>
                         </div>
+                        
+                        <!-- Media Attachment (New) -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Attach Media <span class="text-[10px] font-normal text-slate-400 ml-1">(Optional)</span></label>
+                            <div class="flex items-center gap-3">
+                                <div class="relative flex-1">
+                                    <input type="text" id="campaignMediaUrl" name="media_url" placeholder="https://example.com/image.jpg" 
+                                           class="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none transition-all text-sm">
+                                </div>
+                                <label class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 cursor-pointer transition-all text-slate-600 shadow-sm group">
+                                    <svg class="w-5 h-5 group-hover:text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                    <input type="file" id="campaignMediaFile" name="media_file" class="hidden" onchange="handleCampaignMedia(this)">
+                                </label>
+                            </div>
+                            <p class="mt-1 text-[10px] text-slate-400">Add an image, video, or document to your message. URLs are also supported.</p>
+                        </div>
 
                         <div class="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
                             <div class="flex items-center justify-between mb-3">
@@ -1858,6 +1874,9 @@
                 formData.delete("file");
             }
             
+            // Explicitly set media_url (it might have been set by upload)
+            formData.set('media_url', document.getElementById('campaignMediaUrl').value);
+            
             const msgType = document.querySelector('input[name="msg_type"]:checked').value;
             
             if (msgType === 'template') {
@@ -2041,77 +2060,66 @@
             openTemplateModal(true);
         }
 
-        async function submitWizardTemplate() {
-            const submitBtn = document.getElementById('saveTmplBtn');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="animate-spin rounded-full h-4 w-4 border-b-2 border-white inline-block"></span> Submitting...';
+        function triggerMediaUpload() {
+            document.getElementById('wiz_media_file').click();
+        }
+
+        async function handleWizardMedia(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            const type = document.getElementById('wiz_header_type').value;
+
+            // Optional: Basic file type validation
+            if (type === 'IMAGE' && !file.type.startsWith('image/')) {
+                return showToast('Please select an image file', 'error');
+            }
+            if (type === 'VIDEO' && !file.type.startsWith('video/')) {
+                return showToast('Please select a video file', 'error');
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
 
             try {
-                const components = [];
-                const headerType = document.getElementById('wiz_header_type').value;
-                if (headerType !== 'NONE') {
-                    const headerComp = { type: 'HEADER', format: headerType };
-                    if (headerType === 'TEXT') {
-                        headerComp.text = document.getElementById('wiz_header_text').value;
-                    } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerType)) {
-                        const url = document.getElementById('wiz_header_sample_url').value;
-                        if(url) {
-                            headerComp.example = { header_handle: [url] };
-                        }
-                    }
-                    components.push(headerComp);
-                }
-
-                components.push({
-                    type: 'BODY',
-                    text: document.getElementById('wiz_body').value
+                showToast('Uploading media...', 'info');
+                const res = await fetch('/api/upload-media', {
+                    method: 'POST',
+                    body: formData
                 });
-
-                const footerText = document.getElementById('wiz_footer').value;
-                if (footerText) {
-                    components.push({ type: 'FOOTER', text: footerText });
-                }
-
-                if (wizButtons && wizButtons.length > 0) {
-                    components.push({
-                        type: 'BUTTONS',
-                        buttons: wizButtons
-                    });
-                }
-
-                const catEl = document.querySelector('input[name="wiz_category"]:checked');
-
-                const payload = {
-                    name: document.getElementById('wiz_name').value,
-                    category: catEl ? catEl.value : 'MARKETING',
-                    language: document.getElementById('wiz_language').value,
-                    components: components
-                };
-
-                const url = isEditMode ? '/api/templates/update' : '/api/templates/create';
-                const method = isEditMode ? 'PUT' : 'POST';
-
-                const response = await fetch(url, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (response.ok) {
-                    showToast(`Template ${isEditMode ? 'updated' : 'created'} successfully!`, 'success');
-                    closeTemplateModal();
-                    // Let Meta propagate
-                    setTimeout(() => location.reload(), 1500);
+                const data = await res.json();
+                if (res.ok) {
+                    // Prepend origin for absolute URL required by Meta
+                    const absoluteUrl = window.location.origin + data.url;
+                    document.getElementById('wiz_header_sample_url').value = absoluteUrl;
+                    updateTemplatePreview();
+                    showToast('Media uploaded successfully!', 'success');
                 } else {
-                    const err = await response.json();
-                    showToast(err.detail || err.error || `Failed to ${isEditMode ? 'update' : 'create'} template`, 'error');
+                    showToast(data.error || 'Upload failed', 'error');
                 }
-            } catch (error) {
-                showToast('Error: ' + error.message, 'error');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
+            } catch (err) {
+                showToast('Upload error', 'error');
+            }
+        }
+
+        async function handleCampaignMedia(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                showToast('Uploading campaign media...', 'info');
+                const res = await fetch('/api/upload-media', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (res.ok) {
+                    const absoluteUrl = window.location.origin + data.url;
+                    document.getElementById('campaignMediaUrl').value = absoluteUrl;
+                    showToast('Media attached to campaign!', 'success');
+                } else {
+                    showToast(data.error || 'Upload failed', 'error');
+                }
+            } catch (err) {
+                showToast('Upload error', 'error');
             }
         }
         let wizButtons = [];

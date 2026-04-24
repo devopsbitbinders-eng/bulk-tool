@@ -439,6 +439,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
     language_code = campaign['language_code']
     phone_col = campaign['phone_col']
     mappings = json.loads(campaign['mappings']) if campaign['mappings'] else None
+    campaign_media_url = campaign.get('media_url')
     
     # 2. Fetch pending messages
     pending_messages = await db.fetch_all(
@@ -466,7 +467,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
         phone = msg['phone']
         row = json.loads(msg['row_data']) if msg['row_data'] else {}
         
-        media_url = None
+        media_url = campaign_media_url
         message_to_send = ""
         forced_components = []
 
@@ -536,10 +537,17 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
         else:
             message_to_send = substitute_template(message_template or "", row)
 
+        # Auto-detect msg_type if it's text but we have a media_url
+        final_msg_type = msg_type
+        if msg_type == "text" and media_url:
+            final_msg_type = "image"
+            if str(media_url).lower().endswith((".mp4", ".mov")): final_msg_type = "video"
+            elif str(media_url).lower().endswith((".pdf", ".doc", ".docx", ".xlsx", ".xls")): final_msg_type = "document"
+
         # Send Message
         credentials = await get_active_credentials(user_id)
         success, response = await send_whatsapp_message(
-            phone, message_to_send, msg_type, template_name, language_code, 
+            phone, message_to_send, final_msg_type, template_name, language_code, 
             media_url=media_url, credentials=credentials, forced_components=forced_components
         )
 
@@ -673,13 +681,20 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
         # Search by name (case-insensitive for safety)
         template_def = await db.fetch_one("SELECT components FROM templates WHERE LOWER(name) = LOWER(:name) AND user_id = :u LIMIT 1", {"name": template_name, "u": user_id})
 
+    # 1. Fetch Campaign Metadata for media
+    campaign_media_url = None
+    try:
+        camp_row = await db.fetch_one("SELECT media_url FROM campaigns WHERE id = :id", {"id": campaign_id})
+        if camp_row: campaign_media_url = camp_row['media_url']
+    except: pass
+
     for i, row in enumerate(data):
         raw_phone = str(row.get(phone_col, ""))
         phone = normalize_phone(raw_phone)
         if not phone:
             continue
             
-        media_url = None
+        media_url = campaign_media_url
         message_to_send = ""
         forced_components = []
 
@@ -786,9 +801,16 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
             await queue.put(typing_event)
         await asyncio.sleep(delay)
         
+        # Auto-detect msg_type if it's text but we have a media_url
+        final_msg_type = msg_type
+        if msg_type == "text" and media_url:
+            final_msg_type = "image"
+            if str(media_url).lower().endswith((".mp4", ".mov")): final_msg_type = "video"
+            elif str(media_url).lower().endswith((".pdf", ".doc", ".docx", ".xlsx", ".xls")): final_msg_type = "document"
+
         credentials = await get_active_credentials(user_id)
         success, response = await send_whatsapp_message(
-            phone, message_to_send, msg_type, template_name, language_code, 
+            phone, message_to_send, final_msg_type, template_name, language_code, 
             media_url=media_url, credentials=credentials, forced_components=forced_components
         )
         
@@ -1194,7 +1216,9 @@ async def upload_file(
     language_code: str = Form("en_US"),
     report_email: str = Form(None),
     mappings: str = Form(None),
-    scheduled_at: str = Form(None)
+    scheduled_at: str = Form(None),
+    media_url: str = Form(None),
+    media_file: UploadFile = File(None)
 ):
     session_token = request.cookies.get("session_token")
     username = verify_session_token(session_token)
@@ -1236,6 +1260,22 @@ async def upload_file(
     db = await get_db()
     now_utc = get_now_utc()
     
+    # Handle media file upload if provided
+    final_media_url = media_url
+    if media_file and media_file.filename:
+        try:
+            ext = os.path.splitext(media_file.filename)[1]
+            # Use a temp name first, we'll update with campaign_id if needed or just use timestamp
+            unique_name = f"media_{random.randint(1000, 9999)}_{int(asyncio.get_event_loop().time())}{ext}"
+            save_path = os.path.join(UPLOAD_DIR, unique_name)
+            with open(save_path, "wb") as buffer:
+                m_content = await media_file.read()
+                buffer.write(m_content)
+            # Use absolute URL if possible for Meta compatibility, or relative and handle in worker
+            final_media_url = f"/static/uploads/{unique_name}"
+        except Exception as e:
+            print(f"DEBUG: Media upload failed: {e}")
+
     # 1. Create Campaign with Metadata
     status = 'Scheduled' if scheduled_at else 'Pending'
     # Format scheduled_at to match our DB string format (YYYY-MM-DD HH:MM:SS)
@@ -1246,12 +1286,12 @@ async def upload_file(
 
     campaign_id = await db.execute("""
         INSERT INTO campaigns (user_id, name, total_numbers, status, timestamp, 
-                              message_template, msg_type, template_name, language_code, mappings, phone_col, scheduled_at) 
-        VALUES (:u, :name, :total, :status, :ts, :msg, :mtype, :tname, :lang, :maps, :pcol, :sch)
+                              message_template, msg_type, template_name, language_code, mappings, phone_col, scheduled_at, media_url) 
+        VALUES (:u, :name, :total, :status, :ts, :msg, :mtype, :tname, :lang, :maps, :pcol, :sch, :murl)
     """, {
         "u": u_id, "name": filename, "total": len(data), "status": status, "ts": now_utc,
         "msg": message, "mtype": msg_type, "tname": template_name, "lang": language_code, 
-        "maps": json.dumps(mappings_dict), "pcol": phone_col, "sch": final_schedule
+        "maps": json.dumps(mappings_dict), "pcol": phone_col, "sch": final_schedule, "murl": final_media_url
     })
 
     # 2. Bulk Insert pending messages

@@ -64,9 +64,17 @@ async def init_db():
             language_code TEXT,
             mappings TEXT,
             phone_col TEXT,
-            scheduled_at DATETIME
+            scheduled_at DATETIME,
+            media_url TEXT
         ) {table_opts}
     """)
+    
+    # 1.1 Migration for media_url
+    try:
+        await db.execute("ALTER TABLE campaigns ADD COLUMN media_url TEXT")
+        print("DEBUG: Added media_url column to campaigns table.")
+    except:
+        pass
 
     # 2. Messages Table
     await db.execute(f"""

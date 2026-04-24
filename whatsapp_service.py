@@ -264,8 +264,13 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
             "messaging_product": "whatsapp",
             "to": final_phone,
             "type": msg_type,
-            msg_type: {"id": media_id}
+            msg_type: {}
         }
+        if media_id:
+            payload[msg_type]["id"] = media_id
+        elif media_url:
+            payload[msg_type]["link"] = media_url
+            
         if message:
             payload[msg_type]["caption"] = message
     else:
