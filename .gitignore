@@ -7,3 +7,6 @@ service_account.json
 *.log
 .vscode/
 .idea/
+
+.vercel
+.env*.local
