@@ -1525,7 +1525,9 @@ async def create_complex_template(
                     max_h_idx = max(int(m) for m in header_vars)
                     header_comp["example"] = {"header_text": ["sample" for _ in range(max_h_idx)]}
                 
-                components.append(header_comp)            # Media headers (IMAGE, VIDEO, DOCUMENT)
+                components.append(header_comp)
+        else:
+            # Media headers (IMAGE, VIDEO, DOCUMENT)
             handle = None
             upload_error = "Unknown Error"
             
