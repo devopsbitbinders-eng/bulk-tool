@@ -24,6 +24,8 @@ from auth_utils import hash_password, verify_password, create_session_token, ver
 
 import string
 import secrets
+import uuid
+import time
 
 # Settings
 USE_REAL_API = True # Set to False for local testing without sending real messages
@@ -93,6 +95,7 @@ event_queues = []
 # Media Upload Directory — use /tmp on Vercel (read-only filesystem), fallback to static/uploads locally
 UPLOAD_DIR = "/tmp/uploads" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "static", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads_mount")
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
 @app.head("/robots.txt")
@@ -106,7 +109,9 @@ async def robots_txt():
 async def upload_media(file: UploadFile = File(...)):
     try:
         ext = os.path.splitext(file.filename)[1]
-        unique_name = f"sample_{random.randint(1000, 9999)}_{int(asyncio.get_event_loop().time())}{ext}"
+        unique_id = uuid.uuid4().hex[:8]
+        timestamp = int(time.time())
+        unique_name = f"media_{timestamp}_{unique_id}{ext}"
         save_path = os.path.join(UPLOAD_DIR, unique_name)
         
         with open(save_path, "wb") as buffer:
