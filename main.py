@@ -382,6 +382,11 @@ async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col
     for queue in event_queues:
         await queue.put(initial_event)
     
+    # --- Template Intelligence: Pre-fetch template to identify Header vs Body variables ---
+    template_def = None
+    if msg_type == "template" and template_name:
+        template_def = await db.fetch_one("SELECT components FROM templates WHERE name = :name AND user_id = :u LIMIT 1", {"name": template_name, "u": user_id})
+
     for i, row in enumerate(data):
         raw_phone = str(row.get(phone_col, ""))
         phone = normalize_phone(raw_phone)
@@ -389,47 +394,75 @@ async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col
             continue
             
         media_url = None
-        template_params = []
         message_to_send = ""
+        forced_components = []
 
-        # Handle templates vs plain text
         if msg_type == "template":
             message_to_send = message_template or f"Template: {template_name}"
+            
+            # --- SMART COMPONENT BUILDING ---
+            header_params = []
+            body_params = []
+            
+            # Parse template components to know where vars go
+            comp_list = []
+            if template_def and template_def['components']:
+                try: comp_list = json.loads(template_def['components'])
+                except: pass
+            
+            # Identify which index {{n}} belongs to which component
+            # Most templates follow: {{1}} in header, {{2}},{{3}} in body.
+            # We count variables in each component.
+            header_var_count = 0
+            body_var_count = 0
+            has_media_header = False
+            
+            for c in comp_list:
+                ctype = c.get('type', '').upper()
+                ctext = c.get('text', '')
+                if ctype == 'HEADER':
+                    header_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
+                    if c.get('format') in ['IMAGE', 'VIDEO', 'DOCUMENT']:
+                        has_media_header = True
+                elif ctype == 'BODY':
+                    body_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
+
             if mappings:
-                # 1. Header Mapping
+                vars_map = mappings.get('vars', {})
+                sorted_keys = sorted(vars_map.keys(), key=lambda x: int(x))
+                
+                # Distribute values: First 'header_var_count' go to header, rest to body
+                for idx, k in enumerate(sorted_keys):
+                    val = str(row.get(vars_map[k], ""))
+                    if idx < header_var_count:
+                        header_params.append({"type": "text", "text": val})
+                    else:
+                        body_params.append({"type": "text", "text": val})
+                    
+                    # Update preview text
+                    pattern = r'\{\{\s*' + re.escape(str(idx + 1)) + r'\s*\}\}'
+                    message_to_send = re.sub(pattern, val, message_to_send, flags=re.IGNORECASE)
+                
+                # Media Header mapping
                 if mappings.get('header'):
                     media_url = row.get(mappings['header'])
-                
-                # 2. Variable Mappings (vars: {"1": "col_a", "2": "col_b"})
-                vars_map = mappings.get('vars', {})
-                # Sort by numeric key to ensure {{1}}, {{2}} order
-                sorted_keys = sorted(vars_map.keys(), key=lambda x: int(x))
-                for idx, k in enumerate(sorted_keys):
-                    col_name = vars_map[k]
-                    val = row.get(col_name, "")
-                    template_params.append(str(val))
-                    # Substitute variable into text log for Chat UI
-                    pattern = r'\{\{\s*' + re.escape(str(idx + 1)) + r'\s*\}\}'
-                    message_to_send = re.sub(pattern, str(val), message_to_send, flags=re.IGNORECASE)
-            else:
-                # Fallback for simple templates (auto-detection) - Keep for backward compatibility
-                patterns = [r'\{\{(.*?)\}\}', r'\{(.*?)\}', r'\[(.*?)\]', r'\((.*?)\)']
-                placeholders = []
-                for pat in patterns:
-                    found = re.findall(pat, message_template or "")
-                    if found:
-                        placeholders = [p.strip().lower() for p in found]
-                        break
-                
-                # Substitution variable into text log for Chat UI
-                normalized_row = {str(k).strip().lower(): v for k, v in row.items()}
-                template_params = [str(normalized_row.get(p, "")) for p in placeholders]
-                # Substitute variable into text log for Chat UI
-                for p in placeholders:
-                    val = str(normalized_row.get(p, ""))
-                    message_to_send = re.sub(r'\{\{\s*' + re.escape(p) + r'\s*\}\}', val, message_to_send, flags=re.IGNORECASE)
+
+            # BUILD THE FINAL Meta COMPONENTS LIST
+            if has_media_header and media_url:
+                fmt = "image"
+                if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
+                elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
+                forced_components.append({
+                    "type": "header",
+                    "parameters": [{"type": fmt, fmt: {"link": media_url}}]
+                })
+            elif header_params:
+                forced_components.append({"type": "header", "parameters": header_params})
             
-            print(f"DEBUG: Template params for {phone}: {template_params}, Media: {media_url}")
+            if body_params:
+                forced_components.append({"type": "body", "parameters": body_params})
+            
+            print(f"DEBUG: Smart Components for {phone}: {json.dumps(forced_components)}")
         else:
             message_to_send = substitute_template(message_template or "", row)
         
@@ -461,7 +494,7 @@ async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col
         credentials = await get_active_credentials(user_id)
         success, response = await send_whatsapp_message(
             phone, message_to_send, msg_type, template_name, language_code, 
-            media_url=media_url, template_params=template_params, credentials=credentials
+            media_url=media_url, credentials=credentials, forced_components=forced_components
         )
         
         if not success:

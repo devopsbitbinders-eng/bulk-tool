@@ -202,7 +202,7 @@ async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
         print(f"DEBUG: Error in upload_whatsapp_media: {str(e)}")
         return None
 
-async def send_whatsapp_message(phone, message, msg_type="text", template_name=None, language_code="en_US", media_url=None, template_params=None, credentials=None, media_id=None):
+async def send_whatsapp_message(phone, message, msg_type="text", template_name=None, language_code="en_US", media_url=None, template_params=None, credentials=None, media_id=None, forced_components=None):
     """Sends a message via Meta API. Supports templates with media and variables."""
     final_phone = normalize_phone(phone)
 
@@ -224,32 +224,28 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
     }
 
     if msg_type == "template":
-        # 1. Extract component definitions if available from credentials/context
-        # (Assuming we might need to know which variables go where)
-        # For now, we'll implement a smarter distribution logic
-        
-        const_components = []
-        
-        # 1. Header (Media or Text with Variables)
-        if media_url:
-            fmt = "image"
-            if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
-            elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
+        if forced_components:
+            const_components = forced_components
+        else:
+            const_components = []
             
-            const_components.append({
-                "type": "header",
-                "parameters": [{"type": fmt, fmt: {"link": media_url}}]
-            })
-        
-        # 2. Body Variables (Default fallback: put all params in body if not specified otherwise)
-        # In a more advanced version, we would check the template definition to see 
-        # which indices {{n}} belong to which component.
-        # For now, we'll try to be smart: if template_params is provided, we send them to BODY.
-        if template_params:
-            const_components.append({
-                "type": "body",
-                "parameters": [{"type": "text", "text": str(v)} for v in template_params]
-            })
+            # 1. Header (Media or Text with Variables)
+            if media_url:
+                fmt = "image"
+                if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
+                elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
+                
+                const_components.append({
+                    "type": "header",
+                    "parameters": [{"type": fmt, fmt: {"link": media_url}}]
+                })
+            
+            # 2. Body Variables
+            if template_params:
+                const_components.append({
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": str(v)} for v in template_params]
+                })
 
         payload = {
             "messaging_product": "whatsapp",
