@@ -1096,7 +1096,7 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Template Name</label>
-                                <input type="text" id="wiz_name" placeholder="summer_sale_2024" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium" oninput="updateTemplatePreview()">
+                                <input type="text" id="wiz_name" placeholder="summer_sale_2024" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium" oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'); updateTemplatePreview()">
                             </div>
                             <div>
                                 <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1.5 tracking-wider">Language</label>
@@ -2450,8 +2450,11 @@
         }
 
         async function submitWizardTemplate() {
-            const name = document.getElementById('wiz_name').value;
+            let name = document.getElementById('wiz_name').value.trim();
             if (!name) return showToast('Template name is required', 'error');
+            // Final safety check for name
+            name = name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+            document.getElementById('wiz_name').value = name;
             
             const categoryRadio = document.querySelector('input[name="wiz_category"]:checked');
             const subtypeRadio = document.querySelector('input[name="wiz_subtype"]:checked');
