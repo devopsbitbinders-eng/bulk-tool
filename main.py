@@ -443,7 +443,8 @@ async def api_get_templates(request: Request):
 
 async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
     """Processes a small batch of pending messages for a campaign. Prevents timeouts."""
-    db = await get_db()
+    try:
+        db = await get_db()
     
     # 1. Fetch Campaign Metadata
     campaign = await db.fetch_one("SELECT * FROM campaigns WHERE id = :id", {"id": campaign_id})
@@ -611,6 +612,12 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
     for queue in event_queues:
         await queue.put(progress_event)
 
+    except Exception as e:
+        print(f"DEBUG ERROR in process_campaign_batch for {campaign_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e), "completed": False}
+    
     return {
         "completed": (campaign['sent_success'] + campaign['sent_failed'] + processed_count) >= campaign['total_numbers'],
         "processed": processed_count,
@@ -1334,8 +1341,14 @@ async def process_batch_endpoint(request: Request, campaign_id: int):
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     
     # Process batch of 5
-    result = await process_campaign_batch(campaign_id, batch_size=5)
-    return result
+    try:
+        result = await process_campaign_batch(campaign_id, batch_size=5)
+        return result
+    except Exception as e:
+        print(f"DEBUG CRITICAL: process_batch_endpoint error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/events")
 async def events_handler(request: Request):
