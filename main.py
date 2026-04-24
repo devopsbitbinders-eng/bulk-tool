@@ -1641,6 +1641,13 @@ async def create_complex_template(
     if not success:
         return JSONResponse(status_code=400, content={"error": error_msg})
     
+    # Enrich components with the original URL for local preview purposes
+    if header_type in ['IMAGE', 'VIDEO', 'DOCUMENT'] and h_text:
+        for comp in components:
+            if comp.get('type') == 'HEADER':
+                if 'example' not in comp: comp['example'] = {}
+                comp['example']['_original_url'] = h_text
+
     # Save to Local DB
     db = await get_db()
     is_mysql = "mysql" in str(db.url.scheme).lower() or "mariadb" in str(db.url.scheme).lower()
