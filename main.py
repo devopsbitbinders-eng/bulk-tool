@@ -993,6 +993,8 @@ async def sync_templates(request: Request):
                 INSERT INTO templates (user_id, name, category, language, status, content, components, last_synced)
                 VALUES (:u, :name, :category, :language, :status, :content, :components, :last_synced)
                 ON DUPLICATE KEY UPDATE
+                    category = VALUES(category),
+                    language = VALUES(language),
                     status = VALUES(status),
                     content = VALUES(content),
                     components = VALUES(components),
@@ -1003,6 +1005,8 @@ async def sync_templates(request: Request):
                 INSERT INTO templates (user_id, name, category, language, status, content, components, last_synced)
                 VALUES (:u, :name, :category, :language, :status, :content, :components, :last_synced)
                 ON CONFLICT(user_id, name) DO UPDATE SET
+                    category = excluded.category,
+                    language = excluded.language,
                     status = excluded.status,
                     content = excluded.content,
                     components = excluded.components,
