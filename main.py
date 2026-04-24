@@ -446,171 +446,178 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
     try:
         db = await get_db()
     
-    # 1. Fetch Campaign Metadata
-    campaign = await db.fetch_one("SELECT * FROM campaigns WHERE id = :id", {"id": campaign_id})
-    if not campaign:
-        return {"error": "Campaign not found"}
+        # 1. Fetch Campaign Metadata
+        campaign = await db.fetch_one("SELECT * FROM campaigns WHERE id = :id", {"id": campaign_id})
+        if not campaign:
+            return {"error": "Campaign not found"}
     
-    user_id = campaign['user_id']
-    msg_type = campaign['msg_type']
-    message_template = campaign['message_template']
-    template_name = campaign['template_name']
-    language_code = campaign['language_code']
-    phone_col = campaign['phone_col']
-    mappings = json.loads(campaign['mappings']) if campaign['mappings'] else None
-    campaign_media_url = campaign.get('media_url')
-    
-    # 2. Fetch pending messages
-    pending_messages = await db.fetch_all(
-        "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit",
-        {"id": campaign_id, "limit": batch_size}
-    )
-    
-    if not pending_messages:
-        await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
-        return {"completed": True, "processed": 0}
-
-    # 3. Pre-fetch template for Smart Distribution
-    template_def = None
-    if msg_type == "template" and template_name:
-        template_def = await db.fetch_one(
-            "SELECT components FROM templates WHERE LOWER(name) = LOWER(:name) AND user_id = :u LIMIT 1", 
-            {"name": template_name, "u": user_id}
-        )
-
-    processed_count = 0
-    success_batch = 0
-    failed_batch = 0
-
-    for msg in pending_messages:
-        phone = msg['phone']
-        row = json.loads(msg['row_data']) if msg['row_data'] else {}
+        user_id = campaign['user_id']
+        msg_type = campaign['msg_type']
+        message_template = campaign['message_template']
+        template_name = campaign['template_name']
+        language_code = campaign['language_code']
+        phone_col = campaign['phone_col']
+        mappings = json.loads(campaign['mappings']) if campaign['mappings'] else None
+        campaign_media_url = campaign.get('media_url')
         
-        media_url = campaign_media_url
-        message_to_send = ""
-        forced_components = []
+        # 2. Fetch pending messages
+        pending_messages = await db.fetch_all(
+            "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit",
+            {"id": campaign_id, "limit": batch_size}
+        )
+        
+        if not pending_messages:
+            await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
+            return {"completed": True, "processed": 0}
 
-        if msg_type == "template":
-            message_to_send = message_template or f"Template: {template_name}"
-            header_params = []
-            body_params = []
+        # 3. Pre-fetch template for Smart Distribution
+        template_def = None
+        if msg_type == "template" and template_name:
+            template_def = await db.fetch_one(
+                "SELECT components FROM templates WHERE LOWER(name) = LOWER(:name) AND user_id = :u LIMIT 1", 
+                {"name": template_name, "u": user_id}
+            )
+
+        processed_count = 0
+        success_batch = 0
+        failed_batch = 0
+
+        for msg in pending_messages:
+            phone = msg['phone']
+            row = json.loads(msg['row_data']) if msg['row_data'] else {}
             
-            comp_list = []
-            if template_def and template_def['components']:
-                try: comp_list = json.loads(template_def['components'])
-                except: pass
-            
-            header_var_count = 0
-            body_var_count = 0
-            has_media_header = False
-            
-            if comp_list:
-                for c in comp_list:
-                    ctype = str(c.get('type', '')).upper()
-                    ctext = str(c.get('text', ''))
-                    if ctype == 'HEADER':
-                        header_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
-                        if c.get('format') in ['IMAGE', 'VIDEO', 'DOCUMENT']:
-                            has_media_header = True
-                    elif ctype == 'BODY':
-                        body_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
-            
-            if mappings:
-                vars_map = mappings.get('vars', {})
-                sorted_keys = sorted(vars_map.keys(), key=lambda x: int(x))
-                for idx, k in enumerate(sorted_keys):
-                    val = str(row.get(vars_map[k], "")).strip()
-                    if not val: val = " "
-                    
-                    if idx < header_var_count:
-                        header_params.append({"type": "text", "text": val})
-                    else:
-                        body_params.append({"type": "text", "text": val})
-                    
-                    pattern = r'\{\{\s*' + re.escape(str(idx + 1)) + r'\s*\}\}'
-                    message_to_send = re.sub(pattern, val, message_to_send, flags=re.IGNORECASE)
+            media_url = campaign_media_url
+            message_to_send = ""
+            forced_components = []
+
+            if msg_type == "template":
+                message_to_send = message_template or f"Template: {template_name}"
+                header_params = []
+                body_params = []
                 
-                if mappings.get('header'):
-                    media_url = row.get(mappings['header'])
+                comp_list = []
+                if template_def and template_def['components']:
+                    try: comp_list = json.loads(template_def['components'])
+                    except: pass
+                
+                header_var_count = 0
+                body_var_count = 0
+                has_media_header = False
+                
+                if comp_list:
+                    for c in comp_list:
+                        ctype = str(c.get('type', '')).upper()
+                        ctext = str(c.get('text', ''))
+                        if ctype == 'HEADER':
+                            header_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
+                            if c.get('format') in ['IMAGE', 'VIDEO', 'DOCUMENT']:
+                                has_media_header = True
+                        elif ctype == 'BODY':
+                            body_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
+                
+                if mappings:
+                    vars_map = mappings.get('vars', {})
+                    sorted_keys = sorted(vars_map.keys(), key=lambda x: int(x))
+                    for idx, k in enumerate(sorted_keys):
+                        val = str(row.get(vars_map[k], "")).strip()
+                        if not val: val = " "
+                        
+                        if idx < header_var_count:
+                            header_params.append({"type": "text", "text": val})
+                        else:
+                            body_params.append({"type": "text", "text": val})
+                        
+                        pattern = r'\{\{\s*' + re.escape(str(idx + 1)) + r'\s*\}\}'
+                        message_to_send = re.sub(pattern, val, message_to_send, flags=re.IGNORECASE)
+                    
+                    if mappings.get('header'):
+                        media_url = row.get(mappings['header'])
 
-            # Build Components
-            if has_media_header and media_url:
-                fmt = "image"
-                if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
-                elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
-                forced_components.append({
-                    "type": "header",
-                    "parameters": [{"type": fmt, fmt: {"link": media_url}}]
-                })
-            elif header_params:
-                forced_components.append({"type": "header", "parameters": header_params})
+                # Build Components
+                if has_media_header and media_url:
+                    fmt = "image"
+                    if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
+                    elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
+                    forced_components.append({
+                        "type": "header",
+                        "parameters": [{"type": fmt, fmt: {"link": media_url}}]
+                    })
+                elif header_params:
+                    forced_components.append({"type": "header", "parameters": header_params})
+                
+                if body_params:
+                    forced_components.append({"type": "body", "parameters": body_params})
+                
+                # Final Safety Padding
+                if header_var_count > 0 and not header_params:
+                     forced_components.append({"type": "header", "parameters": [{"type": "text", "text": " "}]})
+                if body_var_count > 0 and not body_params:
+                     forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
+            else:
+                message_to_send = substitute_template(message_template or "", row)
+
+            # Auto-detect msg_type if it's text but we have a media_url
+            final_msg_type = msg_type
+            if msg_type == "text" and media_url:
+                final_msg_type = "image"
+                if str(media_url).lower().endswith((".mp4", ".mov")): final_msg_type = "video"
+                elif str(media_url).lower().endswith((".pdf", ".doc", ".docx", ".xlsx", ".xls")): final_msg_type = "document"
+
+            # Send Message
+            credentials = await get_active_credentials(user_id)
+            success, response = await send_whatsapp_message(
+                phone, message_to_send, final_msg_type, template_name, language_code, 
+                media_url=media_url, credentials=credentials, forced_components=forced_components
+            )
+
+            wa_message_id = None
+            error_msg = ""
+            if success:
+                success_batch += 1
+                if isinstance(response, dict) and 'messages' in response:
+                    wa_message_id = response['messages'][0].get('id')
+            else:
+                failed_batch += 1
+                error_msg = str(response)[:500]
+
+            # Update Message Record
+            await db.execute("""
+                UPDATE messages SET status = :s, whatsapp_message_id = :mid, error_message = :err, message = :m
+                WHERE id = :id
+            """, {"s": 'sent' if success else 'failed', "mid": wa_message_id, "err": error_msg, "m": message_to_send, "id": msg['id']})
             
-            if body_params:
-                forced_components.append({"type": "body", "parameters": body_params})
-            
-            # Final Safety Padding
-            if header_var_count > 0 and not header_params:
-                 forced_components.append({"type": "header", "parameters": [{"type": "text", "text": " "}]})
-            if body_var_count > 0 and not body_params:
-                 forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
-        else:
-            message_to_send = substitute_template(message_template or "", row)
+            processed_count += 1
+            # Small delay between messages in batch
+            await asyncio.sleep(2)
 
-        # Auto-detect msg_type if it's text but we have a media_url
-        final_msg_type = msg_type
-        if msg_type == "text" and media_url:
-            final_msg_type = "image"
-            if str(media_url).lower().endswith((".mp4", ".mov")): final_msg_type = "video"
-            elif str(media_url).lower().endswith((".pdf", ".doc", ".docx", ".xlsx", ".xls")): final_msg_type = "document"
-
-        # Send Message
-        credentials = await get_active_credentials(user_id)
-        success, response = await send_whatsapp_message(
-            phone, message_to_send, final_msg_type, template_name, language_code, 
-            media_url=media_url, credentials=credentials, forced_components=forced_components
-        )
-
-        wa_message_id = None
-        error_msg = ""
-        if success:
-            success_batch += 1
-            if isinstance(response, dict) and 'messages' in response:
-                wa_message_id = response['messages'][0].get('id')
-        else:
-            failed_batch += 1
-            error_msg = str(response)[:500]
-
-        # Update Message Record
+        # 4. Update Campaign Totals
+        total_processed = campaign['sent_success'] + campaign['sent_failed'] + processed_count
         await db.execute("""
-            UPDATE messages SET status = :s, whatsapp_message_id = :mid, error_message = :err, message = :m
+            UPDATE campaigns 
+            SET sent_success = sent_success + :s, sent_failed = sent_failed + :f,
+                status = CASE WHEN (sent_success + sent_failed + :s + :f) >= total_numbers THEN 'Completed' ELSE 'Processing' END
             WHERE id = :id
-        """, {"s": 'sent' if success else 'failed', "mid": wa_message_id, "err": error_msg, "m": message_to_send, "id": msg['id']})
-        
-        processed_count += 1
-        # Small delay between messages in batch
-        await asyncio.sleep(2)
+        """, {"s": success_batch, "f": failed_batch, "id": campaign_id})
 
-    # 4. Update Campaign Totals
-    total_processed = campaign['sent_success'] + campaign['sent_failed'] + processed_count
-    await db.execute("""
-        UPDATE campaigns 
-        SET sent_success = sent_success + :s, sent_failed = sent_failed + :f,
-            status = CASE WHEN (sent_success + sent_failed + :s + :f) >= total_numbers THEN 'Completed' ELSE 'Processing' END
-        WHERE id = :id
-    """, {"s": success_batch, "f": failed_batch, "id": campaign_id})
+        # 5. Broadcast progress via SSE
+        progress_event = json.dumps({
+            "campaign_id": campaign_id,
+            "success": campaign['sent_success'] + success_batch,
+            "failed": campaign['sent_failed'] + failed_batch,
+            "total": campaign['total_numbers'],
+            "last_phone": pending_messages[-1]['phone'] if pending_messages else "...",
+            "last_status": "Batch Processed",
+            "is_complete": (campaign['sent_success'] + campaign['sent_failed'] + processed_count) >= campaign['total_numbers']
+        })
+        for queue in event_queues:
+            await queue.put(progress_event)
 
-    # 5. Broadcast progress via SSE
-    progress_event = json.dumps({
-        "campaign_id": campaign_id,
-        "success": campaign['sent_success'] + success_batch,
-        "failed": campaign['sent_failed'] + failed_batch,
-        "total": campaign['total_numbers'],
-        "last_phone": pending_messages[-1]['phone'] if pending_messages else "...",
-        "last_status": "Batch Processed",
-        "is_complete": (campaign['sent_success'] + campaign['sent_failed'] + processed_count) >= campaign['total_numbers']
-    })
-    for queue in event_queues:
-        await queue.put(progress_event)
+        return {
+            "completed": (campaign['sent_success'] + campaign['sent_failed'] + processed_count) >= campaign['total_numbers'],
+            "processed": processed_count,
+            "success": success_batch,
+            "failed": failed_batch
+        }
 
     except Exception as e:
         print(f"DEBUG ERROR in process_campaign_batch for {campaign_id}: {str(e)}")
