@@ -12,12 +12,18 @@ async def migrate_business_name():
             await db.execute("ALTER TABLE users ADD COLUMN business_name VARCHAR(255) AFTER username")
         else:
             await db.execute("ALTER TABLE users ADD COLUMN business_name TEXT")
-        print("Success: Added business_name column to users table.")
+        print("Success: Added business_name column.")
     except Exception as e:
-        if "Duplicate column" in str(e) or "already exists" in str(e):
-            print("Notice: Column business_name already exists.")
+        print(f"Notice (business_name): {e}")
+
+    try:
+        if is_mysql:
+            await db.execute("ALTER TABLE users ADD COLUMN expiry_date DATETIME AFTER is_admin")
         else:
-            print(f"Error during migration: {e}")
+            await db.execute("ALTER TABLE users ADD COLUMN expiry_date DATETIME")
+        print("Success: Added expiry_date column.")
+    except Exception as e:
+        print(f"Notice (expiry_date): {e}")
     
     await db.disconnect()
 

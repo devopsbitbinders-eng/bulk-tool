@@ -124,6 +124,7 @@ async def init_db():
             salt TEXT,
             is_approved BOOLEAN DEFAULT 0,
             is_admin BOOLEAN DEFAULT 0,
+            expiry_date DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         ) {table_opts}
     """)

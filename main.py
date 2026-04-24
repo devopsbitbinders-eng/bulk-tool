@@ -176,8 +176,25 @@ async def index(request: Request):
     u_id = await get_user_id(username)
     
     # Get linked account info specifically for this user
-    user_data = await db.fetch_one("SELECT is_admin FROM users WHERE id = :u", {"u": u_id})
+    user_data = await db.fetch_one("SELECT is_admin, expiry_date, is_approved FROM users WHERE id = :u", {"u": u_id})
     is_admin = user_data['is_admin'] if user_data else 0
+    
+    # NEW: Check for auto-revocation on load
+    if user_data and user_data['expiry_date']:
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        exp = user_data['expiry_date']
+        # Handle both string and datetime objects from different DB drivers
+        if isinstance(exp, str):
+            try: exp = datetime.strptime(exp, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+            except: pass
+            
+        if exp and now > exp:
+            await db.execute("UPDATE users SET is_approved = 0 WHERE id = :u", {"u": u_id})
+            return RedirectResponse(url="/login?error=expired", status_code=303)
+    
+    if user_data and not user_data['is_approved']:
+        return RedirectResponse(url="/login?error=revoked", status_code=303)
 
     cred = await db.fetch_one("SELECT phone_number, waba_id FROM user_credentials WHERE is_active = 1 AND user_id = :u LIMIT 1", {"u": u_id})
     linked_phone = cred['phone_number'] if cred else None
@@ -278,7 +295,20 @@ async def login(username: str = Form(...), password: str = Form(...)):
             is_approved = user['is_approved']
         
         if not is_approved:
-            return JSONResponse(status_code=403, content={"error": "Your account is pending administrator approval."})
+            return JSONResponse(status_code=403, content={"error": "Your account is pending administrator approval or has been revoked."})
+        
+        # Check Expiry
+        if user['expiry_date']:
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            exp = user['expiry_date']
+            if isinstance(exp, str):
+                try: exp = datetime.strptime(exp, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+                except: pass
+            
+            if exp and now > exp:
+                await db.execute("UPDATE users SET is_approved = 0 WHERE id = :u", {"u": user['id']})
+                return JSONResponse(status_code=403, content={"error": "Your access has expired. Please contact the administrator."})
         
         token = create_session_token(username)
         response = JSONResponse(content={"message": "Logged in successfully", "redirect": "/"})
@@ -306,7 +336,7 @@ async def admin_get_users(request: Request):
     if not admin_check or not admin_check['is_admin']:
         return JSONResponse(status_code=403, content={"error": "Access Denied"})
     
-    users = await db.fetch_all("SELECT id, username, business_name, is_approved, is_admin, created_at FROM users ORDER BY created_at DESC")
+    users = await db.fetch_all("SELECT id, username, business_name, is_approved, is_admin, expiry_date, created_at FROM users ORDER BY created_at DESC")
     return [dict(u) for u in users]
 
 
@@ -323,6 +353,37 @@ async def admin_approve_user(user_id: int, request: Request):
     
     await db.execute("UPDATE users SET is_approved = 1 WHERE id = :id", {"id": user_id})
     return {"message": "User approved successfully"}
+
+@app.post("/api/admin/revoke/{user_id}")
+async def admin_revoke_user(user_id: int, request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    
+    db = await get_db()
+    admin_check = await db.fetch_one("SELECT is_admin FROM users WHERE username = :u", {"u": username})
+    if not admin_check or not admin_check['is_admin']:
+        return JSONResponse(status_code=403, content={"error": "Access Denied"})
+    
+    await db.execute("UPDATE users SET is_approved = 0 WHERE id = :id", {"id": user_id})
+    return {"message": "User access revoked"}
+
+@app.post("/api/admin/set-expiry/{user_id}")
+async def admin_set_expiry(user_id: int, request: Request, expiry: str = Form(...)):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    
+    db = await get_db()
+    admin_check = await db.fetch_one("SELECT is_admin FROM users WHERE username = :u", {"u": username})
+    if not admin_check or not admin_check['is_admin']:
+        return JSONResponse(status_code=403, content={"error": "Access Denied"})
+    
+    # Format expected: YYYY-MM-DD
+    # We'll store it as end of that day in UTC
+    expiry_dt = f"{expiry} 23:59:59"
+    await db.execute("UPDATE users SET expiry_date = :exp WHERE id = :id", {"exp": expiry_dt, "id": user_id})
+    return {"message": f"Expiry date set to {expiry}"}
 
 @app.post("/api/admin/delete/{user_id}")
 async def admin_delete_user(user_id: int, request: Request):
