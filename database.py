@@ -104,10 +104,15 @@ async def init_db():
             content TEXT,
             components TEXT,
             variable_map TEXT,
+            media_url TEXT,
             last_synced DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, name)
         ) {table_opts}
     """)
+
+    # Migration: media_url in templates
+    try: await db.execute("ALTER TABLE templates ADD COLUMN media_url TEXT")
+    except: pass
 
     # 4. User Credentials Table
     await db.execute(f"""

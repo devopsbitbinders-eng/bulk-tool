@@ -1655,8 +1655,8 @@ async def create_complex_template(
     utc_now = get_now_utc()
     if is_mysql:
         query = """
-            INSERT INTO templates (user_id, name, category, language, status, content, components, variable_map, last_synced)
-            VALUES (:u_id, :name, :category, :language, :status, :content, :components, :var_map, :last_synced)
+            INSERT INTO templates (user_id, name, category, language, status, content, components, variable_map, media_url, last_synced)
+            VALUES (:u_id, :name, :category, :language, :status, :content, :components, :var_map, :m_url, :last_synced)
             ON DUPLICATE KEY UPDATE
                 category = VALUES(category),
                 language = VALUES(language),
@@ -1664,12 +1664,13 @@ async def create_complex_template(
                 content = VALUES(content),
                 components = VALUES(components),
                 variable_map = VALUES(variable_map),
+                media_url = VALUES(media_url),
                 last_synced = VALUES(last_synced)
         """
     else:
         query = """
-            INSERT INTO templates (user_id, name, category, language, status, content, components, variable_map, last_synced)
-            VALUES (:u_id, :name, :category, :language, :status, :content, :components, :var_map, :last_synced)
+            INSERT INTO templates (user_id, name, category, language, status, content, components, variable_map, media_url, last_synced)
+            VALUES (:u_id, :name, :category, :language, :status, :content, :components, :var_map, :m_url, :last_synced)
             ON CONFLICT(user_id, name) DO UPDATE SET
                 category = excluded.category,
                 language = excluded.language,
@@ -1677,13 +1678,15 @@ async def create_complex_template(
                 content = excluded.content,
                 components = excluded.components,
                 variable_map = excluded.variable_map,
+                media_url = excluded.media_url,
                 last_synced = :last_synced
         """
 
     await db.execute(query, {
         "u_id": u_id, "name": name, "category": category, "language": language, 
         "status": 'PENDING', "content": content, "components": json.dumps(components), 
-        "var_map": variable_map, "last_synced": utc_now
+        "var_map": variable_map, "m_url": h_text if header_type in ['IMAGE', 'VIDEO', 'DOCUMENT'] else None,
+        "last_synced": utc_now
     })
     
     return {"message": "Template created and submitted to Meta!"}
