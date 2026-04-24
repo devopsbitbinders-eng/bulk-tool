@@ -1,5 +1,7 @@
 from fastapi import FastAPI, UploadFile, Form, Request, BackgroundTasks, File, staticfiles
 from fastapi.staticfiles import StaticFiles
+from dotenv import load_dotenv
+load_dotenv()
 from typing import Optional, List
 import re
 import os
@@ -1360,6 +1362,13 @@ async def webhook_handler(request: Request):
                     # 2. Update Individual Chat Messages Table
                     chat_msg = await db.fetch_one("SELECT id, status FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
                     
+                    if not msg and not chat_msg:
+                        # RACE CONDITION FIX: Wait and retry once if not found
+                        print(f"DEBUG WEBHOOK: ID {wa_message_id} not found initially. Retrying in 2 seconds...")
+                        await asyncio.sleep(2)
+                        msg = await db.fetch_one("SELECT id, status FROM messages WHERE whatsapp_message_id = :id", {"id": wa_message_id})
+                        chat_msg = await db.fetch_one("SELECT id, status FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
+
                     if not msg and not chat_msg:
                         print(f"DEBUG WEBHOOK: Message ID {wa_message_id} NOT FOUND in database (checked 'messages' and 'chat_messages')")
                     
