@@ -2949,11 +2949,43 @@
                 area.innerHTML = messages.map(m => {
                     const isOut = m.direction === 'outbound';
                     const time = formatTimeOnly(m.timestamp);
+                    let displayMsg = m.message;
+                    
+                    // Handle Inbound Media JSON
+                    try {
+                        if (m.message.trim().startsWith('{') && m.message.trim().endsWith('}')) {
+                            const data = JSON.parse(m.message);
+                            if (data.is_media) {
+                                const mediaUrl = `/api/chat/media/${data.media_id}`;
+                                if (data.media_type === 'image') {
+                                    displayMsg = `<div class="mb-2"><img src="${mediaUrl}" class="rounded-lg max-w-full h-auto cursor-pointer border border-slate-100" onclick="window.open('${mediaUrl}')" loading="lazy" /></div>`;
+                                    if (data.caption) displayMsg += `<p class="text-sm">${data.caption}</p>`;
+                                } else if (data.media_type === 'video') {
+                                    displayMsg = `<div class="mb-2"><video controls class="rounded-lg max-w-full h-auto border border-slate-100"><source src="${mediaUrl}" type="video/mp4">Your browser does not support the video tag.</video></div>`;
+                                    if (data.caption) displayMsg += `<p class="text-sm">${data.caption}</p>`;
+                                } else {
+                                    displayMsg = `<div class="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100 mb-2">
+                                        <div class="w-8 h-8 bg-indigo-100 text-indigo-600 rounded flex items-center justify-center">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-[10px] font-bold truncate text-slate-800">${data.filename || 'File'}</p>
+                                            <p class="text-[9px] text-slate-400 uppercase">${data.media_type}</p>
+                                        </div>
+                                        <a href="${mediaUrl}" target="_blank" class="text-indigo-600 hover:text-indigo-800"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></a>
+                                    </div>`;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        // Not media JSON, use as plain text
+                        displayMsg = m.message;
+                    }
                     
                     return `
                         <div class="flex ${isOut ? 'justify-end' : 'justify-start'} w-full animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <div class="max-w-[80%] min-w-[60px] p-3 rounded-2xl shadow-sm ${isOut ? 'bg-green-600 text-white rounded-tr-none shadow-green-100' : 'bg-white text-slate-800 rounded-tl-none shadow-slate-100'}">
-                                <p class="text-sm leading-relaxed">${m.message}</p>
+                                <div class="message-content leading-relaxed">${displayMsg}</div>
                                 <div class="flex items-center justify-end gap-1 mt-1 opacity-70">
                                     <span class="text-[9px]">${time}</span>
                                     ${isOut ? `<svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M22.319 4.319l-1.414-1.414-11.905 11.905-5.319-5.319-1.414 1.414 6.733 6.733 13.319-13.319zm-6.142 0l-1.414-1.414-7.176 7.176 1.414 1.414 7.176-7.176z"/></svg>` : ''}

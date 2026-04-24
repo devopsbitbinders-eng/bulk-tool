@@ -1414,17 +1414,18 @@ async def webhook_handler(request: Request):
                     body = ""
                     if msg_type == "text":
                         body = msg_data.get("text", {}).get("body")
-                    elif msg_type == "image":
-                        caption = msg_data.get("image", {}).get("caption", "")
-                        body = f"[Received Image] {caption}".strip()
-                    elif msg_type == "video":
-                        caption = msg_data.get("video", {}).get("caption", "")
-                        body = f"[Received Video] {caption}".strip()
-                    elif msg_type == "document":
-                        filename = msg_data.get("document", {}).get("filename", "file")
-                        body = f"[Received Document: {filename}]"
-                    elif msg_type == "audio":
-                        body = "[Received Audio]"
+                    elif msg_type in ["image", "video", "document", "audio"]:
+                        m_data = msg_data.get(msg_type, {})
+                        m_id = m_data.get("id")
+                        m_caption = m_data.get("caption", "")
+                        # Store as JSON for the UI to recognize
+                        body = json.dumps({
+                            "is_media": True,
+                            "media_type": msg_type,
+                            "media_id": m_id,
+                            "caption": m_caption,
+                            "filename": m_data.get("filename")
+                        })
                     else:
                         body = f"[Received {msg_type}]"
 
@@ -1443,6 +1444,41 @@ async def webhook_handler(request: Request):
         print(f"DEBUG WEBHOOK: Error processing: {str(e)}")
 
     return {"status": "ok"}
+
+@app.get("/api/chat/media/{media_id}")
+async def proxy_whatsapp_media(media_id: str, request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    db = await get_db()
+    acc = await db.fetch_one("SELECT whatsapp_token FROM user_credentials WHERE is_active = 1 AND user_id = :u LIMIT 1", {"u": u_id})
+    if not acc: return JSONResponse(status_code=400, content={"error": "Account not linked"})
+    
+    token = acc['whatsapp_token']
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    try:
+        # 1. Get Media URL from Meta
+        import requests
+        res = requests.get(f"https://graph.facebook.com/v21.0/{media_id}", headers=headers)
+        if res.status_code != 200:
+            return JSONResponse(status_code=res.status_code, content={"error": "Failed to get media URL from Meta"})
+        
+        media_url = res.json().get("url")
+        if not media_url:
+            return JSONResponse(status_code=404, content={"error": "Media URL not found in Meta response"})
+            
+        # 2. Stream the media bytes
+        from fastapi.responses import StreamingResponse
+        media_res = requests.get(media_url, headers=headers, stream=True)
+        return StreamingResponse(
+            media_res.iter_content(chunk_size=1024*10),
+            media_type=media_res.headers.get("Content-Type", "application/octet-stream")
+        )
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/get-columns")
 async def get_columns(file: UploadFile = File(...)):
