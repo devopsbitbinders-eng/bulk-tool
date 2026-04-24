@@ -1013,12 +1013,6 @@
             <!-- Step 1: Category Selection -->
             <div id="templateStep1" class="p-8 space-y-6">
                 <div class="mb-6">
-                    <label class="block text-sm font-bold text-slate-700 mb-3">Template Name</label>
-                    <input type="text" id="wiz_name_step1" placeholder="summer_sale_2024" class="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm font-bold bg-white shadow-sm transition-all" oninput="document.getElementById('wiz_name').value = this.value; updateTemplatePreview()">
-                    <p class="text-[10px] text-slate-400 mt-2 px-1">Lowercase letters, numbers and underscores only.</p>
-                </div>
-
-                <div class="mb-6">
                     <label class="block text-sm font-bold text-slate-700 mb-3">Template Type</label>
                     <select id="wiz_template_type" class="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm font-bold bg-white shadow-sm transition-all">
                         <option value="STANDARD">Standard (Text only)</option>
@@ -2162,7 +2156,6 @@
             wizButtons = [];
             if (!fromEdit) {
                 isEditMode = false;
-                document.getElementById('wiz_name_step1').value = '';
                 document.getElementById('wiz_name').value = '';
                 document.getElementById('wiz_name').readOnly = false;
                 document.getElementById('wiz_body').value = '';
@@ -2223,14 +2216,6 @@
         }
 
         function goToStep2() {
-            let name = document.getElementById('wiz_name_step1').value.trim();
-            if (!name) return showToast('Template name is required', 'error');
-            
-            // Enforce Meta naming rules
-            name = name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-            document.getElementById('wiz_name_step1').value = name;
-            document.getElementById('wiz_name').value = name;
-            
             const type = document.getElementById('wiz_template_type').value;
             const headerSelect = document.getElementById('wiz_header_type');
             
