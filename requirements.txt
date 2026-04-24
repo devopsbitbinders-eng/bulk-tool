@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 requests
+httpx
 aiosqlite
 pandas
 openpyxl
