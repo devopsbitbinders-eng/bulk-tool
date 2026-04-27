@@ -1080,7 +1080,9 @@ async def facebook_auth_callback(request: Request, data: dict):
             if "access_token" in res_json:
                 access_token = res_json["access_token"]
             else:
-                print(f"ERROR FB: Token exchange failed: {res_json}")
+                err_msg = res_json.get("error", {}).get("message", str(res_json))
+                print(f"ERROR FB: Token exchange failed: {err_msg}")
+                return JSONResponse({"error": f"Meta Exchange Error: {err_msg}"}, status_code=400)
 
         except Exception as e:
             print(f"ERROR FB: Token exchange exception: {str(e)}")

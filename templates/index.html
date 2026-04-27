@@ -379,15 +379,18 @@
             btn.innerHTML = `<span class="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></span> Linking...`;
 
             try {
+                // Ensure we have a payload even if some fields are missing
+                const payload = {
+                    waba_id: wabaId,
+                    phone_id: phoneId
+                };
+                if (code) payload.code = code;
+                if (auth && auth.accessToken) payload.access_token = auth.accessToken;
+
                 const res = await fetch('/auth/facebook/callback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        code: code,
-                        access_token: auth.accessToken, // Optional fallback
-                        waba_id: wabaId,
-                        phone_id: phoneId
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 if (res.ok) {
