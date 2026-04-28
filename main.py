@@ -96,6 +96,17 @@ async def lifespan(app: FastAPI):
     scheduler_task.cancel()
 
 app = FastAPI(lifespan=lifespan)
+
+@app.post("/meta-connect-final-v1")
+@app.post("/direct-whatsapp-link")
+async def maximum_priority_auth(request: Request):
+    return await facebook_auth_callback(request)
+
+@app.get("/meta-connect-final-v1")
+@app.get("/direct-whatsapp-link")
+async def reachability_check():
+    return {"status": "reachable", "handler": "active"}
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 event_queues = []
@@ -109,13 +120,6 @@ app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads_mo
 # General static mount
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/meta-connect-final-v1")
-async def reachability_test():
-    return {"status": "reachable", "message": "Server is listening."}
-
-@app.post("/meta-connect-final-v1")
-async def priority_facebook_auth(request: Request):
-    return await facebook_auth_callback(request)
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
 @app.head("/robots.txt")
