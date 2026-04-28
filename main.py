@@ -1095,16 +1095,22 @@ async def facebook_auth_callback(request: Request, data: dict):
     try:
         headers = {"Authorization": f"Bearer {access_token}"}
         
-        # 1. Scan for WABAs
-        waba_url = "https://graph.facebook.com/v21.0/me/whatsapp_business_accounts"
-        w_res = requests.get(waba_url, headers=headers)
-        w_json = w_res.json()
-        w_data = w_json.get('data', [])
-        
-        if not w_data:
-            # Managed Fallback
-            m_res = requests.get("https://graph.facebook.com/v21.0/me/managed_whatsapp_business_accounts", headers=headers)
-            w_data = m_res.json().get('data', [])
+        # 1. Scan for WABAs (Using more resilient 'fields' approach)
+        # We try both v21.0 and a slightly older v19.0 for maximum compatibility
+        w_data = []
+        try:
+            w_url = "https://graph.facebook.com/v19.0/me?fields=whatsapp_business_accounts{id,name,currency,timezone_id}"
+            w_res = requests.get(w_url, headers=headers)
+            w_json = w_res.json()
+            w_data = w_json.get('whatsapp_business_accounts', {}).get('data', [])
+            
+            if not w_data:
+                # Try the direct edge as second fallback
+                w_edge_url = "https://graph.facebook.com/v21.0/me/whatsapp_business_accounts"
+                w_edge_res = requests.get(w_edge_url, headers=headers)
+                w_data = w_edge_res.json().get('data', [])
+        except Exception as e:
+            print(f"DEBUG FB: WABA Scan Exception: {e}")
 
         selected_waba = None
         if w_data:
@@ -1116,8 +1122,9 @@ async def facebook_auth_callback(request: Request, data: dict):
             if not selected_waba: selected_waba = w_data[0]['id']
             
         if not selected_waba:
-            m = w_json.get('error', {}).get('message', 'No WABA found')
-            return JSONResponse({"error": f"Meta: {m}. Ensure permissions are granted."}, status_code=404)
+            # If we still fail, report the specific Meta error to help the user
+            err_msg = w_json.get('error', {}).get('message', 'No WABA found')
+            return JSONResponse({"error": f"Meta: {err_msg}. Please ensure you granted 'whatsapp_business_management' permission."}, status_code=404)
         
         # 2. Scan for Phone Numbers in that WABA
         phone_url = f"https://graph.facebook.com/v21.0/{selected_waba}/phone_numbers"
