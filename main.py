@@ -1056,7 +1056,7 @@ async def facebook_unlink(request: Request):
     await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
     return {"message": "WhatsApp unlinked successfully"}
 
-@app.post("/api/auth/facebook/callback")
+@app.post("/connect/facebook/callback")
 async def facebook_auth_callback(request: Request, data: dict):
     code = data.get('code')
     access_token = data.get('access_token')
