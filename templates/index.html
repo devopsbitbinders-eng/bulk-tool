@@ -370,7 +370,7 @@
                     return;
                 }
 
-                FB.login(async function (response) {
+                FB.login(function (response) {
                     console.log('META LOGIN FINISHED:', response);
                     
                     let wabaId = localStorage.getItem('cached_waba') || 'AUTO_DETECT';
@@ -381,7 +381,6 @@
 
                     if (!auth && !code) {
                         console.warn("No auth response or code received.");
-                        // Only show error if the user didn't just close the window
                         return;
                     }
 
@@ -394,23 +393,24 @@
 
                     console.log('FINAL LINK ATTEMPT:', payload);
 
-                    try {
-                        const res = await fetch('/api/index', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-
+                    fetch('/api/index', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => {
                         if (res.ok) {
                             showToast('WhatsApp Connected!', 'success');
                             setTimeout(() => location.reload(), 2000);
                         } else {
-                            const err = await res.json();
-                            showToast(err.error || 'Connection Failed', 'error');
+                            return res.json().then(err => {
+                                showToast(err.error || 'Connection Failed', 'error');
+                            });
                         }
-                    } catch (e) {
+                    })
+                    .catch(e => {
                         showToast('Network error. Check your connection.', 'error');
-                    }
+                    });
                 }, {
                     config_id: '{{ fb_config_id or "1819547065399749" }}',
                     response_type: 'code',
