@@ -1057,7 +1057,13 @@ async def facebook_unlink(request: Request):
     return {"message": "WhatsApp unlinked successfully"}
 
 @app.post("/meta/link/v1")
-async def facebook_auth_callback(request: Request, data: dict):
+@app.post("/connect/facebook/callback")
+async def facebook_auth_callback(request: Request):
+    try:
+        data = await request.json()
+    except:
+        data = {}
+    
     code = data.get('code')
     access_token = data.get('access_token')
     
