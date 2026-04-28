@@ -411,6 +411,7 @@
                     .catch(e => {
                         showToast('Network error. Check your connection.', 'error');
                     });
+                }, {
                     auth_type: 'rerequest',
                     config_id: '{{ fb_config_id or "1819547065399749" }}',
                     response_type: 'code',
