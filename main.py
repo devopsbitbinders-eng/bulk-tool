@@ -1165,7 +1165,11 @@ async def facebook_auth_callback(request: Request, data: dict):
             phone_number = phone_data[0].get('display_phone_number', 'Linked Account')
             
             for p in phone_data:
-                is_test = "test" in p.get('display_phone_number', '').lower() or "test" in p.get('verified_name', '').lower()
+                disp = str(p.get('display_phone_number', '')).lower()
+                vname = str(p.get('verified_name', '')).lower()
+                # Aggressively skip the Meta test number (+1 555-187-4003)
+                is_test = "test" in disp or "test" in vname or "15551874003" in disp.replace(" ", "").replace("-", "").replace("+", "")
+                
                 if not is_test:
                     phone_id = p['id']
                     phone_number = p.get('display_phone_number', 'Linked Account')
