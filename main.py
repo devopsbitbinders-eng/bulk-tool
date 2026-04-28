@@ -1095,22 +1095,29 @@ async def facebook_auth_callback(request: Request, data: dict):
     try:
         headers = {"Authorization": f"Bearer {access_token}"}
         
-        # 1. Scan for WABAs (Using more resilient 'fields' approach)
-        # We try both v21.0 and a slightly older v19.0 for maximum compatibility
-        w_data = []
-        try:
-            w_url = "https://graph.facebook.com/v19.0/me?fields=whatsapp_business_accounts{id,name,currency,timezone_id}"
-            w_res = requests.get(w_url, headers=headers)
-            w_json = w_res.json()
-            w_data = w_json.get('whatsapp_business_accounts', {}).get('data', [])
-            
-            if not w_data:
-                # Try the direct edge as second fallback
-                w_edge_url = "https://graph.facebook.com/v21.0/me/whatsapp_business_accounts"
-                w_edge_res = requests.get(w_edge_url, headers=headers)
-                w_data = w_edge_res.json().get('data', [])
-        except Exception as e:
-            print(f"DEBUG FB: WABA Scan Exception: {e}")
+        # 1. Pre-Check Permissions (Diagnostic)
+        perm_url = "https://graph.facebook.com/v19.0/me/permissions"
+        perm_res = requests.get(perm_url, headers=headers)
+        perms = perm_res.json().get('data', [])
+        granted_perms = [p['permission'] for p in perms if p['status'] == 'granted']
+        print(f"DEBUG FB: Granted Permissions: {granted_perms}")
+        
+        required = ['whatsapp_business_management', 'whatsapp_business_messaging']
+        missing = [p for p in required if p not in granted_perms]
+        
+        if missing:
+            return JSONResponse({"error": f"Meta: Missing permissions ({', '.join(missing)}). Please click 'Edit Settings' in the popup and check all boxes."}, status_code=403)
+
+        # 2. Scan for WABAs
+        w_url = "https://graph.facebook.com/v19.0/me?fields=whatsapp_business_accounts{id,name}"
+        w_res = requests.get(w_url, headers=headers)
+        w_json = w_res.json()
+        w_data = w_json.get('whatsapp_business_accounts', {}).get('data', [])
+        
+        if not w_data:
+            # Fallback to direct edge
+            w_edge_res = requests.get("https://graph.facebook.com/v19.0/me/whatsapp_business_accounts", headers=headers)
+            w_data = w_edge_res.json().get('data', [])
 
         selected_waba = None
         if w_data:
@@ -1122,9 +1129,7 @@ async def facebook_auth_callback(request: Request, data: dict):
             if not selected_waba: selected_waba = w_data[0]['id']
             
         if not selected_waba:
-            # If we still fail, report the specific Meta error to help the user
-            err_msg = w_json.get('error', {}).get('message', 'No WABA found')
-            return JSONResponse({"error": f"Meta: {err_msg}. Please ensure you granted 'whatsapp_business_management' permission."}, status_code=404)
+            return JSONResponse({"error": "Meta: No WhatsApp Business Accounts were shared with this app. Check your Meta App Visibility."}, status_code=404)
         
         # 2. Scan for Phone Numbers in that WABA
         phone_url = f"https://graph.facebook.com/v21.0/{selected_waba}/phone_numbers"
