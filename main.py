@@ -1090,98 +1090,60 @@ async def facebook_auth_callback(request: Request, data: dict):
     if not access_token:
         return JSONResponse({"error": "No access token or valid code provided"}, status_code=400)
     
-    waba_id = data.get('waba_id')
-    phone_id = data.get('phone_id')
-
-    # Auto-detection if requested
-    if waba_id == "AUTO_DETECT" or phone_id == "AUTO_DETECT":
-        try:
-            headers = {"Authorization": f"Bearer {access_token}"}
-            
-            # 1. Get WhatsApp Business Accounts
-            waba_url = f"https://graph.facebook.com/v21.0/me/whatsapp_business_accounts"
-            waba_res = requests.get(waba_url, headers=headers)
-            waba_json = waba_res.json()
-            waba_data = waba_json.get('data', [])
-            
-            print(f"DEBUG FB: WABA Check Response: {waba_json}")
-            
-            if not waba_data:
-                # Fallback: Check debug_token for granular scopes
-                debug_url = f"https://graph.facebook.com/v21.0/debug_token?input_token={access_token}&access_token={FB_APP_ID}|{FB_APP_SECRET}"
-                debug_data = requests.get(debug_url).json().get('data', {})
-                print(f"DEBUG FB: Fallback Debug Info: {debug_data}")
-                
-                granular = debug_data.get('granular_scopes', [])
-                for scope_item in granular:
-                    sc_name = scope_item.get('scope')
-                    target_ids = scope_item.get('target_ids', [])
-                    if sc_name == 'whatsapp_business_management' and target_ids:
-                        waba_id = target_ids[0]
-                        print(f"DEBUG FB: Found WABA ID in management scope: {waba_id}")
-                        break
-                
-                if not waba_id or waba_id == "AUTO_DETECT":
-                    for scope_item in granular:
-                        if scope_item.get('scope') == 'whatsapp_business_messaging':
-                            target_ids = scope_item.get('target_ids', [])
-                            if target_ids:
-                                waba_id = target_ids[0]
-                                print(f"DEBUG FB: Found WABA ID in messaging scope fallback: {waba_id}")
-                                break
-
-                if not waba_id or waba_id == "AUTO_DETECT":
-                    return JSONResponse({
-                        "error": "No WhatsApp Business Accounts found.", 
-                        "details": "Meta returned an empty account list. Ensure your WhatsApp account is fully set up.",
-                        "meta_response": waba_json
-                    }, status_code=404)
-            else:
-                # Pick the first WABA, prioritizing non-test one
-                waba_id = waba_data[0]['id']
-                for w in waba_data:
-                    if "test" not in w.get('name', '').lower():
-                        waba_id = w['id']
-                        break
-                print(f"DEBUG FB: Selected WABA ID: {waba_id}")
-            
-            # 2. Get Phone Numbers for this WABA
-            phone_url = f"https://graph.facebook.com/v21.0/{waba_id}/phone_numbers"
-            phone_res = requests.get(phone_url, headers=headers)
-            phone_json = phone_res.json()
-            phone_data = phone_json.get('data', [])
-            
-            print(f"DEBUG FB: Phone Check Response: {phone_json}")
-            
-            if not phone_data:
-                return JSONResponse({
-                    "error": "No phone numbers found.", 
-                    "details": f"Found WABA {waba_id} but it has no phone numbers linked.",
-                    "meta_response": phone_json
-                }, status_code=404)
-            
-            # Pick first number, but prefer one that is NOT a "test" number
-            phone_id = phone_data[0]['id']
-            phone_number = phone_data[0].get('display_phone_number', 'Linked Account')
-            
-            for p in phone_data:
-                disp = str(p.get('display_phone_number', '')).lower()
-                vname = str(p.get('verified_name', '')).lower()
-                # Aggressively skip the Meta test number (+1 555-187-4003)
-                is_test = "test" in disp or "test" in vname or "15551874003" in disp.replace(" ", "").replace("-", "").replace("+", "")
-                
-                if not is_test:
-                    phone_id = p['id']
-                    phone_number = p.get('display_phone_number', 'Linked Account')
+    # Mandatory Scan: Always find the best WABA and Phone ID regardless of frontend input
+    try:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        
+        # 1. Scan for WABAs
+        waba_url = "https://graph.facebook.com/v21.0/me/whatsapp_business_accounts"
+        waba_res = requests.get(waba_url, headers=headers)
+        waba_json = waba_res.json()
+        waba_data = waba_json.get('data', [])
+        
+        selected_waba = None
+        if waba_data:
+            # Prefer non-test WABA
+            for w in waba_data:
+                if "test" not in str(w.get('name', '')).lower():
+                    selected_waba = w['id']
                     break
-                    
-            print(f"DEBUG FB: Selected Phone ID: {phone_id} ({phone_number})")
+            if not selected_waba: selected_waba = waba_data[0]['id']
             
-        except Exception as e:
-            print(f"DEBUG FB: Exception during detection: {str(e)}")
-            return JSONResponse({"error": f"Auto-detection failed: {str(e)}"}, status_code=500)
-    else:
-        phone_number = "Custom Account"
+        if not selected_waba:
+            return JSONResponse({"error": "No WhatsApp Business Account found."}, status_code=404)
+        
+        # 2. Scan for Phone Numbers in that WABA
+        phone_url = f"https://graph.facebook.com/v21.0/{selected_waba}/phone_numbers"
+        phone_res = requests.get(phone_url, headers=headers)
+        phone_json = phone_res.json()
+        phone_data = phone_json.get('data', [])
+        
+        if not phone_data:
+            return JSONResponse({"error": "No phone numbers found in this WABA."}, status_code=404)
+            
+        # Pick the best phone number
+        final_phone_id = phone_data[0]['id']
+        final_phone_num = phone_data[0].get('display_phone_number', 'Linked Account')
+        
+        for p in phone_data:
+            disp = str(p.get('display_phone_number', '')).lower()
+            vname = str(p.get('verified_name', '')).lower()
+            # Skip Meta test number (+1 555-187-4003)
+            is_test = "test" in disp or "test" in vname or "15551874003" in disp.replace(" ", "").replace("-", "").replace("+", "")
+            if not is_test:
+                final_phone_id = p['id']
+                final_phone_num = p.get('display_phone_number', 'Linked Account')
+                break
+        
+        waba_id = selected_waba
+        phone_id = final_phone_id
+        phone_number = final_phone_num
+        print(f"DEBUG FB: Auto-Selected {phone_number} (ID: {phone_id}) for WABA {waba_id}")
+
+    except Exception as e:
+        print(f"DEBUG FB: Overhaul detection failed: {str(e)}")
+        return JSONResponse({"error": f"Account sync failed: {str(e)}"}, status_code=500)
+
 
     db = await get_db()
     # Find user
