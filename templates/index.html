@@ -372,7 +372,10 @@
         }
 
         async function handleFBResponse(response, wabaId = 'AUTO_DETECT', phoneId = 'AUTO_DETECT') {
-            console.log('FB Auth Response received:', response);
+            // Prevent double-linking requests
+            if (window.isLinkingNow) return;
+            window.isLinkingNow = true;
+
             const auth = response.authResponse;
             const code = auth ? auth.code : (response.code || null);
             console.log('Extracted Code:', code);
@@ -380,6 +383,7 @@
             // If the user cancelled or something went wrong
             if (!auth && !code) {
                 console.warn('No valid auth or code found in FB response.');
+                window.isLinkingNow = false;
                 return;
             }
 
@@ -417,6 +421,8 @@
                 showToast('Network error during linking', 'error');
                 btn.disabled = false;
                 btn.innerHTML = `Connect WhatsApp`;
+            } finally {
+                window.isLinkingNow = false;
             }
         }
 
