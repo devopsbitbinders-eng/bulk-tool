@@ -109,6 +109,14 @@ app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads_mo
 # General static mount
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+@app.get("/meta-connect-final-v1")
+async def reachability_test():
+    return {"status": "reachable", "message": "Server is listening."}
+
+@app.post("/meta-connect-final-v1")
+async def priority_facebook_auth(request: Request):
+    return await facebook_auth_callback(request)
+
 @app.get("/robots.txt", response_class=PlainTextResponse)
 @app.head("/robots.txt")
 async def robots_txt():
@@ -1056,11 +1064,6 @@ async def facebook_unlink(request: Request):
     await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
     return {"message": "WhatsApp unlinked successfully"}
 
-@app.post("/meta/link/v1")
-@app.post("/connect/facebook/callback")
-@app.post("/api/callback")
-@app.post("/api/link")
-@app.post("/meta-connect-final-v1")
 async def facebook_auth_callback(request: Request):
     try:
         data = await request.json()
