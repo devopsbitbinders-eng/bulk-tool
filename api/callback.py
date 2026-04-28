@@ -3,7 +3,6 @@ import json
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-import mysql.connector
 from database import get_db
 
 app = FastAPI()
