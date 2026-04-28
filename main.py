@@ -2398,11 +2398,16 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if __name__ == "__main__":
     import uvicorn
+    import sys
+    import asyncio
+    
+    # Crucial for Windows to prevent 'Event loop is closed' errors
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
     port = int(os.environ.get('PORT', 8000))
-    # Listen on 0.0.0.0 for cloud, but 127.0.0.1 is fine for local
     host = "127.0.0.1" if not os.environ.get('PORT') else "0.0.0.0"
     
-    # Auto-open browser when running locally
     if not os.environ.get('PORT'):
         try:
             import webbrowser

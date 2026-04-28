@@ -415,11 +415,10 @@
                     config_id: '{{ fb_config_id or "1819547065399749" }}',
                     response_type: 'code',
                     override_default_response_type: true,
-                    scope: 'whatsapp_business_management,whatsapp_business_messaging',
+                    scope: 'whatsapp_business_management,whatsapp_business_messaging,business_management',
                     extras: {
-                        setup: {
-                            // Additional setup if needed
-                        }
+                        feature: 'whatsapp_embedded_signup',
+                        setup: { }
                     }
                 });
             }
