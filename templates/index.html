@@ -307,11 +307,12 @@
     <script>
         window.fbAsyncInit = function () {
             FB.init({
-                appId: '{{ fb_app_id or "YOUR_APP_ID" }}',
+                appId: '{{ fb_app_id or "916270141105838" }}',
                 cookie: true,
                 xfbml: true,
-                version: 'v21.0'
+                version: 'v18.0'
             });
+            console.log("FB SDK Initialized with ID: {{ fb_app_id }}");
         };
 
         (function (d, s, id) {
@@ -363,6 +364,12 @@
             });
 
             async function launchFBLogin() {
+                console.log("Launching FB Login for Embedded Signup...");
+                if (typeof FB === 'undefined') {
+                    showToast('Facebook SDK not loaded. Please refresh.', 'error');
+                    return;
+                }
+
                 FB.login(async function (response) {
                     console.log('META LOGIN FINISHED:', response);
                     
@@ -371,6 +378,12 @@
 
                     const auth = response.authResponse;
                     const code = auth?.code || response.code || null;
+
+                    if (!auth && !code) {
+                        console.warn("No auth response or code received.");
+                        // Only show error if the user didn't just close the window
+                        return;
+                    }
 
                     const payload = {
                         waba_id: wabaId,
@@ -399,9 +412,15 @@
                         showToast('Network error. Check your connection.', 'error');
                     }
                 }, {
-                    config_id: '1819547065399749',
+                    config_id: '{{ fb_config_id or "1819547065399749" }}',
                     response_type: 'code',
-                    override_default_response_type: true
+                    override_default_response_type: true,
+                    scope: 'whatsapp_business_management,whatsapp_business_messaging',
+                    extras: {
+                        setup: {
+                            // Additional setup if needed
+                        }
+                    }
                 });
             }
 
@@ -3879,7 +3898,7 @@
                     picker.style.display = 'flex';
                     picker.classList.remove('hidden');
                     const listArea = document.getElementById('chatTemplateList');
-                    listArea.innerHTML = '<tr><td colspan="3" class="px-8 py-12 text-center text-slate-400 text-xs italic">Fetching approved templates...</td></tr>';
+                    listArea.innerHTML = '<tr><td colspan="3" class="px-8 py-12 text-center text-slate-400 text-xs italic">Fetching templates...</td></tr>';
 
                     try {
                         const response = await fetch('/api/templates');
@@ -3908,17 +3927,12 @@
                         return;
                     }
 
-                    const approved = templates.filter(t => {
-                        const status = t.status ? String(t.status).trim().toLowerCase() : '';
-                        return status === 'approved';
-                    });
-
-                    if (approved.length === 0) {
-                        listArea.innerHTML = '<tr><td colspan="3" class="px-8 py-12 text-center text-slate-400 text-xs">No approved templates found in database.</td></tr>';
+                    if (templates.length === 0) {
+                        listArea.innerHTML = '<tr><td colspan="3" class="px-8 py-12 text-center text-slate-400 text-xs">No templates found in database. Please sync first.</td></tr>';
                         return;
                     }
 
-                    listArea.innerHTML = approved.map(t => {
+                    listArea.innerHTML = templates.map(t => {
                         const safeName = String(t.name).replace(/'/g, "\\'");
                         const safeContent = String(t.content || (t.components ? 'Template with components' : 'No content preview')).replace(/"/g, "&quot;");
 
@@ -3929,6 +3943,10 @@
                                 <div class="flex items-center gap-2 mt-1">
                                     <span class="px-1.5 py-0.5 bg-green-100 text-green-700 text-[9px] font-bold rounded uppercase">${t.language}</span>
                                     <span class="text-[9px] text-slate-400 capitalize">${t.category || ''}</span>
+                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest ${
+                                        String(t.status).toLowerCase() === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
+                                        (String(t.status).toLowerCase() === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700')
+                                    }">${t.status || 'UNKNOWN'}</span>
                                 </div>
                             </td>
                             <td class="px-8 py-5">

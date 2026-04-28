@@ -1404,12 +1404,12 @@ async def sync_templates(request: Request):
         print(f"DEBUG: Successfully synced template: {name}")
         sync_count += 1
     
-    # NEW: Cleanup local templates that are no longer on Meta
+    # NEW: Cleanup local templates that are no longer on Meta (User-specific)
     meta_names = {t.get('name') for t in templates_data}
-    local_rows = await db.fetch_all("SELECT name FROM templates")
+    local_rows = await db.fetch_all("SELECT name FROM templates WHERE user_id = :u", {"u": u_id})
     for row in local_rows:
         if row['name'] not in meta_names:
-            await db.execute("DELETE FROM templates WHERE name = :name", {"name": row['name']})
+            await db.execute("DELETE FROM templates WHERE name = :name AND user_id = :u", {"name": row['name'], "u": u_id})
     
     return safe_json_response({"message": f"Synced {sync_count} templates from Meta"})
 
