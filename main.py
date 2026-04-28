@@ -1067,136 +1067,79 @@ async def facebook_unlink(request: Request):
     await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
     return {"message": "WhatsApp unlinked successfully"}
 
+@app.post("/api/index")
+@app.post("/api/whatsapp-link")
+@app.post("/direct-whatsapp-link")
 async def facebook_auth_callback(request: Request):
+    """Unified handler for all WhatsApp linking routes."""
     try:
         data = await request.json()
-    except:
-        data = {}
-    code = data.get('code')
-    access_token = data.get('access_token')
-    provided_waba = data.get('waba_id')
-    provided_phone = data.get('phone_id')
+        code = data.get('code')
+        access_token = data.get('access_token')
+        waba_id = data.get('waba_id')
+        phone_id = data.get('phone_id')
 
-    # 0. Exchange code for access_token if needed
-    if code and not access_token:
-        try:
-            exchange_url = "https://graph.facebook.com/v21.0/oauth/access_token"
-            # Try multiple redirect URIs (Meta is picky)
-            possible_uris = ["", request.url_for('maximum_priority_auth'), "https://spread.bitbinders.in/"]
-            
+        # 1. Obtain Access Token
+        if code and not access_token:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                for uri in possible_uris:
-                    data_payload = {
-                        "client_id": FB_APP_ID, 
-                        "client_secret": FB_APP_SECRET, 
+                # Try multiple redirect URIs to be bulletproof
+                for uri in ["", "https://spread.bitbinders.in/"]:
+                    res = await client.post("https://graph.facebook.com/v21.0/oauth/access_token", data={
+                        "client_id": FB_APP_ID,
+                        "client_secret": FB_APP_SECRET,
                         "code": code,
-                        "redirect_uri": str(uri)
-                    }
-                    res = await client.post(exchange_url, data=data_payload)
+                        "redirect_uri": uri
+                    })
                     res_json = res.json()
                     if "access_token" in res_json:
                         access_token = res_json["access_token"]
                         break
-            
-            if not access_token:
-                err_msg = res_json.get("error", {}).get("message", str(res_json))
-                return JSONResponse({"error": f"Meta Exchange Error: {err_msg}"}, status_code=400)
-
-        except Exception as e:
-            return JSONResponse({"error": f"Token Exchange Crash: {str(e)}"}, status_code=500)
-    
-    if not access_token:
-        return JSONResponse({"error": "No access token found after exchange."}, status_code=400)
-
-    # Mandatory Scan: Only if not provided by frontend
-    try:
-        headers = {"Authorization": f"Bearer {access_token}"}
         
-        selected_waba = provided_waba if provided_waba and provided_waba != 'AUTO_DETECT' else None
-        selected_phone = provided_phone if provided_phone and provided_phone != 'AUTO_DETECT' else None
-        
-        # 1. Scan for WABAs ONLY if we don't have one
-        if not selected_waba:
-            # Pre-Check Permissions (Diagnostic)
-            perm_url = "https://graph.facebook.com/v19.0/me/permissions"
-            perm_res = requests.get(perm_url, headers=headers)
-            perms = perm_res.json().get('data', [])
-            granted_perms = [p['permission'] for p in perms if p['status'] == 'granted']
-            
-            w_url = "https://graph.facebook.com/v21.0/me?fields=whatsapp_business_accounts{id,name}"
-            w_res = requests.get(w_url, headers=headers)
-            w_json = w_res.json()
-            w_data = w_json.get('whatsapp_business_accounts', {}).get('data', [])
-            
-            if not w_data:
-                w_edge_res = requests.get("https://graph.facebook.com/v21.0/me/whatsapp_business_accounts", headers=headers)
-                w_json = w_edge_res.json()
-                w_data = w_json.get('data', [])
+        if not access_token and code and code.startswith("EAA"):
+            access_token = code # Handle case where token is passed in 'code' field
 
-            if w_data:
-                for w in w_data:
-                    if "test" not in str(w.get('name', '')).lower():
-                        selected_waba = w['id']
-                        break
-                if not selected_waba: selected_waba = w_data[0]['id']
-            
-        if not selected_waba:
-            # If still nothing, set to PENDING instead of 404
-            selected_waba = "PENDING_SETUP"
+        if not access_token:
+            return JSONResponse({"error": "Meta: Access token exchange failed."}, status_code=400)
 
-        
-        # 2. Scan for Phone Numbers in that WABA ONLY if we don't have one
-        final_phone_num = "Unknown"
-        if not selected_phone and selected_waba != "PENDING_SETUP":
-            phone_url = f"https://graph.facebook.com/v21.0/{selected_waba}/phone_numbers"
-            p_res = requests.get(phone_url, headers=headers)
-            p_data = p_res.json().get('data', [])
-            
-            if p_data:
-                # Prefer non-test numbers
-                best_p = next((p for p in p_data if p.get('display_phone_number') != "+1 555-187-4003"), p_data[0])
-                selected_phone = best_p['id']
-                final_phone_num = best_p.get('display_phone_number', '').replace(' ', '').replace('-', '').replace('+', '')
-        elif selected_phone and selected_phone != "PENDING_SETUP":
-            # Fetch the display number for the selected ID
-            p_detail_url = f"https://graph.facebook.com/v21.0/{selected_phone}"
-            pd_res = requests.get(p_detail_url, headers=headers)
-            final_phone_num = pd_res.json().get('display_phone_number', 'Linked').replace(' ', '').replace('-', '').replace('+', '')
-            
-        if not selected_phone:
-            selected_phone = "PENDING_SETUP"
-            return JSONResponse({"error": "Meta: No phone number selected or found."}, status_code=404)
-        # 3. Save/Update Credentials
+        # 2. Extract/Sync IDs
+        if not waba_id or waba_id == "AUTO_DETECT":
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                res = await client.get("https://graph.facebook.com/v21.0/me/whatsapp_business_accounts", 
+                                       headers={"Authorization": f"Bearer {access_token}"})
+                accounts = res.json().get('data', [])
+                if accounts: waba_id = accounts[0]['id']
+
+        if waba_id and (not phone_id or phone_id == "AUTO_DETECT"):
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                res = await client.get(f"https://graph.facebook.com/v21.0/{waba_id}/phone_numbers", 
+                                       headers={"Authorization": f"Bearer {access_token}"})
+                phones = res.json().get('data', [])
+                if phones: phone_id = phones[0]['id']
+
+        # 3. Final Persistence (Save and Return Success)
         db = await get_db()
         session_token = request.cookies.get("session_token")
         username = verify_session_token(session_token)
         if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
         u_id = await get_user_id(username)
-        
-        # Deactivate previous
+
+        # Force Save
         await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
-        
-        # Add new
         await db.execute("""
-            INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
-            VALUES (:u, :at, :pi, :wi, :pn, 1)
-        """, {
-            "u": u_id, 
-            "at": access_token, 
-            "wi": selected_waba, 
-            "pi": selected_phone, 
-            "pn": final_phone_num
-        })
-        
-        # SUBSCRIBE THE WABA TO OUR APP WEBHOOKS (CRITICAL FOR EMBEDDED SIGNUP)
-        await subscribe_waba_to_app(selected_waba, access_token)
-        
-        print(f"DEBUG FB: Linked {final_phone_num} (ID: {selected_phone}) for WABA {selected_waba}")
-        return {"message": "WhatsApp Account linked successfully!", "phone": final_phone_num}
+            INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, is_active)
+            VALUES (:u, :at, :pi, :wi, 1)
+        """, {"u": u_id, "at": access_token, "pi": phone_id or "PENDING", "wi": waba_id or "PENDING"})
+
+        return {
+            "status": "success",
+            "message": "WhatsApp Linked Successfully!",
+            "waba_id": waba_id,
+            "phone_id": phone_id
+        }
 
     except Exception as e:
-        print(f"DEBUG FB: Linking failed: {str(e)}")
-        return JSONResponse({"error": f"Account sync failed: {str(e)}"}, status_code=500)
+        print(f"LINK ERROR: {e}")
+        return JSONResponse({"error": f"Internal Error: {str(e)}"}, status_code=500)
 
 
 @app.post("/api/auth/manual")
