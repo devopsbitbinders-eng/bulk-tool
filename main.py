@@ -1065,6 +1065,7 @@ async def facebook_auth_callback(request: Request, data: dict):
     # 0. Exchange code for access_token if needed (Security Upgrade)
     if code and not access_token:
         try:
+            import httpx  # Local import to ensure availability
             # In Meta v2 Signup (JS SDK 'code' flow), redirect_uri must be empty or match the original
             exchange_url = "https://graph.facebook.com/v21.0/oauth/access_token"
             data_payload = {
@@ -1074,7 +1075,6 @@ async def facebook_auth_callback(request: Request, data: dict):
                 "redirect_uri": "" # Empty for JS SDK 'code' flow
             }
             
-            # Use a timeout to prevent hanging the whole processing loop
             async with httpx.AsyncClient(timeout=30.0) as client:
                 res = await client.post(exchange_url, data=data_payload)
             res_json = res.json()
