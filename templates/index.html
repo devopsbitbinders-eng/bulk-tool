@@ -3434,26 +3434,7 @@
                 }
             }
 
-            templateForm.onsubmit = async (e) => {
-                e.preventDefault();
-                const formData = new FormData(templateForm);
-                const sub = templateForm.querySelector('button[type="submit"]');
-                sub.disabled = true;
-                sub.innerHTML = `Submitting...`;
-
-                try {
-                    const response = await fetch('/create-template', { method: 'POST', body: formData });
-                    const result = await response.json();
-                    if (response.ok) {
-                        showToast('Template submitted to Meta!', 'success');
-                        closeTemplateModal();
-                        setTimeout(() => location.reload(), 2000);
-                    } else {
-                        showToast(result.error || 'Failed to create template', 'error');
-                    }
-                } catch (err) { showToast('Network error', 'error'); }
-                finally { sub.disabled = false; sub.innerText = 'Submit to WhatsApp'; }
-            };
+            // Removed dead templateForm block
 
             // Auto-populate message input when a template is selected
             document.getElementById('templateName')?.addEventListener('change', (e) => {

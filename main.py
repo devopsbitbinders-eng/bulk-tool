@@ -21,6 +21,7 @@ from whatsapp_service import send_whatsapp_message, get_whatsapp_templates, crea
 import datetime
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse, PlainTextResponse
 from auth_utils import hash_password, verify_password, create_session_token, verify_session_token
+import httpx
 
 import string
 import secrets
