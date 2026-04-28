@@ -397,10 +397,10 @@
                 // Ensure we have a payload even if some fields are missing
                 const payload = {
                     waba_id: wabaId,
-                    phone_id: phoneId
+                    phone_id: phoneId,
+                    access_token: auth?.accessToken || null,
+                    code: code || null
                 };
-                if (code) payload.code = code;
-                if (auth && auth.accessToken) payload.access_token = auth.accessToken;
 
                 const res = await fetch('/api/link', {
                     method: 'POST',

@@ -1,0 +1,18 @@
+{
+  "builds": [
+    {
+      "src": "main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    { "src": "/api/link", "dest": "main.py" },
+    { "src": "/api/callback", "dest": "main.py" },
+    { "src": "/meta/link/v1", "dest": "main.py" },
+    { "src": "/connect/facebook/callback", "dest": "main.py" },
+    { "src": "/(.*)", "dest": "main.py" }
+  ],
+  "env": {
+    "PYTHONPATH": "."
+  }
+}
