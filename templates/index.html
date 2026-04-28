@@ -411,13 +411,13 @@
                         showToast('Network error. Check your connection.', 'error');
                     });
                 }, {
-                    auth_type: 'rerequest',
                     config_id: '{{ fb_config_id or "1819547065399749" }}',
                     response_type: 'code',
                     override_default_response_type: true,
-                    scope: 'whatsapp_business_management,whatsapp_business_messaging,business_management',
                     extras: {
-                        feature: 'whatsapp_embedded_signup'
+                        feature: 'whatsapp_embedded_signup',
+                        featureType: 'whatsapp_business_app_onboarding',
+                        sessionInfoVersion: 3
                     }
                 });
             }
