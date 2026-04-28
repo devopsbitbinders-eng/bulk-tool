@@ -332,19 +332,26 @@
                              ? JSON.parse(event.data) 
                              : event.data;
                              
-                if (data && data.type === 'WA_EMBEDDED_SIGNUP') {
-                    console.log('WA Embedded Signup Event:', data);
-                    // Support both 'FINISH' and 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'
-                    if (data.event && data.event.includes('FINISH')) {
-                        const { whatsapp_business_account_id, phone_number_id } = data.data || {};
-                        if (whatsapp_business_account_id) {
-                            lastAuthIds = { wabaId: whatsapp_business_account_id, phoneId: phone_number_id };
-                            console.log('Captured Auth IDs:', lastAuthIds);
-                        }
+                if (data && (data.type === 'WA_EMBEDDED_SIGNUP' || data.event?.includes('ONBOARDING'))) {
+                    console.log('CAPTURED META EVENT:', data);
+                    
+                    // Meta structure can be nested or flat
+                    const wabaId = data.data?.whatsapp_business_account_id || data.whatsapp_business_account_id;
+                    const phoneId = data.data?.phone_number_id || data.phone_number_id;
+                    
+                    if (wabaId) {
+                        lastAuthIds = { wabaId: wabaId, phoneId: phoneId };
+                        console.log('SUCCESS: Captured Auth IDs:', lastAuthIds);
+                        
+                        // Give visual feedback
+                        showToast(`Captured Account: ${wabaId}`, 'success');
 
                         FB.getLoginStatus(function (response) {
                             if (response.status === 'connected') {
-                                handleFBResponse(response, lastAuthIds?.wabaId, lastAuthIds?.phoneId);
+                                handleFBResponse(response, lastAuthIds.wabaId, lastAuthIds.phoneId);
+                            } else {
+                                // If not connected, trigger login to get the token
+                                launchFBLogin();
                             }
                         });
                     }
