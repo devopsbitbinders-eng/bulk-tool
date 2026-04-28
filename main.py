@@ -109,8 +109,8 @@ async def maximum_priority_auth(request: Request):
 async def reachability_check():
     return {"status": "reachable", "handler": "active"}
 
-# Point BASE_DIR to the project root (one level up from the api/ folder)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Point BASE_DIR to the project root (where main.py is)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 event_queues = []
 
