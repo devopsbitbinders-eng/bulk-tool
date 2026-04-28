@@ -402,7 +402,7 @@
                 if (code) payload.code = code;
                 if (auth && auth.accessToken) payload.access_token = auth.accessToken;
 
-                const res = await fetch('/api/callback', {
+                const res = await fetch('/meta/link/v1', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
