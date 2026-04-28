@@ -115,10 +115,6 @@ event_queues = []
 UPLOAD_DIR = "/tmp/uploads" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "static", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# SPECIFIC MOUNT FOR UPLOADS (High Priority)
-app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads_mount")
-# General static mount
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
@@ -2449,6 +2445,12 @@ async def get_webhook_debug_logs(request: Request):
         return safe_json_response([dict(r) for r in rows])
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+# --- STATIC MOUNTS (MOVE TO END TO PREVENT SHADOWING) ---
+# SPECIFIC MOUNT FOR UPLOADS
+app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads_mount")
+# General static mount
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if __name__ == "__main__":
     import uvicorn
