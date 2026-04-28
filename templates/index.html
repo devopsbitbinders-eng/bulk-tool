@@ -327,21 +327,29 @@
         // Listen for message from Meta Embedded Signup popup
         window.addEventListener('message', (event) => {
             if (event.origin !== "https://www.facebook.com" && event.origin !== "https://web.facebook.com") return;
-            try {
-                const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-                if (data.type === 'WA_EMBEDDED_SIGNUP') {
+            try {                // Only try to parse if it's a string and looks like JSON
+                const data = (typeof event.data === 'string' && event.data.trim().startsWith('{')) 
+                             ? JSON.parse(event.data) 
+                             : event.data;
+                             
+                if (data && data.type === 'WA_EMBEDDED_SIGNUP') {
                     console.log('WA Embedded Signup Event:', data);
-                    if (data.event === 'FINISH') {
-                        const { whatsapp_business_account_id, phone_number_id } = data.data;
-                        lastAuthIds = { wabaId: whatsapp_business_account_id, phoneId: phone_number_id };
+                    // Support both 'FINISH' and 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'
+                    if (data.event && data.event.includes('FINISH')) {
+                        const { whatsapp_business_account_id, phone_number_id } = data.data || {};
+                        if (whatsapp_business_account_id) {
+                            lastAuthIds = { wabaId: whatsapp_business_account_id, phoneId: phone_number_id };
+                            console.log('Captured Auth IDs:', lastAuthIds);
+                        }
 
                         FB.getLoginStatus(function (response) {
                             if (response.status === 'connected') {
-                                handleFBResponse(response, lastAuthIds.wabaId, lastAuthIds.phoneId);
+                                handleFBResponse(response, lastAuthIds?.wabaId, lastAuthIds?.phoneId);
                             }
                         });
                     }
                 }
+
             } catch (e) { console.error('Error parsing FB message:', e); }
         });
 
@@ -364,11 +372,14 @@
         }
 
         async function handleFBResponse(response, wabaId = 'AUTO_DETECT', phoneId = 'AUTO_DETECT') {
+            console.log('FB Auth Response received:', response);
             const auth = response.authResponse;
             const code = auth ? auth.code : (response.code || null);
+            console.log('Extracted Code:', code);
 
             // If the user cancelled or something went wrong
-            if (!auth && !response.code) {
+            if (!auth && !code) {
+                console.warn('No valid auth or code found in FB response.');
                 return;
             }
 
