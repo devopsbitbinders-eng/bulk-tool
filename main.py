@@ -1109,15 +1109,16 @@ async def facebook_auth_callback(request: Request, data: dict):
             return JSONResponse({"error": f"Meta: Missing permissions ({', '.join(missing)}). Please click 'Edit Settings' in the popup and check all boxes."}, status_code=403)
 
         # 2. Scan for WABAs
-        w_url = "https://graph.facebook.com/v19.0/me?fields=whatsapp_business_accounts{id,name}"
+        w_url = "https://graph.facebook.com/v21.0/me?fields=whatsapp_business_accounts{id,name}"
         w_res = requests.get(w_url, headers=headers)
         w_json = w_res.json()
         w_data = w_json.get('whatsapp_business_accounts', {}).get('data', [])
         
         if not w_data:
-            # Fallback to direct edge
-            w_edge_res = requests.get("https://graph.facebook.com/v19.0/me/whatsapp_business_accounts", headers=headers)
-            w_data = w_edge_res.json().get('data', [])
+            # Fallback to direct edge with latest version
+            w_edge_res = requests.get("https://graph.facebook.com/v21.0/me/whatsapp_business_accounts", headers=headers)
+            w_json = w_edge_res.json()
+            w_data = w_json.get('data', [])
 
         selected_waba = None
         if w_data:
@@ -1129,7 +1130,9 @@ async def facebook_auth_callback(request: Request, data: dict):
             if not selected_waba: selected_waba = w_data[0]['id']
             
         if not selected_waba:
-            return JSONResponse({"error": "Meta: No WhatsApp Business Accounts were shared with this app. Check your Meta App Visibility."}, status_code=404)
+            # Show the RAW response to find the hidden issue
+            raw_debug = json.dumps(w_json)
+            return JSONResponse({"error": f"Meta returned an empty list. Raw Response: {raw_debug}"}, status_code=404)
         
         # 2. Scan for Phone Numbers in that WABA
         phone_url = f"https://graph.facebook.com/v21.0/{selected_waba}/phone_numbers"
