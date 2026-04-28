@@ -1058,6 +1058,7 @@ async def facebook_unlink(request: Request):
 
 @app.post("/meta/link/v1")
 @app.post("/connect/facebook/callback")
+@app.post("/api/callback")
 async def facebook_auth_callback(request: Request):
     try:
         data = await request.json()
