@@ -1097,21 +1097,27 @@ async def facebook_auth_callback(request: Request, data: dict):
         
         # 1. Scan for WABAs
         waba_url = "https://graph.facebook.com/v21.0/me/whatsapp_business_accounts"
-        waba_res = requests.get(waba_url, headers=headers)
-        waba_json = waba_res.json()
-        waba_data = waba_json.get('data', [])
+        w_res = requests.get(waba_url, headers=headers)
+        w_json = w_res.json()
+        w_data = w_json.get('data', [])
         
+        if not w_data:
+            # Managed Fallback
+            m_res = requests.get("https://graph.facebook.com/v21.0/me/managed_whatsapp_business_accounts", headers=headers)
+            w_data = m_res.json().get('data', [])
+
         selected_waba = None
-        if waba_data:
+        if w_data:
             # Prefer non-test WABA
-            for w in waba_data:
+            for w in w_data:
                 if "test" not in str(w.get('name', '')).lower():
                     selected_waba = w['id']
                     break
-            if not selected_waba: selected_waba = waba_data[0]['id']
+            if not selected_waba: selected_waba = w_data[0]['id']
             
         if not selected_waba:
-            return JSONResponse({"error": "No WhatsApp Business Account found."}, status_code=404)
+            m = w_json.get('error', {}).get('message', 'No WABA found')
+            return JSONResponse({"error": f"Meta: {m}. Ensure permissions are granted."}, status_code=404)
         
         # 2. Scan for Phone Numbers in that WABA
         phone_url = f"https://graph.facebook.com/v21.0/{selected_waba}/phone_numbers"
