@@ -1,22 +1,14 @@
 {
   "builds": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/callback.py",
+      "src": "main.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/api/callback",
-      "dest": "api/callback.py"
-    },
-    {
       "src": "/(.*)",
-      "dest": "api/index.py"
+      "dest": "main.py"
     }
   ],
   "env": {
