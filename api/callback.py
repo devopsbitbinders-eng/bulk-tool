@@ -17,6 +17,8 @@ async def standalone_callback(request: Request):
         data = await request.json()
         code = data.get('code')
         access_token = data.get('access_token')
+        provided_waba = data.get('waba_id')
+        provided_phone = data.get('phone_id')
         
         # 1. Token Exchange
         if code and not access_token:
@@ -37,51 +39,60 @@ async def standalone_callback(request: Request):
         if not access_token:
             return JSONResponse({"error": "No token provided"}, status_code=400)
 
-        # 2. Find User ID from session (Hack for standalone)
-        # We'll use a direct DB lookup or trust the frontend session if possible
-        # For maximum safety, we assume the user is logged in
+        # 2. Get User
         session_token = request.cookies.get("session_token")
-        if not session_token:
-             return JSONResponse({"error": "Session expired. Please re-login."}, status_code=401)
-        
-        # Connect to DB to find user
+        if not session_token: return JSONResponse({"error": "Session expired"}, status_code=401)
         from auth_utils import verify_session_token
         username = verify_session_token(session_token)
-        if not username:
-            return JSONResponse({"error": "Invalid session"}, status_code=401)
-            
-        # 3. Scan and Save
-        headers = {"Authorization": f"Bearer {access_token}"}
-        # Simplified scan: find first WABA and first Phone ID
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            # WABA
-            w_res = await client.get("https://graph.facebook.com/v21.0/me/whatsapp_business_accounts", headers=headers)
-            wabas = w_res.json().get('data', [])
-            if not wabas: return JSONResponse({"error": "No WhatsApp Business Account found."}, status_code=404)
-            waba_id = wabas[0]['id']
-            
-            # Phones
-            p_res = await client.get(f"https://graph.facebook.com/v21.0/{waba_id}/phone_numbers", headers=headers)
-            phones = p_res.json().get('data', [])
-            if not phones: return JSONResponse({"error": "No phone numbers found in WABA."}, status_code=404)
-            
-            # Skip test numbers
-            real_phone = next((p for p in phones if p.get('display_phone_number') != "+1 555-187-4003"), phones[0])
-            phone_id = real_phone['id']
-            phone_number = real_phone.get('display_phone_number', '').replace(' ', '').replace('-', '').replace('+', '')
-
-        # 4. Save to Database
-        db = await get_db()
-        u_id_row = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
-        u_id = u_id_row['id']
+        if not username: return JSONResponse({"error": "Invalid session"}, status_code=401)
         
+        db = await get_db()
+        u_row = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
+        u_id = u_row['id']
+
+        # 3. Handle WABA/Phone ID (Trust frontend first)
+        headers = {"Authorization": f"Bearer {access_token}"}
+        waba_id = provided_waba if provided_waba and provided_waba != 'AUTO_DETECT' else None
+        phone_id = provided_phone if provided_phone and provided_phone != 'AUTO_DETECT' else None
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            if not waba_id:
+                # Scan fallback
+                w_res = await client.get("https://graph.facebook.com/v21.0/me?fields=whatsapp_business_accounts{id,name}", headers=headers)
+                w_data = w_res.json().get('whatsapp_business_accounts', {}).get('data', [])
+                if w_data:
+                    waba_id = next((w['id'] for w in w_data if "test" not in w.get('name', '').lower()), w_data[0]['id'])
+            
+            if not waba_id: return JSONResponse({"error": "Meta: No WhatsApp Business Account found."}, status_code=404)
+            
+            if not phone_id:
+                p_res = await client.get(f"https://graph.facebook.com/v21.0/{waba_id}/phone_numbers", headers=headers)
+                p_data = p_res.json().get('data', [])
+                if p_data:
+                    best_p = next((p for p in p_data if p.get('display_phone_number') != "+1 555-187-4003"), p_data[0])
+                    phone_id = best_p['id']
+                    phone_number = best_p.get('display_phone_number', '').replace(' ', '').replace('-', '').replace('+', '')
+                else:
+                    return JSONResponse({"error": "No phone numbers found in WABA"}, status_code=404)
+            else:
+                # Fetch phone number text
+                p_res = await client.get(f"https://graph.facebook.com/v21.0/{phone_id}", headers=headers)
+                phone_number = p_res.json().get('display_phone_number', 'Linked').replace(' ', '').replace('-', '').replace('+', '')
+
+        # 4. Save
         await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
         await db.execute("""
-            INSERT INTO user_credentials (user_id, access_token, waba_id, phone_id, phone_number, is_active)
-            VALUES (:u, :at, :wi, :pi, :pn, 1)
-        """, {"u": u_id, "at": access_token, "wi": waba_id, "pi": phone_id, "pn": phone_number})
+            INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
+            VALUES (:u, :at, :pi, :wi, :pn, 1)
+        """, {"u": u_id, "at": access_token, "pi": phone_id, "wi": waba_id, "pn": phone_number})
+        
+        from whatsapp_service import subscribe_waba_to_app
+        await subscribe_waba_to_app(waba_id, access_token)
         
         return {"message": "Success", "phone": phone_number}
+
+    except Exception as e:
+        return JSONResponse({"error": f"API Error: {str(e)}"}, status_code=500)
 
     except Exception as e:
         return JSONResponse({"error": f"Standalone Error: {str(e)}"}, status_code=500)
