@@ -404,29 +404,6 @@
                     override_default_response_type: true
                 });
             }
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                }
-
-                if (res.ok) {
-                    showToast('WhatsApp linked successfully!', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    const err = await res.json();
-                    showToast(err.error || 'Linking failed', 'error');
-                    btn.disabled = false;
-                    btn.innerHTML = `Connect WhatsApp`;
-                }
-            } catch (err) {
-                showToast('Network error during linking', 'error');
-                btn.disabled = false;
-                btn.innerHTML = `Connect WhatsApp`;
-            } finally {
-                window.isLinkingNow = false;
-            }
-        }
 
         // --- Manual Auth Modal Logic ---
         function openManualAuthModal() {
