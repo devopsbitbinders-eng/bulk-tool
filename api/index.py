@@ -97,12 +97,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-@app.post("/meta-connect-final-v1")
+@app.post("/api/index")
+@app.post("/api/whatsapp-link")
 @app.post("/direct-whatsapp-link")
 async def maximum_priority_auth(request: Request):
     return await facebook_auth_callback(request)
 
-@app.get("/meta-connect-final-v1")
+@app.get("/api/index")
+@app.get("/api/whatsapp-link")
 @app.get("/direct-whatsapp-link")
 async def reachability_check():
     return {"status": "reachable", "handler": "active"}

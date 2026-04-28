@@ -400,7 +400,7 @@
                     code: code || null
                 };
 
-                const res = await fetch('/direct-whatsapp-link', {
+                const res = await fetch('/api/whatsapp-link', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
