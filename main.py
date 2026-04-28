@@ -1069,44 +1069,42 @@ async def facebook_auth_callback(request: Request):
         data = await request.json()
     except:
         data = {}
-    
     code = data.get('code')
     access_token = data.get('access_token')
-    
-    # 0. Exchange code for access_token if needed (Security Upgrade)
+    provided_waba = data.get('waba_id')
+    provided_phone = data.get('phone_id')
+
+    # 0. Exchange code for access_token if needed
     if code and not access_token:
         try:
-            import httpx  # Local import to ensure availability
-            # In Meta v2 Signup (JS SDK 'code' flow), redirect_uri must be empty or match the original
             exchange_url = "https://graph.facebook.com/v21.0/oauth/access_token"
-            data_payload = {
-                "client_id": FB_APP_ID, 
-                "client_secret": FB_APP_SECRET, 
-                "code": code,
-                "redirect_uri": "" # Empty for JS SDK 'code' flow
-            }
+            # Try multiple redirect URIs (Meta is picky)
+            possible_uris = ["", request.url_for('maximum_priority_auth'), "https://spread.bitbinders.in/"]
             
             async with httpx.AsyncClient(timeout=30.0) as client:
-                res = await client.post(exchange_url, data=data_payload)
-            res_json = res.json()
-            if "access_token" in res_json:
-                access_token = res_json["access_token"]
-            else:
+                for uri in possible_uris:
+                    data_payload = {
+                        "client_id": FB_APP_ID, 
+                        "client_secret": FB_APP_SECRET, 
+                        "code": code,
+                        "redirect_uri": str(uri)
+                    }
+                    res = await client.post(exchange_url, data=data_payload)
+                    res_json = res.json()
+                    if "access_token" in res_json:
+                        access_token = res_json["access_token"]
+                        break
+            
+            if not access_token:
                 err_msg = res_json.get("error", {}).get("message", str(res_json))
-                print(f"ERROR FB: Token exchange failed: {err_msg}")
                 return JSONResponse({"error": f"Meta Exchange Error: {err_msg}"}, status_code=400)
 
         except Exception as e:
-            print(f"ERROR FB: Token exchange exception: {str(e)}")
             return JSONResponse({"error": f"Token Exchange Crash: {str(e)}"}, status_code=500)
-
+    
     if not access_token:
-        return JSONResponse({"error": "No access token or valid code provided"}, status_code=400)
-    
-    # 0.5 Capture IDs from frontend (Ultimate Bypass)
-    provided_waba = data.get('waba_id')
-    provided_phone = data.get('phone_id')
-    
+        return JSONResponse({"error": "No access token found after exchange."}, status_code=400)
+
     # Mandatory Scan: Only if not provided by frontend
     try:
         headers = {"Authorization": f"Bearer {access_token}"}
