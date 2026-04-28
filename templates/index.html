@@ -415,12 +415,24 @@
                     access_token: auth?.accessToken || null,
                     code: code || null
                 };
+                console.log('SENDING PAYLOAD:', payload);
 
-                const res = await fetch('/direct-whatsapp-link', {
+                // Try Primary Route
+                let res = await fetch('/direct-whatsapp-link', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+
+                // Fallback if primary fails
+                if (!res.ok) {
+                    console.warn("Primary route failed, trying fallback...");
+                    res = await fetch('/api/index', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
 
                 if (res.ok) {
                     showToast('WhatsApp linked successfully!', 'success');

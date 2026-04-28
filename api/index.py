@@ -105,16 +105,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-@app.post("/api/index")
-@app.post("/api/whatsapp-link")
-@app.post("/direct-whatsapp-link")
-async def maximum_priority_auth(request: Request):
-    return await facebook_auth_callback(request)
-
-@app.get("/api/index")
-@app.get("/api/whatsapp-link")
-@app.get("/direct-whatsapp-link")
-async def reachability_check():
+@app.api_route("/api/index", methods=["GET", "POST"])
+@app.api_route("/direct-whatsapp-link", methods=["GET", "POST"])
+@app.api_route("/api/whatsapp-link", methods=["GET", "POST"])
+async def universal_priority_handler(request: Request):
+    if request.method == "POST":
+        return await facebook_auth_callback(request)
     return {"status": "reachable", "handler": "active"}
 
 # Point BASE_DIR to the project root (one level up from the api/ folder)
