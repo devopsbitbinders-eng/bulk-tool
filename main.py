@@ -1091,102 +1091,98 @@ async def facebook_auth_callback(request: Request, data: dict):
     if not access_token:
         return JSONResponse({"error": "No access token or valid code provided"}, status_code=400)
     
-    # Mandatory Scan: Always find the best WABA and Phone ID regardless of frontend input
+    # 0.5 Capture IDs from frontend (Ultimate Bypass)
+    provided_waba = data.get('waba_id')
+    provided_phone = data.get('phone_id')
+    
+    # Mandatory Scan: Only if not provided by frontend
     try:
         headers = {"Authorization": f"Bearer {access_token}"}
         
-        # 1. Pre-Check Permissions (Diagnostic)
-        perm_url = "https://graph.facebook.com/v19.0/me/permissions"
-        perm_res = requests.get(perm_url, headers=headers)
-        perms = perm_res.json().get('data', [])
-        granted_perms = [p['permission'] for p in perms if p['status'] == 'granted']
-        print(f"DEBUG FB: Granted Permissions: {granted_perms}")
+        selected_waba = provided_waba if provided_waba and provided_waba != 'AUTO_DETECT' else None
+        selected_phone = provided_phone if provided_phone and provided_phone != 'AUTO_DETECT' else None
         
-        required = ['whatsapp_business_management', 'whatsapp_business_messaging']
-        missing = [p for p in required if p not in granted_perms]
-        
-        if missing:
-            return JSONResponse({"error": f"Meta: Missing permissions ({', '.join(missing)}). Please click 'Edit Settings' in the popup and check all boxes."}, status_code=403)
+        # 1. Scan for WABAs ONLY if we don't have one
+        if not selected_waba:
+            # Pre-Check Permissions (Diagnostic)
+            perm_url = "https://graph.facebook.com/v19.0/me/permissions"
+            perm_res = requests.get(perm_url, headers=headers)
+            perms = perm_res.json().get('data', [])
+            granted_perms = [p['permission'] for p in perms if p['status'] == 'granted']
+            
+            w_url = "https://graph.facebook.com/v21.0/me?fields=whatsapp_business_accounts{id,name}"
+            w_res = requests.get(w_url, headers=headers)
+            w_json = w_res.json()
+            w_data = w_json.get('whatsapp_business_accounts', {}).get('data', [])
+            
+            if not w_data:
+                w_edge_res = requests.get("https://graph.facebook.com/v21.0/me/whatsapp_business_accounts", headers=headers)
+                w_json = w_edge_res.json()
+                w_data = w_json.get('data', [])
 
-        # 2. Scan for WABAs
-        w_url = "https://graph.facebook.com/v21.0/me?fields=whatsapp_business_accounts{id,name}"
-        w_res = requests.get(w_url, headers=headers)
-        w_json = w_res.json()
-        w_data = w_json.get('whatsapp_business_accounts', {}).get('data', [])
-        
-        if not w_data:
-            # Fallback to direct edge with latest version
-            w_edge_res = requests.get("https://graph.facebook.com/v21.0/me/whatsapp_business_accounts", headers=headers)
-            w_json = w_edge_res.json()
-            w_data = w_json.get('data', [])
-
-        selected_waba = None
-        if w_data:
-            # Prefer non-test WABA
-            for w in w_data:
-                if "test" not in str(w.get('name', '')).lower():
-                    selected_waba = w['id']
-                    break
-            if not selected_waba: selected_waba = w_data[0]['id']
+            if w_data:
+                for w in w_data:
+                    if "test" not in str(w.get('name', '')).lower():
+                        selected_waba = w['id']
+                        break
+                if not selected_waba: selected_waba = w_data[0]['id']
             
         if not selected_waba:
-            # Show the RAW response to find the hidden issue
-            raw_debug = json.dumps(w_json)
-            return JSONResponse({"error": f"Meta returned an empty list. Raw Response: {raw_debug}"}, status_code=404)
+            # If still nothing, and we had no frontend ID, report the raw error
+            raw_debug = json.dumps(w_json if 'w_json' in locals() else {"error": "No ID provided by frontend or scan"})
+            return JSONResponse({"error": f"Meta: No account found. Raw: {raw_debug}"}, status_code=404)
         
-        # 2. Scan for Phone Numbers in that WABA
-        phone_url = f"https://graph.facebook.com/v21.0/{selected_waba}/phone_numbers"
-        phone_res = requests.get(phone_url, headers=headers)
-        phone_json = phone_res.json()
-        phone_data = phone_json.get('data', [])
-        
-        if not phone_data:
-            return JSONResponse({"error": "No phone numbers found in this WABA."}, status_code=404)
+        # 2. Scan for Phone Numbers in that WABA ONLY if we don't have one
+        final_phone_num = "Unknown"
+        if not selected_phone:
+            phone_url = f"https://graph.facebook.com/v21.0/{selected_waba}/phone_numbers"
+            p_res = requests.get(phone_url, headers=headers)
+            p_data = p_res.json().get('data', [])
             
-        # Pick the best phone number
-        final_phone_id = phone_data[0]['id']
-        final_phone_num = phone_data[0].get('display_phone_number', 'Linked Account')
+            if p_data:
+                # Prefer non-test numbers
+                best_p = next((p for p in p_data if p.get('display_phone_number') != "+1 555-187-4003"), p_data[0])
+                selected_phone = best_p['id']
+                final_phone_num = best_p.get('display_phone_number', '').replace(' ', '').replace('-', '').replace('+', '')
+        else:
+            # Fetch the display number for the selected ID
+            p_detail_url = f"https://graph.facebook.com/v21.0/{selected_phone}"
+            pd_res = requests.get(p_detail_url, headers=headers)
+            final_phone_num = pd_res.json().get('display_phone_number', 'Linked').replace(' ', '').replace('-', '').replace('+', '')
+        if not selected_phone:
+            return JSONResponse({"error": "Meta: No phone number selected or found."}, status_code=404)
+        # 3. Save/Update Credentials
+        db = await get_db()
+        session_token = request.cookies.get("session_token")
+        username = verify_session_token(session_token)
+        if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+        u_id = await get_user_id(username)
         
-        for p in phone_data:
-            disp = str(p.get('display_phone_number', '')).lower()
-            vname = str(p.get('verified_name', '')).lower()
-            # Skip Meta test number (+1 555-187-4003)
-            is_test = "test" in disp or "test" in vname or "15551874003" in disp.replace(" ", "").replace("-", "").replace("+", "")
-            if not is_test:
-                final_phone_id = p['id']
-                final_phone_num = p.get('display_phone_number', 'Linked Account')
-                break
+        # Deactivate previous
+        await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
         
-        waba_id = selected_waba
-        phone_id = final_phone_id
-        phone_number = final_phone_num
-        print(f"DEBUG FB: Auto-Selected {phone_number} (ID: {phone_id}) for WABA {waba_id}")
+        # Add new
+        await db.execute("""
+            INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
+            VALUES (:u, :at, :pi, :wi, :pn, 1)
+        """, {
+            "u": u_id, 
+            "at": access_token, 
+            "wi": selected_waba, 
+            "pi": selected_phone, 
+            "pn": final_phone_num
+        })
+        
+        # SUBSCRIBE THE WABA TO OUR APP WEBHOOKS (CRITICAL FOR EMBEDDED SIGNUP)
+        await subscribe_waba_to_app(selected_waba, access_token)
+        
+        print(f"DEBUG FB: Linked {final_phone_num} (ID: {selected_phone}) for WABA {selected_waba}")
+        return {"message": "WhatsApp Account linked successfully!", "phone": final_phone_num}
 
     except Exception as e:
-        print(f"DEBUG FB: Overhaul detection failed: {str(e)}")
+        print(f"DEBUG FB: Linking failed: {str(e)}")
         return JSONResponse({"error": f"Account sync failed: {str(e)}"}, status_code=500)
 
-
-    db = await get_db()
-    # Find user
-    session_token = request.cookies.get("session_token")
-    username = verify_session_token(session_token)
-    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-    u_id = await get_user_id(username)
-
-    # Deactivate existing credentials for THIS user
-    await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
-    
-    # Save new credentials for THIS user
-    await db.execute("""
-        INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
-        VALUES (:u, :token, :phone_id, :waba_id, :phone, 1)
-    """, {"u": u_id, "token": access_token, "phone_id": phone_id, "waba_id": waba_id, "phone": phone_number})
-    
-    # SUBSCRIBE THE WABA TO OUR APP WEBHOOKS (CRITICAL FOR EMBEDDED SIGNUP)
-    await subscribe_waba_to_app(waba_id, access_token)
-    
-    return {"message": "WhatsApp Account linked successfully!", "phone": phone_number}
 
 @app.post("/api/auth/manual")
 async def manual_auth(request: Request):
