@@ -33,10 +33,9 @@ USE_REAL_API = True # Set to False for local testing without sending real messag
 
 
 # Meta App Credentials (for Token Exchange)
-# The user should configure these in their Meta App Dashboard
-FB_APP_ID = "916270141105838" 
-FB_APP_SECRET = "3f58694b5b0ec480d6992dabc16e6ece"
-FB_CONFIG_ID = "2015666162711485" # Configuration ID for Business Login
+FB_APP_ID = os.environ.get("FB_APP_ID", "916270141105838")
+FB_APP_SECRET = os.environ.get("FB_APP_SECRET", "3f58694b5b0ec480d6992dabc16e6ece")
+FB_CONFIG_ID = os.environ.get("FB_CONFIG_ID", "2015666162711485")
 REGISTRATION_KEY = os.environ.get("REGISTRATION_KEY", "BITBINDERS_PRO_2024")
 # Admin Key system removed for maximum security. Use promote_admin.py instead.
 
