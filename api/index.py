@@ -1141,13 +1141,13 @@ async def facebook_auth_callback(request: Request):
                 if not selected_waba: selected_waba = w_data[0]['id']
             
         if not selected_waba:
-            # If still nothing, and we had no frontend ID, report the raw error
-            raw_debug = json.dumps(w_json if 'w_json' in locals() else {"error": "No ID provided by frontend or scan"})
-            return JSONResponse({"error": f"Meta: No account found. Raw: {raw_debug}"}, status_code=404)
+            # If still nothing, set to PENDING instead of 404
+            selected_waba = "PENDING_SETUP"
+
         
         # 2. Scan for Phone Numbers in that WABA ONLY if we don't have one
         final_phone_num = "Unknown"
-        if not selected_phone:
+        if not selected_phone and selected_waba != "PENDING_SETUP":
             phone_url = f"https://graph.facebook.com/v21.0/{selected_waba}/phone_numbers"
             p_res = requests.get(phone_url, headers=headers)
             p_data = p_res.json().get('data', [])
@@ -1157,12 +1157,14 @@ async def facebook_auth_callback(request: Request):
                 best_p = next((p for p in p_data if p.get('display_phone_number') != "+1 555-187-4003"), p_data[0])
                 selected_phone = best_p['id']
                 final_phone_num = best_p.get('display_phone_number', '').replace(' ', '').replace('-', '').replace('+', '')
-        else:
+        elif selected_phone and selected_phone != "PENDING_SETUP":
             # Fetch the display number for the selected ID
             p_detail_url = f"https://graph.facebook.com/v21.0/{selected_phone}"
             pd_res = requests.get(p_detail_url, headers=headers)
             final_phone_num = pd_res.json().get('display_phone_number', 'Linked').replace(' ', '').replace('-', '').replace('+', '')
+            
         if not selected_phone:
+            selected_phone = "PENDING_SETUP"
             return JSONResponse({"error": "Meta: No phone number selected or found."}, status_code=404)
         # 3. Save/Update Credentials
         db = await get_db()

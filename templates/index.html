@@ -335,9 +335,9 @@
                 if (data && (data.type === 'WA_EMBEDDED_SIGNUP' || data.event?.includes('ONBOARDING'))) {
                     console.log('CAPTURED META IDs:', data);
                     
-                    // Meta structure can be nested or flat
-                    const wabaId = data.data?.whatsapp_business_account_id || data.whatsapp_business_account_id;
-                    const phoneId = data.data?.phone_number_id || data.phone_number_id;
+                    // Meta structure can be nested or flat. Checking both 'waba_id' and 'whatsapp_business_account_id'
+                    const wabaId = data.data?.waba_id || data.waba_id || data.data?.whatsapp_business_account_id || data.whatsapp_business_account_id;
+                    const phoneId = data.data?.phone_number_id || data.phone_number_id || data.data?.phone_id || data.phone_id;
                     
                     if (wabaId) {
                         lastAuthIds = { wabaId: wabaId, phoneId: phoneId };
