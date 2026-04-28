@@ -1082,7 +1082,6 @@ async def facebook_auth_callback(request: Request):
         # 1. Obtain Access Token
         if code and not access_token:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                # Try multiple redirect URIs to be bulletproof
                 for uri in ["", "https://spread.bitbinders.in/"]:
                     res = await client.post("https://graph.facebook.com/v21.0/oauth/access_token", data={
                         "client_id": FB_APP_ID,
@@ -1096,7 +1095,7 @@ async def facebook_auth_callback(request: Request):
                         break
         
         if not access_token and code and code.startswith("EAA"):
-            access_token = code # Handle case where token is passed in 'code' field
+            access_token = code
 
         if not access_token:
             return JSONResponse({"error": "Meta: Access token exchange failed."}, status_code=400)
@@ -1116,14 +1115,13 @@ async def facebook_auth_callback(request: Request):
                 phones = res.json().get('data', [])
                 if phones: phone_id = phones[0]['id']
 
-        # 3. Final Persistence (Save and Return Success)
+        # 3. Final Persistence
         db = await get_db()
         session_token = request.cookies.get("session_token")
         username = verify_session_token(session_token)
         if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
         u_id = await get_user_id(username)
 
-        # Force Save
         await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
         await db.execute("""
             INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, is_active)

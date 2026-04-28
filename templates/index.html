@@ -366,9 +366,8 @@
                 FB.login(async function (response) {
                     console.log('META LOGIN FINISHED:', response);
                     
-                    // Recover IDs from storage if missed
-                    if (wabaId === 'AUTO_DETECT') wabaId = localStorage.getItem('cached_waba') || 'AUTO_DETECT';
-                    if (phoneId === 'AUTO_DETECT') phoneId = localStorage.getItem('cached_phone') || 'AUTO_DETECT';
+                    let wabaId = localStorage.getItem('cached_waba') || 'AUTO_DETECT';
+                    let phoneId = localStorage.getItem('cached_phone') || 'AUTO_DETECT';
 
                     const auth = response.authResponse;
                     const code = auth?.code || response.code || null;
@@ -382,13 +381,7 @@
 
                     console.log('FINAL LINK ATTEMPT:', payload);
 
-                    if (wabaId === 'AUTO_DETECT' || phoneId === 'AUTO_DETECT') {
-                        showToast('IDs not captured. Please select a phone number in the Meta popup.', 'error');
-                        return;
-                    }
-
                     try {
-                        // Use absolute path to bypass routing confusion
                         const res = await fetch('/api/index', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
