@@ -402,7 +402,7 @@
                 if (code) payload.code = code;
                 if (auth && auth.accessToken) payload.access_token = auth.accessToken;
 
-                const res = await fetch('/auth/facebook/callback', {
+                const res = await fetch('/api/auth/facebook/callback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
