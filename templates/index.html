@@ -333,27 +333,41 @@
                              : event.data;
                              
                 if (data && (data.type === 'WA_EMBEDDED_SIGNUP' || data.event?.includes('ONBOARDING'))) {
-                    console.log('CAPTURED META EVENT:', data);
+                    console.log('FULL META EVENT RECEIVED:', JSON.stringify(data));
                     
-                    // Meta structure can be nested or flat
-                    const wabaId = data.data?.whatsapp_business_account_id || data.whatsapp_business_account_id;
-                    const phoneId = data.data?.phone_number_id || data.phone_number_id;
+                    // DEEP EXTRACTION: Meta sometimes nests data inside data.data
+                    let wabaId = null;
+                    let phoneId = null;
+
+                    // Search Strategy 1: Standard Flat
+                    wabaId = data.whatsapp_business_account_id || data.waba_id;
+                    phoneId = data.phone_number_id || data.phone_id;
+
+                    // Search Strategy 2: Nested in .data
+                    if (!wabaId && data.data) {
+                        wabaId = data.data.whatsapp_business_account_id || data.data.waba_id;
+                        phoneId = data.data.phone_number_id || data.data.phone_id;
+                    }
                     
+                    // Search Strategy 3: Deep nested
+                    if (!wabaId && data.data?.data) {
+                        const deep = data.data.data;
+                        wabaId = deep.whatsapp_business_account_id || deep.waba_id;
+                        phoneId = deep.phone_number_id || deep.phone_id;
+                    }
+
                     if (wabaId) {
                         lastAuthIds = { wabaId: wabaId, phoneId: phoneId };
-                        console.log('SUCCESS: Captured Auth IDs:', lastAuthIds);
+                        console.log('✅ IDs CAPTURED SUCCESSFULLY:', lastAuthIds);
                         
-                        // Give visual feedback
-                        showToast(`Captured Account: ${wabaId}`, 'success');
+                        // Show immediate feedback
+                        showToast(`Connected to Account: ${wabaId}`, 'success');
 
                         FB.getLoginStatus(function (response) {
-                            if (response.status === 'connected') {
-                                handleFBResponse(response, lastAuthIds.wabaId, lastAuthIds.phoneId);
-                            } else {
-                                // If not connected, trigger login to get the token
-                                launchFBLogin();
-                            }
+                            handleFBResponse(response, lastAuthIds.wabaId, lastAuthIds.phoneId);
                         });
+                    } else {
+                        console.log('⚠️ Event received but no IDs found. Full structure:', data);
                     }
                 }
 
