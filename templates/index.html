@@ -333,17 +333,28 @@
                              : event.data;
                              
                 if (data && (data.type === 'WA_EMBEDDED_SIGNUP' || data.event?.includes('ONBOARDING'))) {
-                    console.log('CAPTURED META IDs:', data);
+                    console.log('CAPTURED META EVENT:', data);
                     
-                    // Meta structure can be nested or flat. Checking both 'waba_id' and 'whatsapp_business_account_id'
-                    const wabaId = data.data?.waba_id || data.waba_id || data.data?.whatsapp_business_account_id || data.whatsapp_business_account_id;
-                    const phoneId = data.data?.phone_number_id || data.phone_number_id || data.data?.phone_id || data.phone_id;
+                    // Meta structure can be nested or flat
+                    const wabaId = data.data?.whatsapp_business_account_id || data.whatsapp_business_account_id || data.authResponse?.waba_id;
+                    const phoneId = data.data?.phone_number_id || data.phone_number_id || data.authResponse?.phone_number_id;
                     
                     if (wabaId) {
                         lastAuthIds = { wabaId: wabaId, phoneId: phoneId };
-                        console.log('IDs SAVED. Waiting for popup to finish...', lastAuthIds);
-                        showToast(`Account Detected: ${wabaId}`, 'success');
+                        console.log('SUCCESS: Captured Auth IDs:', lastAuthIds);
+                        showToast(`Captured Account: ${wabaId}`, 'success');
                     }
+
+                    FB.getLoginStatus(function (response) {
+                        if (response.status === 'connected') {
+                            // If we caught IDs in the event, use them. Otherwise, try to find them in the response.
+                            const finalWaba = lastAuthIds?.wabaId || response.authResponse?.waba_id;
+                            const finalPhone = lastAuthIds?.phoneId || response.authResponse?.phone_number_id;
+                            handleFBResponse(response, finalWaba, finalPhone);
+                        } else {
+                            launchFBLogin();
+                        }
+                    });
                 }
 
             } catch (e) { console.error('Error parsing FB message:', e); }
@@ -351,12 +362,15 @@
 
         async function launchFBLogin() {
             lastAuthIds = null; // Reset
+            window.isLinkingNow = false; // Reset lock
             FB.login(function (response) {
-                // If we already handled this via the 'message' event above, skip
-                // Use IDs captured from the background message if available
-                const finalWaba = lastAuthIds?.wabaId || 'AUTO_DETECT';
-                const finalPhone = lastAuthIds?.phoneId || 'AUTO_DETECT';
-                handleFBResponse(response, finalWaba, finalPhone);
+                // Give the 'message' event a grace period to fire and extract the exact IDs.
+                // If it fires, it sets lastAuthIds and handles the response itself.
+                setTimeout(() => {
+                    if (lastAuthIds) return; // 'message' event handled it
+                    console.warn("Message event didn't fire in time, falling back to response object.");
+                    handleFBResponse(response);
+                }, 1500);
             }, {
                 config_id: '{{ fb_config_id }}',
                 response_type: 'code',
@@ -375,7 +389,9 @@
             window.isLinkingNow = true;
 
             const auth = response.authResponse;
-            const code = auth ? auth.code : (response.code || null);
+            // Capture code from multiple possible locations (Meta is inconsistent)
+            const code = (auth && auth.code) || response.code || (response.data && response.data.code) || null;
+            console.log('FULL FB RESPONSE:', response);
             console.log('Extracted Code:', code);
 
             // If the user cancelled or something went wrong
@@ -400,7 +416,7 @@
                     code: code || null
                 };
 
-                const res = await fetch('/api/index', {
+                const res = await fetch('/direct-whatsapp-link', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
