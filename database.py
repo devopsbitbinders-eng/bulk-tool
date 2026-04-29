@@ -106,7 +106,7 @@ async def init_db():
             variable_map TEXT,
             media_url TEXT,
             last_synced DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id, name)
+            UNIQUE(user_id, name, language)
         ) {table_opts}
     """)
 

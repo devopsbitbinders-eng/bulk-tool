@@ -2046,10 +2046,7 @@
     </script>
 
         <script>
-            const templatesList = JSON.parse(document.getElementById('templatesLive').textContent || '[]').filter(t => {
-                const s = (t.status || '').toUpperCase();
-                return s === 'APPROVED' || s === 'PENDING' || s === 'IN_APPEAL';
-            });
+            const templatesList = JSON.parse(document.getElementById('templatesLive').textContent || '[]');
 
             async function syncTemplates() {
                 const btn = document.getElementById('syncBtn');

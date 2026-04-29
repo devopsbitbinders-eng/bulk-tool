@@ -1453,9 +1453,8 @@ async def sync_templates(request: Request):
             query = """
                 INSERT INTO templates (user_id, name, category, language, status, content, components, last_synced)
                 VALUES (:u, :name, :category, :language, :status, :content, :components, :last_synced)
-                ON CONFLICT(user_id, name) DO UPDATE SET
+                ON CONFLICT(user_id, name, language) DO UPDATE SET
                     category = excluded.category,
-                    language = excluded.language,
                     status = excluded.status,
                     content = excluded.content,
                     components = excluded.components,
@@ -1472,11 +1471,12 @@ async def sync_templates(request: Request):
         sync_count += 1
     
     # NEW: Cleanup local templates that are no longer on Meta (User-specific)
-    meta_names = {t.get('name') for t in templates_data}
-    local_rows = await db.fetch_all("SELECT name FROM templates WHERE user_id = :u", {"u": u_id})
+    meta_keys = {(t.get('name'), t.get('language')) for t in templates_data}
+    local_rows = await db.fetch_all("SELECT name, language FROM templates WHERE user_id = :u", {"u": u_id})
     for row in local_rows:
-        if row['name'] not in meta_names:
-            await db.execute("DELETE FROM templates WHERE name = :name AND user_id = :u", {"name": row['name'], "u": u_id})
+        if (row['name'], row['language']) not in meta_keys:
+            await db.execute("DELETE FROM templates WHERE name = :name AND language = :lang AND user_id = :u", 
+                             {"name": row['name'], "lang": row['language'], "u": u_id})
     
     return safe_json_response({"message": f"Synced {sync_count} templates from Meta"})
 
