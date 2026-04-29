@@ -570,20 +570,40 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
         meta_media_id = campaign.get('meta_media_id')
         # --- RE-UPLOAD TO META IF NEEDED (Ensures Phone ID Sync) ---
         try:
-            # Re-fetch credentials to be absolutely sure
             credentials = await get_active_credentials(user_id)
             if (not meta_media_id or meta_media_id == "None") and campaign_media_url:
                 full_url = str(campaign_media_url)
-                if full_url and full_url.startswith("http"):
-                    print(f"DEBUG: Auto-validating campaign media with Meta: {full_url}")
+                m_content = None
+                m_filename = "media_file"
+                m_mime = "image/png"
+                
+                # VERCEL FIX: If it's a local file, read it from disk directly
+                if "/static/uploads/" in full_url:
+                    filename = os.path.basename(full_url)
+                    local_path = os.path.join(UPLOAD_DIR, filename)
+                    if os.path.exists(local_path):
+                        print(f"DEBUG: Reading local file for Meta upload: {local_path}")
+                        with open(local_path, "rb") as f:
+                            m_content = f.read()
+                            m_filename = filename
+                
+                # If not local or disk read failed, try HTTP
+                if not m_content and full_url.startswith("http"):
+                    print(f"DEBUG: Fetching remote media for Meta upload: {full_url}")
                     async with httpx.AsyncClient(timeout=30.0) as client:
                         res = await client.get(full_url)
                         if res.status_code == 200:
-                            fb_id, upload_err = await upload_whatsapp_media(res.content, "campaign_media", res.headers.get("Content-Type", "image/png"), credentials)
-                            if fb_id:
-                                meta_media_id = fb_id
-                                await db.execute("UPDATE campaigns SET meta_media_id = :mid WHERE id = :id", {"mid": meta_media_id, "id": campaign_id})
-                                print(f"DEBUG: Successfully synced media to Meta: {meta_media_id}")
+                            m_content = res.content
+                            m_mime = res.headers.get("Content-Type", "image/png")
+                
+                if m_content:
+                    fb_id, upload_err = await upload_whatsapp_media(m_content, m_filename, m_mime, credentials)
+                    if fb_id:
+                        meta_media_id = fb_id
+                        await db.execute("UPDATE campaigns SET meta_media_id = :mid WHERE id = :id", {"mid": meta_media_id, "id": campaign_id})
+                        print(f"DEBUG: Successfully synced media to Meta: {meta_media_id}")
+                    else:
+                        print(f"DEBUG: Meta sync failed: {upload_err}")
         except Exception as e:
             print(f"DEBUG: Auto-upload to Meta exception: {e}")
         # ----------------------------------------------------------
