@@ -624,9 +624,15 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                             "parameters": [{"type": mtype, mtype: {"link": media_url}}]
                         })
                 
-                # Final Safety Padding (only if not already added)
+                # FINAL SAFETY PADDING for Media Headers
                 has_header = any(c['type'] == 'header' for c in forced_components)
-                has_body = any(c['type'] == 'body' for c in forced_components)
+                if has_media_header and not has_header:
+                     # If media is required but missing, use a transparent placeholder
+                     placeholder = "https://bitbinders.in/transparent.png"
+                     forced_components.append({
+                         "type": "header", 
+                         "parameters": [{"type": "image", "image": {"link": placeholder}}]
+                     })
 
                 if header_var_count > 0 and not has_header:
                      forced_components.append({"type": "header", "parameters": [{"type": "text", "text": " "}]})
@@ -665,7 +671,15 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                     wa_message_id = response['messages'][0].get('id')
             else:
                 failed_batch += 1
-                error_msg = str(response)[:500]
+                raw_err = str(response)
+                if "Number of parameters" in raw_err:
+                    error_msg = "Meta Parameter Error: Variable count mismatch. Check your template variables."
+                elif "132000" in raw_err:
+                    error_msg = "Meta Error 132000: Variable mismatch. Check header/body variables."
+                elif "Media" in raw_err or "media" in raw_err:
+                    error_msg = f"Media Error: {raw_err[:100]}"
+                else:
+                    error_msg = raw_err[:500]
 
             # Update Message Record
             await db.execute("""
