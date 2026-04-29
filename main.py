@@ -228,7 +228,8 @@ async def index(request: Request):
 
     try:
         # 2. Extract credentials
-        cred = await db.fetch_one("SELECT * FROM user_credentials WHERE user_id = :u AND is_active = 1 LIMIT 1", {"u": u_id})
+        cred_row = await db.fetch_one("SELECT * FROM user_credentials WHERE user_id = :u AND is_active = 1 LIMIT 1", {"u": u_id})
+        cred = dict(cred_row) if cred_row else None
         linked_phone = cred.get('phone_number') if cred else None
         waba_id = cred.get('waba_id') if cred else None
         phone_id = cred.get('phone_number_id') if cred else None
