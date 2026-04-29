@@ -605,11 +605,13 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                         if isinstance(header_mapping, dict):
                             if header_mapping.get('type') == 'column':
                                 m_col = header_mapping.get('value')
-                                media_url = row.get(str(m_col).lower()) if m_col else None
+                                m_val = row.get(str(m_col).lower()) if m_col else None
+                                if m_val: media_url = m_val
                             elif header_mapping.get('type') == 'fixed':
                                 media_url = header_mapping.get('value')
                         else:
-                            media_url = row.get(str(header_mapping).lower())
+                            m_val = row.get(str(header_mapping).lower())
+                            if m_val: media_url = m_val
 
                 if has_media_header and media_url:
                     # Direct link logic with type detection
@@ -890,11 +892,13 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                     if isinstance(header_mapping, dict):
                         if header_mapping.get('type') == 'column':
                             m_col = header_mapping.get('value')
-                            media_url = row.get(str(m_col).lower()) if m_col else None
+                            m_val = row.get(str(m_col).lower()) if m_col else None
+                            if m_val: media_url = m_val
                         elif header_mapping.get('type') == 'fixed':
                             media_url = header_mapping.get('value')
                     else:
-                        media_url = row.get(str(header_mapping).lower())
+                        m_val = row.get(str(header_mapping).lower())
+                        if m_val: media_url = m_val
 
             # BUILD FINAL COMPONENTS
             if has_media_header and media_url:
