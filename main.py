@@ -122,21 +122,49 @@ async def robots_txt():
     )
 
 @app.post("/api/upload-media")
-async def upload_media(file: UploadFile = File(...)):
+async def upload_media(request: Request, file: UploadFile = File(...)):
     try:
+        # 1. AUTHENTICATE
+        session_token = request.cookies.get("session_token")
+        username = verify_session_token(session_token)
+        user_id = None
+        if username:
+            db = await get_db()
+            u_row = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
+            if u_row: user_id = u_row['id']
+
+        # 2. SAVE LOCALLY (Temporary fallback)
         ext = os.path.splitext(file.filename)[1]
         unique_id = uuid.uuid4().hex[:8]
         timestamp = int(time.time())
         unique_name = f"media_{timestamp}_{unique_id}{ext}"
         save_path = os.path.join(UPLOAD_DIR, unique_name)
         
+        contents = await file.read()
         with open(save_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
+            buffer.write(contents)
             
         url = f"/static/uploads/{unique_name}"
-        print(f"DEBUG: File uploaded to {save_path}, URL: {url}")
-        return {"url": url}
+        meta_id = None
+        
+        # 3. IMMEDIATE META UPLOAD (The proper fix)
+        if user_id:
+            try:
+                creds = await get_active_credentials(user_id)
+                if creds:
+                    fb_id = await upload_whatsapp_media(contents, file.filename, file.content_type, creds)
+                    if fb_id:
+                        meta_id = fb_id
+                        print(f"DEBUG: Immediate Meta upload success for {username}: {meta_id}")
+            except Exception as e:
+                print(f"DEBUG: Immediate Meta upload failed: {e}")
+
+        print(f"DEBUG: File uploaded to {save_path}, URL: {url}, MetaID: {meta_id}")
+        return JSONResponse({
+            "url": url, 
+            "meta_media_id": meta_id,
+            "filename": file.filename
+        })
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
