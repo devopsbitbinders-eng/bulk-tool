@@ -361,19 +361,20 @@
 
             if (id1 && id2 && code) {
                 console.log("NUCLEAR SYNC TRIGGERED...");
+                // Meta sends Phone ID first (id1) and WABA ID second (id2)
                 fetch('/facebook_auth_callback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        waba_id: id1, 
-                        phone_id: id2, 
+                        waba_id: id2, // id2 is WABA
+                        phone_id: id1, // id1 is Phone
                         code: code,
-                        is_nuclear: true // Tell backend to be flexible
+                        is_nuclear: true
                     })
                 }).then(r => {
                     if (r.ok) {
-                        localStorage.clear(); // Clear all
-                        alert("SUCCESS! CONNECTED.");
+                        localStorage.clear();
+                        alert("SUCCESS! SYSTEM CONNECTED CORRECTLY.");
                         window.location.reload();
                     }
                 });
