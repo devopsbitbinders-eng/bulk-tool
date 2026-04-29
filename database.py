@@ -73,10 +73,16 @@ async def init_db():
     # 1.1 Migration for media_url
     try:
         await db.execute("ALTER TABLE campaigns ADD COLUMN media_url TEXT")
-    except: pass
+        print("MIGRATION: Added media_url to campaigns")
+    except Exception as e:
+        if "Duplicate column" not in str(e) and "already exists" not in str(e):
+            print(f"MIGRATION ERROR (media_url): {e}")
     try:
         await db.execute("ALTER TABLE campaigns ADD COLUMN meta_media_id TEXT")
-    except: pass
+        print("MIGRATION: Added meta_media_id to campaigns")
+    except Exception as e:
+        if "Duplicate column" not in str(e) and "already exists" not in str(e):
+            print(f"MIGRATION ERROR (meta_media_id): {e}")
 
     # 2. Messages Table
     await db.execute(f"""

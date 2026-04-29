@@ -541,6 +541,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
         m_raw = campaign.get('mappings')
         mappings = json.loads(m_raw) if m_raw else None
         campaign_media_url = campaign.get('media_url')
+        campaign_media_id = campaign.get('meta_media_id')
+        print(f"DEBUG: Processing Campaign {campaign_id}. Media ID: {campaign_media_id}")
         
         # 2. Fetch pending messages
         pending_raw = await db.fetch_all(
@@ -775,12 +777,15 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
             else:
                 failed_batch += 1
                 raw_err = str(response)
-                if "Number of parameters" in raw_err:
+                
+                # CRITICAL: If Meta says "Media upload error", it means our ID or Link is bad.
+                # Surfacing the FULL error to the user for diagnostics.
+                if "Media" in raw_err or "media" in raw_err or "131009" in raw_err:
+                    error_msg = f"Meta Media Error: {raw_err}"
+                elif "Number of parameters" in raw_err:
                     error_msg = "Meta Parameter Error: Variable count mismatch. Check your template variables."
                 elif "132000" in raw_err:
                     error_msg = "Meta Error 132000: Variable mismatch. Check header/body variables."
-                elif "Media" in raw_err or "media" in raw_err:
-                    error_msg = f"Media Error: {raw_err}"
                 else:
                     error_msg = raw_err
 
