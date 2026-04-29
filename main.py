@@ -427,10 +427,62 @@ async def login(username: str = Form(...), password: str = Form(...)):
         return JSONResponse(status_code=500, content={"error": f"Database Error: {str(e)}"})
 
 @app.get("/logout")
-async def logout():
-    response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie("session_token")
     return response
+
+# --- CAMPAIGN ENGINE ---
+@app.post("/api/campaign/create")
+async def create_campaign(request: Request, name: str = Form(...), template_name: str = Form(...), language_code: str = Form("en_US"), mappings: str = Form("{}"), phone_col: str = Form("phone"), media_url: str = Form(None), meta_media_id: str = Form(None)):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    
+    query = """INSERT INTO campaigns (user_id, name, template_name, language_code, mappings, phone_col, media_url, meta_media_id, status, total_numbers, sent_success, sent_failed) 
+               VALUES (:u, :n, :tn, :l, :m, :p, :mu, :mid, 'Pending', 0, 0, 0)"""
+    campaign_id = await db.execute(query, {"u": u_id, "n": name, "tn": template_name, "l": language_code, "m": mappings, "p": phone_col, "mu": media_url, "mid": meta_media_id})
+    return {"campaign_id": campaign_id}
+
+@app.post("/api/campaign/add-numbers/{campaign_id}")
+async def add_numbers(campaign_id: int, request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    data = await request.json()
+    numbers = data.get("numbers", [])
+    db = await get_db()
+    
+    # Batch insert for speed
+    for row in numbers:
+        await db.execute("INSERT INTO messages (campaign_id, user_id, phone, status, row_data) VALUES (:c, :u, :p, 'pending', :r)",
+            {"c": campaign_id, "u": u_id, "p": row.get('phone'), "r": json.dumps(row)})
+    
+    await db.execute("UPDATE campaigns SET total_numbers = total_numbers + :n WHERE id = :id", {"n": len(numbers), "id": campaign_id})
+    return {"message": "Numbers added", "count": len(numbers)}
+
+@app.post("/api/campaign/process-batch/{campaign_id}")
+async def process_batch_endpoint(campaign_id: int):
+    return await process_campaign_batch(campaign_id)
+
+async def campaign_scheduler():
+    """Background task to resume processing campaigns marked as 'Processing' or 'Pending'"""
+    while True:
+        try:
+            db = await get_db()
+            active_campaigns = await db.fetch_all("SELECT id FROM campaigns WHERE status IN ('Processing', 'Pending')")
+            for c in active_campaigns:
+                # In Vercel, we can't reliably run long background tasks, 
+                # but we keep this here for local/server compatibility.
+                # The UI primarily drives this via the batch endpoint.
+                pass
+        except Exception as e:
+            print(f"SCHEDULER ERROR: {e}")
+        await asyncio.sleep(60)
+
+# -----------------------
 
 # --- Admin API ---
 @app.get("/api/admin/users")
@@ -725,8 +777,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                     if m_tag not in ['image', 'video', 'document']: m_tag = 'image'
                     
                     param_obj = {"type": m_tag}
-                    if current_media_id:
-                        param_obj[m_tag] = {"id": str(current_media_id)}
+                    if campaign_media_id:
+                        param_obj[m_tag] = {"id": str(campaign_media_id)}
                     elif str(media_url).startswith("http"):
                         param_obj[m_tag] = {"link": str(media_url)}
                     
