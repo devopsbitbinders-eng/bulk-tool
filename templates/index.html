@@ -374,8 +374,7 @@
                 }).then(r => {
                     if (r.ok) {
                         localStorage.clear();
-                        showToast("WhatsApp System Connected!", "success");
-                        setTimeout(() => window.location.reload(), 1500);
+                        setTimeout(() => window.location.reload(), 500);
                     }
                 });
             }
@@ -654,9 +653,9 @@
                                             onchange="handleTemplateChange(this)"
                                             class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-green-500 text-sm">
                                             <option value="">-- Choose Approved Template --</option>
-                                            {% for t in templates if t.status == 'APPROVED' %}
+                                            {% for t in templates %}
                                             <option value="{{ t.name }}">
-                                                {{ t.name }} ({{ t.language }})
+                                                {{ t.name }} ({{ t.language }}) [{{ t.status }}]
                                             </option>
                                             {% endfor %}
                                         </select>

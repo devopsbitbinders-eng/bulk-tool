@@ -570,21 +570,32 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
                         elif ctype == 'BODY':
                             body_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
                 
-                if mappings:
-                    vars_map = mappings.get('vars', {})
-                    sorted_keys = sorted(vars_map.keys(), key=lambda x: int(x))
-                    for idx, k in enumerate(sorted_keys):
-                        val = str(row.get(vars_map[k], "")).strip()
+                # --- Robust Parameter Logic ---
+                # 1. Header Params (Only if text header with variables)
+                if not has_media_header and header_var_count > 0:
+                    header_params = []
+                    for i in range(1, header_var_count + 1):
+                        val = str(row.get(vars_map.get(str(i)), " ")).strip()
                         if not val: val = " "
-                        
-                        if idx < header_var_count:
-                            header_params.append({"type": "text", "text": val})
-                        else:
-                            body_params.append({"type": "text", "text": val})
-                        
-                        pattern = r'\{\{\s*' + re.escape(str(idx + 1)) + r'\s*\}\}'
-                        message_to_send = re.sub(pattern, val, message_to_send, flags=re.IGNORECASE)
+                        header_params.append({"type": "text", "text": val})
+                    if header_params:
+                        forced_components.append({"type": "header", "parameters": header_params})
+
+                # 2. Body Params
+                if body_var_count > 0:
+                    body_params = []
+                    for i in range(1, body_var_count + 1):
+                        mapping_key = str(i + header_var_count)
+                        val = str(row.get(vars_map.get(mapping_key), " ")).strip()
+                        if not val: val = " "
+                        body_params.append({"type": "text", "text": val})
                     
+                    if body_params:
+                        forced_components.append({"type": "body", "parameters": body_params})
+                # ------------------------------
+
+                # Header Media logic
+                if mappings:
                     header_mapping = mappings.get('header')
                     if header_mapping:
                         if isinstance(header_mapping, dict):
@@ -593,34 +604,28 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
                             elif header_mapping.get('type') == 'fixed':
                                 media_url = header_mapping.get('value')
                         else:
-                            # Legacy support
                             media_url = row.get(header_mapping)
 
-                # Build Components
                 if has_media_header and media_url:
-                    fmt = "image"
-                    if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
-                    elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
+                    # Direct link logic with type detection
+                    mtype = "image"
+                    low_url = str(media_url).lower()
+                    if any(ext in low_url for ext in [".mp4", ".mov", ".avi"]): mtype = "video"
+                    elif any(ext in low_url for ext in [".pdf", ".doc", ".docx", ".xls", ".xlsx"]): mtype = "document"
                     
-                    # If it's a full URL, send as link. Otherwise, Meta handles it in send_whatsapp_message
                     if str(media_url).startswith("http"):
                         forced_components.append({
                             "type": "header",
-                            "parameters": [{"type": fmt, fmt: {"link": media_url}}]
+                            "parameters": [{"type": mtype, mtype: {"link": media_url}}]
                         })
-                    else:
-                        # send_whatsapp_message will handle local files via upload if needed
-                        pass
-                elif header_params:
-                    forced_components.append({"type": "header", "parameters": header_params})
                 
-                if body_params:
-                    forced_components.append({"type": "body", "parameters": body_params})
-                
-                # Final Safety Padding
-                if header_var_count > 0 and not header_params:
+                # Final Safety Padding (only if not already added)
+                has_header = any(c['type'] == 'header' for c in forced_components)
+                has_body = any(c['type'] == 'body' for c in forced_components)
+
+                if header_var_count > 0 and not has_header:
                      forced_components.append({"type": "header", "parameters": [{"type": "text", "text": " "}]})
-                if body_var_count > 0 and not body_params:
+                if body_var_count > 0 and not has_body:
                      forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
             else:
                 message_to_send = substitute_template(message_template or "", row)
@@ -840,22 +845,25 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
             
             if mappings:
                 vars_map = mappings.get('vars', {})
-                # Sort by numeric key
-                sorted_keys = sorted(vars_map.keys(), key=lambda x: int(x))
-                
-                for idx, k in enumerate(sorted_keys):
-                    val = str(row.get(vars_map[k], "")).strip()
-                    if not val: val = " " # Meta fails on empty params
-                    
-                    if idx < header_var_count:
+                # --- Robust Parameter Logic ---
+                # 1. Header Params (Only if text header with variables)
+                if not has_media_header and header_var_count > 0:
+                    header_params = []
+                    for i in range(1, header_var_count + 1):
+                        val = str(vars_map.get(str(i), " ")).strip()
+                        if not val: val = " "
                         header_params.append({"type": "text", "text": val})
-                    else:
-                        body_params.append({"type": "text", "text": val})
                     
-                    # Update preview
-                    pattern = r'\{\{\s*' + re.escape(str(idx + 1)) + r'\s*\}\}'
-                    message_to_send = re.sub(pattern, val, message_to_send, flags=re.IGNORECASE)
-                
+                # 2. Body Params
+                if body_var_count > 0:
+                    body_params = []
+                    for i in range(1, body_var_count + 1):
+                        mapping_key = str(i + header_var_count)
+                        val = str(vars_map.get(mapping_key), " ")).strip()
+                        if not val: val = " "
+                        body_params.append({"type": "text", "text": val})
+                # ------------------------------
+
                 header_mapping = mappings.get('header')
                 if header_mapping:
                     if isinstance(header_mapping, dict):
@@ -864,19 +872,20 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                         elif header_mapping.get('type') == 'fixed':
                             media_url = header_mapping.get('value')
                     else:
-                        # Legacy support
                         media_url = row.get(header_mapping)
 
             # BUILD FINAL COMPONENTS
             if has_media_header and media_url:
-                fmt = "image"
-                if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
-                elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
-                
                 if str(media_url).startswith("http"):
+                    # Direct link logic with type detection
+                    mtype = "image"
+                    low_url = str(media_url).lower()
+                    if any(ext in low_url for ext in [".mp4", ".mov", ".avi"]): mtype = "video"
+                    elif any(ext in low_url for ext in [".pdf", ".doc", ".docx", ".xls", ".xlsx"]): mtype = "document"
+                    
                     forced_components.append({
                         "type": "header",
-                        "parameters": [{"type": fmt, fmt: {"link": media_url}}]
+                        "parameters": [{"type": mtype, mtype: {"link": media_url}}]
                     })
             elif header_params:
                 forced_components.append({"type": "header", "parameters": header_params})
