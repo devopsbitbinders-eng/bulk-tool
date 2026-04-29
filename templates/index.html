@@ -327,32 +327,43 @@
             
             let data = event.data;
             console.log('--- META SIGNAL START ---');
-            console.log('RAW:', data);
             
             if (typeof data === 'string' && data.includes('code=')) {
                 const params = new URLSearchParams(data);
                 data = Object.fromEntries(params.entries());
-                console.log('PARSED STRING DATA:', data);
             }
 
-            const waba = data.waba_id || (data.data && data.data.waba_id) || data.waba_account_id;
-            const phone = data.phone_number_id || (data.data && data.data.phone_number_id);
-            const code = data.code || null;
+            // RECURSIVE SCANNER
+            function deepSearch(obj, targetKeys) {
+                let found = {};
+                if (!obj || typeof obj !== 'object') return found;
+                for (let key in obj) {
+                    if (targetKeys.includes(key)) found[key] = obj[key];
+                    if (typeof obj[key] === 'object') {
+                        const deep = deepSearch(obj[key], targetKeys);
+                        Object.assign(found, deep);
+                    }
+                }
+                return found;
+            }
 
-            console.log('EXTRACTED:', { waba, phone, code });
+            const results = deepSearch(data, ['waba_id', 'phone_number_id', 'code', 'waba_account_id']);
+            const waba = results.waba_id || results.waba_account_id;
+            const phone = results.phone_number_id;
+            const code = results.code || data.code || null;
 
-            if (waba) { localStorage.setItem('last_waba', waba); console.log('SAVED WABA:', waba); }
-            if (phone) { localStorage.setItem('last_phone', phone); console.log('SAVED PHONE:', phone); }
-            if (code) { localStorage.setItem('last_code', code); console.log('SAVED CODE:', code); }
+            console.log('DEEP SCAN RESULTS:', { waba, phone, code });
+
+            if (waba) { localStorage.setItem('last_waba', waba); console.log('CAUGHT WABA:', waba); }
+            if (phone) { localStorage.setItem('last_phone', phone); console.log('CAUGHT PHONE:', phone); }
+            if (code) { localStorage.setItem('last_code', code); console.log('CAUGHT CODE:', code); }
 
             const sWaba = localStorage.getItem('last_waba');
             const sPhone = localStorage.getItem('last_phone');
             const sCode = localStorage.getItem('last_code');
 
-            console.log('CURRENT MEMORY STATUS:', { sWaba, sPhone, sCode });
-
             if (sWaba && sPhone && sCode) {
-                console.log("PUZZLE COMPLETE! SYNCING TO DATABASE...");
+                console.log("PUZZLE COMPLETE! SAVING...");
                 fetch('/facebook_auth_callback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -360,10 +371,8 @@
                 }).then(r => {
                     if (r.ok) {
                         localStorage.removeItem('last_code');
-                        alert("SUCCESS! SYSTEM CONNECTED.");
+                        alert("SUCCESS! CONNECTED.");
                         window.location.reload();
-                    } else {
-                        console.error("DATABASE REJECTED DATA");
                     }
                 });
             }
