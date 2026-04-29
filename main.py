@@ -1187,7 +1187,7 @@ async def facebook_auth_callback(request: Request):
 
         await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
         await db.execute("""
-            INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
+            INSERT INTO user_credentials (user_id, access_token, phone_number_id, waba_id, phone_number, is_active)
             VALUES (:u, :at, :pi, :wi, :pn, 1)
         """, {"u": u_id, "at": access_token, "pi": phone_id or "PENDING", "wi": waba_id or "PENDING", "pn": display_phone})
 
