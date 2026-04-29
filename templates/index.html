@@ -367,10 +367,15 @@
             }, {
                 config_id: '{{ fb_config_id or "1819547065399749" }}',
                 response_type: 'code',
-                override_default_response_type: true
+                override_default_response_type: true,
+                extras: {
+                    feature: 'whatsapp_embedded_signup',
+                    featureType: 'whatsapp_business_app_onboarding',
+                    sessionInfoVersion: 3
+                }
             });
         }
-    </script>
+
 
         // --- Manual Auth Modal Logic ---
         function openManualAuthModal() {
