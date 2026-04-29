@@ -356,14 +356,16 @@
                 return found;
             }
             let isLinking = false;
+            let cachedWaba = localStorage.getItem('cached_waba');
+            let cachedPhone = localStorage.getItem('cached_phone');
+
             window.addEventListener('message', (event) => {
                 if (!event.origin.includes("facebook.com")) return;
                 console.log('RAW META SIGNAL RECEIVED:', event.data);
                 
                 let data = event.data;
-                if (typeof data === 'string') {
+                if (typeof data === 'string' && data.includes('code=')) {
                     try {
-                        // Handle query string format from Meta
                         const params = new URLSearchParams(data);
                         data = Object.fromEntries(params.entries());
                     } catch (e) { console.error("Failed to parse Meta signal string", e); }
@@ -372,20 +374,26 @@
                 const ids = findIdsInObject(data);
                 const code = data.code || null;
 
-                if (ids.waba) localStorage.setItem('cached_waba', ids.waba);
-                if (ids.phone) localStorage.setItem('cached_phone', ids.phone);
+                if (ids.waba) {
+                    cachedWaba = ids.waba;
+                    localStorage.setItem('cached_waba', ids.waba);
+                }
+                if (ids.phone) {
+                    cachedPhone = ids.phone;
+                    localStorage.setItem('cached_phone', ids.phone);
+                }
 
-                if (ids.waba && ids.phone && code && !isLinking) {
+                if (cachedWaba && cachedPhone && code && !isLinking) {
                     isLinking = true;
-                    console.log('AUTO-LINKING DETECTED FROM SIGNAL:', { ids, code });
+                    console.log('AUTO-LINKING DETECTED:', { waba: cachedWaba, phone: cachedPhone, code });
                     showToast('Syncing with Meta...', 'info');
 
-                    fetch('/api/index', {
+                    fetch('/facebook_auth_callback', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            waba_id: ids.waba,
-                            phone_id: ids.phone,
+                            waba_id: cachedWaba,
+                            phone_id: cachedPhone,
                             code: code
                         })
                     })
@@ -402,8 +410,6 @@
                         isLinking = false;
                         showToast('Network error.', 'error');
                     });
-                } else if (ids.waba && ids.phone) {
-                    showToast('ID Captured. Waiting for final signal...', 'info');
                 }
             });
 
