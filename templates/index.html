@@ -374,8 +374,8 @@
                 }).then(r => {
                     if (r.ok) {
                         localStorage.clear();
-                        alert("SUCCESS! SYSTEM CONNECTED CORRECTLY.");
-                        window.location.reload();
+                        showToast("WhatsApp System Connected!", "success");
+                        setTimeout(() => window.location.reload(), 1500);
                     }
                 });
             }
