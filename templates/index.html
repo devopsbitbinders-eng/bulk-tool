@@ -333,37 +333,47 @@
                 data = Object.fromEntries(params.entries());
             }
 
-            // RECURSIVE SCANNER
-            function deepSearch(obj, targetKeys) {
-                let found = {};
+            // MASTER SCANNER: Look for ANY key containing 'waba', 'phone', or 'code'
+            function masterScan(obj) {
+                let found = { waba: null, phone: null, code: null };
                 if (!obj || typeof obj !== 'object') return found;
-                for (let key in obj) {
-                    if (targetKeys.includes(key)) found[key] = obj[key];
-                    if (typeof obj[key] === 'object') {
-                        const deep = deepSearch(obj[key], targetKeys);
-                        Object.assign(found, deep);
+
+                const keys = Object.keys(obj);
+                for (let key of keys) {
+                    const val = obj[key];
+                    const k = key.toLowerCase();
+                    
+                    if (k.includes('waba') && !found.waba) found.waba = val;
+                    if (k.includes('phone') && !found.phone) found.phone = val;
+                    if (k.includes('code') && !found.code) found.code = val;
+
+                    if (val && typeof val === 'object') {
+                        const deep = masterScan(val);
+                        if (deep.waba && !found.waba) found.waba = deep.waba;
+                        if (deep.phone && !found.phone) found.phone = deep.phone;
+                        if (deep.code && !found.code) found.code = deep.code;
                     }
                 }
                 return found;
             }
 
-            const results = deepSearch(data, ['waba_id', 'phone_number_id', 'code', 'waba_account_id']);
-            const waba = results.waba_id || results.waba_account_id;
-            const phone = results.phone_number_id;
+            const results = masterScan(data);
+            const waba = results.waba;
+            const phone = results.phone;
             const code = results.code || data.code || null;
 
-            console.log('DEEP SCAN RESULTS:', { waba, phone, code });
+            console.log('MASTER SCAN RESULTS:', { waba, phone, code });
 
-            if (waba) { localStorage.setItem('last_waba', waba); console.log('CAUGHT WABA:', waba); }
-            if (phone) { localStorage.setItem('last_phone', phone); console.log('CAUGHT PHONE:', phone); }
-            if (code) { localStorage.setItem('last_code', code); console.log('CAUGHT CODE:', code); }
+            if (waba && typeof waba !== 'object') { localStorage.setItem('last_waba', waba); console.log('GOT WABA:', waba); }
+            if (phone && typeof phone !== 'object') { localStorage.setItem('last_phone', phone); console.log('GOT PHONE:', phone); }
+            if (code && typeof code !== 'object') { localStorage.setItem('last_code', code); console.log('GOT CODE:', code); }
 
             const sWaba = localStorage.getItem('last_waba');
             const sPhone = localStorage.getItem('last_phone');
             const sCode = localStorage.getItem('last_code');
 
             if (sWaba && sPhone && sCode) {
-                console.log("PUZZLE COMPLETE! SAVING...");
+                console.log("PUZZLE COMPLETE! SAVING TO DATABASE...");
                 fetch('/facebook_auth_callback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
