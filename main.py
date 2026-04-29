@@ -1099,7 +1099,6 @@ async def facebook_auth_callback(request: Request):
 
         if not access_token:
             return JSONResponse({"error": "Meta: Access token exchange failed."}, status_code=400)
-
         # 2. Extract/Sync IDs
         if not waba_id or waba_id == "AUTO_DETECT":
             async with httpx.AsyncClient(timeout=15.0) as client:
@@ -1115,6 +1114,18 @@ async def facebook_auth_callback(request: Request):
                 phones = res.json().get('data', [])
                 if phones: phone_id = phones[0]['id']
 
+        # 2.1 Fetch Display Phone Number
+        display_phone = "CONNECTED"
+        if phone_id and phone_id != "PENDING" and phone_id != "AUTO_DETECT":
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    res = await client.get(f"https://graph.facebook.com/v21.0/{phone_id}", 
+                                           headers={"Authorization": f"Bearer {access_token}"})
+                    res_data = res.json()
+                    display_phone = res_data.get('display_phone_number') or res_data.get('verified_name') or "CONNECTED"
+            except Exception as e:
+                print(f"PHONE FETCH ERROR: {e}")
+
         # 3. Final Persistence
         db = await get_db()
         session_token = request.cookies.get("session_token")
@@ -1124,9 +1135,9 @@ async def facebook_auth_callback(request: Request):
 
         await db.execute("UPDATE user_credentials SET is_active = 0 WHERE user_id = :u", {"u": u_id})
         await db.execute("""
-            INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, is_active)
-            VALUES (:u, :at, :pi, :wi, 1)
-        """, {"u": u_id, "at": access_token, "pi": phone_id or "PENDING", "wi": waba_id or "PENDING"})
+            INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
+            VALUES (:u, :at, :pi, :wi, :pn, 1)
+        """, {"u": u_id, "at": access_token, "pi": phone_id or "PENDING", "wi": waba_id or "PENDING", "pn": display_phone})
 
         return {
             "status": "success",
