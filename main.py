@@ -226,7 +226,6 @@ async def index(request: Request):
     if user_data and not user_data['is_approved']:
         return RedirectResponse(url="/login?error=revoked", status_code=303)
 
-    u_id = user['id']
     # 2. Extract credentials
     cred = await db.fetch_one("SELECT * FROM user_credentials WHERE user_id = :u", {"u": u_id})
     linked_phone = cred['phone_number'] if cred else None
