@@ -385,7 +385,8 @@
 
                 if (cachedWaba && cachedPhone && code && !isLinking) {
                     isLinking = true;
-                    console.log('AUTO-LINKING DETECTED:', { waba: cachedWaba, phone: cachedPhone, code });
+                    console.log('AUTO-LINKING DETECTED:', { waba: cachedWaba, phone: cachedPhone, code: !!code });
+                    console.log("FETCHING /facebook_auth_callback...");
                     showToast('Syncing with Meta...', 'info');
 
                     fetch('/facebook_auth_callback', {
