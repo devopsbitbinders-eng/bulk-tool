@@ -585,8 +585,16 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
                         pattern = r'\{\{\s*' + re.escape(str(idx + 1)) + r'\s*\}\}'
                         message_to_send = re.sub(pattern, val, message_to_send, flags=re.IGNORECASE)
                     
-                    if mappings.get('header'):
-                        media_url = row.get(mappings['header'])
+                    header_mapping = mappings.get('header')
+                    if header_mapping:
+                        if isinstance(header_mapping, dict):
+                            if header_mapping.get('type') == 'column':
+                                media_url = row.get(header_mapping.get('value'))
+                            elif header_mapping.get('type') == 'fixed':
+                                media_url = header_mapping.get('value')
+                        else:
+                            # Legacy support
+                            media_url = row.get(header_mapping)
 
                 # Build Components
                 if has_media_header and media_url:
@@ -834,8 +842,16 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                     pattern = r'\{\{\s*' + re.escape(str(idx + 1)) + r'\s*\}\}'
                     message_to_send = re.sub(pattern, val, message_to_send, flags=re.IGNORECASE)
                 
-                if mappings.get('header'):
-                    media_url = row.get(mappings['header'])
+                header_mapping = mappings.get('header')
+                if header_mapping:
+                    if isinstance(header_mapping, dict):
+                        if header_mapping.get('type') == 'column':
+                            media_url = row.get(header_mapping.get('value'))
+                        elif header_mapping.get('type') == 'fixed':
+                            media_url = header_mapping.get('value')
+                    else:
+                        # Legacy support
+                        media_url = row.get(header_mapping)
 
             # BUILD FINAL COMPONENTS
             if has_media_header and media_url:

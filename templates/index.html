@@ -2422,12 +2422,19 @@
                 if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(currentHeaderType)) {
                     if (method === 'bulk') {
                         html += `
-                        <div class="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200">
-                            <span class="text-[10px] font-bold text-slate-500 w-24">Header (${currentHeaderType})</span>
-                            <select name="map_header" class="flex-1 bg-transparent border-none outline-none text-[10px] font-medium">
-                                <option value="">-- Select Column for ${currentHeaderType} URL --</option>
-                                ${currentFileColumns.map(c => `<option value="${c}">${c}</option>`).join('')}
-                            </select>
+                        <div class="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-bold text-slate-500 w-24">Header (${currentHeaderType})</span>
+                                <select name="map_header" id="bulk_header_map" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1">
+                                    <option value="">-- Use Fixed URL below --</option>
+                                    ${currentFileColumns.map(c => `<option value="${c}">Use Column: ${c}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-bold text-slate-400 w-24 ml-1">Fixed URL</span>
+                                <input type="text" name="val_header" value="${currentHeaderSampleUrl}" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1" placeholder="Paste image link here...">
+                            </div>
+                            <p class="text-[9px] text-slate-400 italic ml-24">Select a column above to use different images, or keep the link below to use the same image for everyone.</p>
                         </div>
                     `;
                     } else {
@@ -2486,11 +2493,16 @@
                 if (currentHeaderType !== 'NONE' && currentHeaderType !== 'TEXT') {
                     const headerInput = document.querySelector('input[name="val_header"]');
                     const headerSelect = document.querySelector('select[name="map_header"]');
+                    
                     if (method === 'single' && headerInput && !headerInput.value.trim()) {
                         return showToast(`Please provide a URL for the ${currentHeaderType} header!`, 'error');
                     }
-                    if (method === 'bulk' && headerSelect && !headerSelect.value) {
-                        return showToast(`Please map a column for the ${currentHeaderType} header!`, 'error');
+                    if (method === 'bulk') {
+                        const hasColumn = headerSelect && headerSelect.value;
+                        const hasFixedUrl = headerInput && headerInput.value.trim();
+                        if (!hasColumn && !hasFixedUrl) {
+                            return showToast(`Please either map a column OR provide a fixed URL for the ${currentHeaderType} header!`, 'error');
+                        }
                     }
                 }
 
@@ -2518,7 +2530,12 @@
                     // Header Mapping
                     if (method === 'bulk') {
                         const headerSelect = mappingContainer.querySelector('select[name="map_header"]');
-                        if (headerSelect) mappings.header = headerSelect.value;
+                        const headerInput = mappingContainer.querySelector('input[name="val_header"]');
+                        if (headerSelect && headerSelect.value) {
+                            mappings.header = { type: 'column', value: headerSelect.value };
+                        } else if (headerInput && headerInput.value.trim()) {
+                            mappings.header = { type: 'fixed', value: headerInput.value.trim() };
+                        }
                     } else {
                         const headerInput = mappingContainer.querySelector('input[name="val_header"]');
                         if (headerInput) mappings.header = headerInput.value;
