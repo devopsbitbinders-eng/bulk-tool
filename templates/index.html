@@ -331,15 +331,22 @@
                 let found = { waba: null, phone: null };
                 if (!obj || typeof obj !== 'object') return found;
                 
-                // Direct check
-                found.waba = obj.whatsapp_business_account_id || obj.waba_id || obj.whatsapp_business_account_id;
-                found.phone = obj.phone_number_id || obj.phone_id || obj.phone_number_id;
+                // 1. Direct check for common keys
+                found.waba = obj.whatsapp_business_account_id || obj.waba_id || obj.waba_account_id;
+                found.phone = obj.phone_number_id || obj.phone_id || obj.whatsapp_phone_number_id;
+
+                // 2. Check Meta's specific 'data' wrapper if it exists
+                if (obj.data && typeof obj.data === 'object') {
+                    const d = obj.data;
+                    if (!found.waba) found.waba = d.whatsapp_business_account_id || d.waba_id || d.waba_account_id;
+                    if (!found.phone) found.phone = d.phone_number_id || d.phone_id || d.whatsapp_phone_number_id;
+                }
                 
                 if (found.waba && found.phone) return found;
 
-                // Recursive deep search
+                // 3. Recursive deep search as last resort
                 for (let key in obj) {
-                    if (obj[key] && typeof obj[key] === 'object') {
+                    if (obj[key] && typeof obj[key] === 'object' && key !== 'data') {
                         const deep = findIdsInObject(obj[key]);
                         if (deep.waba) found.waba = deep.waba;
                         if (deep.phone) found.phone = deep.phone;
