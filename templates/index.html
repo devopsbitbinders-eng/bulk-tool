@@ -348,19 +348,55 @@
                 }
                 return found;
             }
-
+            let isLinking = false;
             window.addEventListener('message', (event) => {
                 if (!event.origin.includes("facebook.com")) return;
                 console.log('RAW META SIGNAL RECEIVED:', event.data);
                 
-                const ids = findIdsInObject(event.data);
-                if (ids.waba && ids.phone) {
-                    wabaId = ids.waba;
-                    phoneId = ids.phone;
-                    localStorage.setItem('cached_waba', wabaId);
-                    localStorage.setItem('cached_phone', phoneId);
-                    console.log('SUCCESS: IDs LOCKED:', { wabaId, phoneId });
-                    showToast('IDs Captured Successfully', 'success');
+                let data = event.data;
+                if (typeof data === 'string') {
+                    try {
+                        // Handle query string format from Meta
+                        const params = new URLSearchParams(data);
+                        data = Object.fromEntries(params.entries());
+                    } catch (e) { console.error("Failed to parse Meta signal string", e); }
+                }
+
+                const ids = findIdsInObject(data);
+                const code = data.code || null;
+
+                if (ids.waba) localStorage.setItem('cached_waba', ids.waba);
+                if (ids.phone) localStorage.setItem('cached_phone', ids.phone);
+
+                if (ids.waba && ids.phone && code && !isLinking) {
+                    isLinking = true;
+                    console.log('AUTO-LINKING DETECTED FROM SIGNAL:', { ids, code });
+                    showToast('Syncing with Meta...', 'info');
+
+                    fetch('/api/index', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            waba_id: ids.waba,
+                            phone_id: ids.phone,
+                            code: code
+                        })
+                    })
+                    .then(res => {
+                        if (res.ok) {
+                            showToast('WhatsApp Connected!', 'success');
+                            setTimeout(() => location.reload(), 2000);
+                        } else {
+                            isLinking = false;
+                            return res.json().then(err => showToast(err.error || 'Connection Failed', 'error'));
+                        }
+                    })
+                    .catch(e => {
+                        isLinking = false;
+                        showToast('Network error.', 'error');
+                    });
+                } else if (ids.waba && ids.phone) {
+                    showToast('ID Captured. Waiting for final signal...', 'info');
                 }
             });
 
