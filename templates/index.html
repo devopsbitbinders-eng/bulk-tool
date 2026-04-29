@@ -303,8 +303,6 @@
             </div>
         </div>
     </nav>
-
-    <!-- Facebook SDK -->
     <script>
         window.fbAsyncInit = function () {
             FB.init({
@@ -313,7 +311,7 @@
                 xfbml: true,
                 version: 'v18.0'
             });
-            console.log("FB SDK Initialized - VERSION 2.3 - FORCED");
+            console.log("CRITICAL UPDATE: VERSION 3.0 READY");
         };
 
         (function (d, s, id) {
@@ -324,153 +322,55 @@
             fjs.parentNode.insertBefore(js, fjs);
         }(document, 'script', 'facebook-jssdk'));
 
-        let lastAuthIds = null;
-
-            // ULTRA-ROBUST ID SCANNER
-            function findIdsInObject(obj) {
-                let found = { waba: null, phone: null };
-                if (!obj || typeof obj !== 'object') return found;
-                
-                // 1. Direct check for common keys
-                found.waba = obj.whatsapp_business_account_id || obj.waba_id || obj.waba_account_id;
-                found.phone = obj.phone_number_id || obj.phone_id || obj.whatsapp_phone_number_id;
-
-                // 2. Check Meta's specific 'data' wrapper if it exists
-                if (obj.data && typeof obj.data === 'object') {
-                    const d = obj.data;
-                    if (!found.waba) found.waba = d.whatsapp_business_account_id || d.waba_id || d.waba_account_id;
-                    if (!found.phone) found.phone = d.phone_number_id || d.phone_id || d.whatsapp_phone_number_id;
-                }
-                
-                if (found.waba && found.phone) return found;
-
-                // 3. Recursive deep search as last resort
-                for (let key in obj) {
-                    if (obj[key] && typeof obj[key] === 'object' && key !== 'data') {
-                        const deep = findIdsInObject(obj[key]);
-                        if (deep.waba) found.waba = deep.waba;
-                        if (deep.phone) found.phone = deep.phone;
-                        if (found.waba && found.phone) break;
-                    }
-                }
-                return found;
+        window.addEventListener('message', (event) => {
+            if (!event.origin.includes("facebook.com")) return;
+            console.log('META SIGNAL RECEIVED:', event.data);
+            
+            let data = event.data;
+            if (typeof data === 'string' && data.includes('code=')) {
+                const params = new URLSearchParams(data);
+                data = Object.fromEntries(params.entries());
             }
-            let isLinking = false;
-            let cachedWaba = localStorage.getItem('cached_waba');
-            let cachedPhone = localStorage.getItem('cached_phone');
 
-            window.addEventListener('message', (event) => {
-                if (!event.origin.includes("facebook.com")) return;
-                console.log('RAW META SIGNAL RECEIVED:', event.data);
-                
-                let data = event.data;
-                if (typeof data === 'string' && data.includes('code=')) {
-                    try {
-                        const params = new URLSearchParams(data);
-                        data = Object.fromEntries(params.entries());
-                    } catch (e) { console.error("Failed to parse Meta signal string", e); }
-                }
+            // Extract IDs from any possible nesting
+            const waba = data.waba_id || (data.data && data.data.waba_id) || data.waba_account_id;
+            const phone = data.phone_number_id || (data.data && data.data.phone_number_id);
+            const code = data.code || null;
 
-                const ids = findIdsInObject(data);
-                const code = data.code || null;
+            if (waba) localStorage.setItem('last_waba', waba);
+            if (phone) localStorage.setItem('last_phone', phone);
+            if (code) localStorage.setItem('last_code', code);
 
-                if (ids.waba) {
-                    cachedWaba = ids.waba;
-                    localStorage.setItem('cached_waba', ids.waba);
-                }
-                if (ids.phone) {
-                    cachedPhone = ids.phone;
-                    localStorage.setItem('cached_phone', ids.phone);
-                }
+            const sWaba = localStorage.getItem('last_waba');
+            const sPhone = localStorage.getItem('last_phone');
+            const sCode = localStorage.getItem('last_code');
 
-                if (cachedWaba && cachedPhone && code && !isLinking) {
-                    isLinking = true;
-                    console.log('AUTO-LINKING DETECTED:', { waba: cachedWaba, phone: cachedPhone, code: !!code });
-                    console.log("FETCHING /facebook_auth_callback...");
-                    showToast('Syncing with Meta...', 'info');
-
-                    fetch('/facebook_auth_callback', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            waba_id: cachedWaba,
-                            phone_id: cachedPhone,
-                            code: code
-                        })
-                    })
-                    .then(res => {
-                        if (res.ok) {
-                            showToast('WhatsApp Connected!', 'success');
-                            setTimeout(() => location.reload(), 2000);
-                        } else {
-                            isLinking = false;
-                            return res.json().then(err => showToast(err.error || 'Connection Failed', 'error'));
-                        }
-                    })
-                    .catch(e => {
-                        isLinking = false;
-                        showToast('Network error.', 'error');
-                    });
-                }
-            });
-
-            async function launchFBLogin() {
-                console.log("Launching FB Login for Embedded Signup...");
-                if (typeof FB === 'undefined') {
-                    showToast('Facebook SDK not loaded. Please refresh.', 'error');
-                    return;
-                }
-                console.log('Opening Meta Login with Config:', '{{ fb_config_id or "1819547065399749" }}');
-                FB.login(function (response) {
-                    console.log('META LOGIN RESPONSE:', response);
-                    
-                    let wabaId = localStorage.getItem('cached_waba') || 'AUTO_DETECT';
-                    let phoneId = localStorage.getItem('cached_phone') || 'AUTO_DETECT';
-
-                    const auth = response.authResponse;
-                    const code = auth?.code || response.code || null;
-
-                    if (!auth && !code) {
-                        console.warn("No auth response or code received.");
-                        return;
-                    }
-
-                    const payload = {
-                        waba_id: wabaId,
-                        phone_id: phoneId,
-                        access_token: auth?.accessToken || null,
-                        code: code || null
-                    };
-
-                    fetch('/api/index', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(res => {
-                        if (res.ok) {
-                            showToast('WhatsApp Connected!', 'success');
-                            setTimeout(() => location.reload(), 2000);
-                        } else {
-                            return res.json().then(err => {
-                                showToast(err.error || 'Connection Failed', 'error');
-                            });
-                        }
-                    })
-                    .catch(e => {
-                        showToast('Network error. Check your connection.', 'error');
-                    });
-                }, {
-                    config_id: '{{ fb_config_id or "1819547065399749" }}',
-                    response_type: 'code',
-                    override_default_response_type: true,
-                    extras: {
-                        feature: 'whatsapp_embedded_signup',
-                        featureType: 'whatsapp_business_app_onboarding',
-                        sessionInfoVersion: 3
+            if (sWaba && sPhone && sCode) {
+                console.log("SYNCING TO DATABASE...", { waba: sWaba, phone: sPhone });
+                fetch('/facebook_auth_callback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ waba_id: sWaba, phone_id: sPhone, code: sCode })
+                }).then(r => {
+                    if (r.ok) {
+                        localStorage.removeItem('last_code');
+                        alert("SUCCESS! CONNECTED.");
+                        window.location.reload();
                     }
                 });
             }
+        });
+
+        async function launchFBLogin() {
+            FB.login(function (response) {
+                console.log('LOGIN RESPONSE:', response);
+            }, {
+                config_id: '{{ fb_config_id or "1819547065399749" }}',
+                response_type: 'code',
+                override_default_response_type: true
+            });
+        }
+    </script>
 
         // --- Manual Auth Modal Logic ---
         function openManualAuthModal() {
