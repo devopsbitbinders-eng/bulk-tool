@@ -567,10 +567,17 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                             header_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
                             if c.get('format') in ['IMAGE', 'VIDEO', 'DOCUMENT']:
                                 has_media_header = True
+                                media_header_type = str(c.get('format')).lower()
+                                media_header_type = str(c.get('format')).lower()
                         elif ctype == 'BODY':
                             body_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
                 
                 vars_map = mappings.get('vars', {}) if mappings else {}
+                media_header_type = 'image' # Default fallback
+                if comp_list:
+                    for c in comp_list:
+                        if str(c.get('type', '')).upper() == 'HEADER' and c.get('format') in ['IMAGE', 'VIDEO', 'DOCUMENT']:
+                             media_header_type = str(c.get('format')).lower()
                 
                 # --- Robust Parameter Logic ---
                 # 1. Header Params (Only if text header with variables)
@@ -629,11 +636,19 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                 # FINAL SAFETY PADDING for Media Headers
                 has_header = any(c['type'] == 'header' for c in forced_components)
                 if has_media_header and not has_header:
-                     # If media is required but missing, use a transparent placeholder
-                     placeholder = "https://bitbinders.in/transparent.png"
+                     # If media is required but missing, use a placeholder
+                     m_type = media_header_type or "image"
+                     # Use different placeholders based on type
+                     if m_type == "video":
+                         placeholder = "https://bitbinders.in/placeholder.mp4"
+                     elif m_type == "document":
+                         placeholder = "https://bitbinders.in/placeholder.pdf"
+                     else:
+                         placeholder = "https://bitbinders.in/transparent.png"
+                         
                      forced_components.append({
                          "type": "header", 
-                         "parameters": [{"type": "image", "image": {"link": placeholder}}]
+                         "parameters": [{"type": m_type, m_type: {"link": placeholder}}]
                      })
 
                 if header_var_count > 0 and not has_header:
@@ -857,6 +872,7 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                         header_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
                         if c.get('format') in ['IMAGE', 'VIDEO', 'DOCUMENT']:
                             has_media_header = True
+                            media_header_type = str(c.get('format')).lower()
                     elif ctype == 'BODY':
                         body_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
             else:
@@ -920,11 +936,29 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
             if body_params:
                 forced_components.append({"type": "body", "parameters": body_params})
             
+            # FINAL SAFETY PADDING for Media Headers
+            has_header = any(c['type'] == 'header' for c in forced_components)
+            if has_media_header and not has_header:
+                 # If media is required but missing, use a placeholder
+                 m_type = media_header_type or "image"
+                 if m_type == "video":
+                     placeholder = "https://bitbinders.in/placeholder.mp4"
+                 elif m_type == "document":
+                     placeholder = "https://bitbinders.in/placeholder.pdf"
+                 else:
+                     placeholder = "https://bitbinders.in/transparent.png"
+                     
+                 forced_components.append({
+                     "type": "header", 
+                     "parameters": [{"type": m_type, m_type: {"link": placeholder}}]
+                 })
+
             # FINAL SAFETY: If we expected a header variable but didn't send one, add a blank one
-            if header_var_count > 0 and not header_params:
+            if header_var_count > 0 and not has_header:
                  forced_components.append({"type": "header", "parameters": [{"type": "text", "text": " "}]})
-            # FINAL SAFETY: If we expected a body variable but didn't send one, add a blank one
-            if body_var_count > 0 and not body_params:
+            
+            has_body = any(c['type'] == 'body' for c in forced_components)
+            if body_var_count > 0 and not has_body:
                  forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
 
             print(f"DEBUG: Smart Components for {phone}: {json.dumps(forced_components)}")
