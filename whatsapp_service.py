@@ -303,7 +303,7 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
             "to": final_phone,
             "type": "template",
             "template": {
-                "name": template_name,
+                "name": str(template_name).lower(),
                 "language": {"code": language_code},
                 "components": const_components
             }

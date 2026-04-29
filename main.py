@@ -598,6 +598,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
             
             media_url = campaign_media_url
             campaign_media_id = meta_media_id
+            if campaign_media_id == "None" or not campaign_media_id: campaign_media_id = None
             message_to_send = ""
             forced_components = []
 
@@ -690,18 +691,23 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                     if media_header_type:
                         mtype = media_header_type
                     
-                    # Use Media ID if available, otherwise fallback to link
-                    if campaign_media_id:
-                        m_tag = str(mtype or "image").lower()
-                        forced_components.append({
-                            "type": "header",
-                            "parameters": [{"type": m_tag, m_tag: {"id": str(campaign_media_id)}}]
-                        })
+                    m_tag = str(media_header_type).lower()
+                    if m_tag not in ['image', 'video', 'document']: m_tag = 'image'
+                    
+                    param_obj = {"type": m_tag}
+                    if current_media_id:
+                        param_obj[m_tag] = {"id": str(current_media_id)}
                     elif str(media_url).startswith("http"):
-                        forced_components.append({
-                            "type": "header",
-                            "parameters": [{"type": mtype, mtype: {"link": media_url}}]
-                        })
+                        param_obj[m_tag] = {"link": str(media_url)}
+                    
+                    # DOCUMENTS REQUIRE A FILENAME
+                    if m_tag == 'document':
+                        param_obj[m_tag]["filename"] = "document.pdf"
+                        
+                    forced_components.append({
+                        "type": "header",
+                        "parameters": [param_obj]
+                    })
 
                 
                 # FINAL SAFETY PADDING for Media Headers
@@ -743,7 +749,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
             # CRITICAL FIX: If we have a template with forced_components, we must NOT 
             # let send_whatsapp_message try to upload it again.
             actual_media_url = media_url
-            if msg_type == "template" and str(actual_media_url).startswith("http") and campaign_media_id:
+            if msg_type == "template" and str(actual_media_url).startswith("http") and campaign_media_id and campaign_media_id != "None":
                 # ONLY set to None if we have a valid campaign_media_id to use instead
                 actual_media_url = None
 
