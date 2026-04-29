@@ -601,10 +601,16 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
                     fmt = "image"
                     if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
                     elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
-                    forced_components.append({
-                        "type": "header",
-                        "parameters": [{"type": fmt, fmt: {"link": media_url}}]
-                    })
+                    
+                    # If it's a full URL, send as link. Otherwise, Meta handles it in send_whatsapp_message
+                    if str(media_url).startswith("http"):
+                        forced_components.append({
+                            "type": "header",
+                            "parameters": [{"type": fmt, fmt: {"link": media_url}}]
+                        })
+                    else:
+                        # send_whatsapp_message will handle local files via upload if needed
+                        pass
                 elif header_params:
                     forced_components.append({"type": "header", "parameters": header_params})
                 
@@ -858,10 +864,12 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                 fmt = "image"
                 if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
                 elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
-                forced_components.append({
-                    "type": "header",
-                    "parameters": [{"type": fmt, fmt: {"link": media_url}}]
-                })
+                
+                if str(media_url).startswith("http"):
+                    forced_components.append({
+                        "type": "header",
+                        "parameters": [{"type": fmt, fmt: {"link": media_url}}]
+                    })
             elif header_params:
                 forced_components.append({"type": "header", "parameters": header_params})
             
