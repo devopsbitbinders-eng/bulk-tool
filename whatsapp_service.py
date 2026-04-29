@@ -228,6 +228,13 @@ async def get_meta_header_handle(file_bytes, mime_type, credentials):
 async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
     token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     phone_id = credentials.get('phone_number_id') or credentials.get('phone_id', WHATSAPP_PHONE_NUMBER_ID) if credentials else WHATSAPP_PHONE_NUMBER_ID
+    
+    # STRICT MIME MAPPING
+    ext = str(filename).split('.')[-1].lower() if '.' in str(filename) else ''
+    if ext in ['jpg', 'jpeg']: mime_type = 'image/jpeg'
+    elif ext == 'png': mime_type = 'image/png'
+    elif ext == 'pdf': mime_type = 'application/pdf'
+    
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{phone_id}/media"
     headers = {"Authorization": f"Bearer {token}"}
     files = {
@@ -238,12 +245,13 @@ async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, data=data, files=files)
             if response.status_code == 200:
-                return response.json().get('id')
-            print(f"DEBUG ERROR: Media Upload Failed {response.status_code} - {response.text}")
-            return None
+                return response.json().get('id'), None
+            err = response.text
+            print(f"DEBUG ERROR: Media Upload Failed {response.status_code} - {err}")
+            return None, err
     except Exception as e:
         print(f"DEBUG: Error in upload_whatsapp_media: {str(e)}")
-        return None
+        return None, str(e)
 
 async def send_whatsapp_message(phone, message, msg_type="text", template_name=None, language_code="en_US", media_url=None, template_params=None, credentials=None, media_id=None, forced_components=None):
     """Sends a message via Meta API. Supports templates with media and variables."""

@@ -159,10 +159,12 @@ async def upload_media(request: Request, file: UploadFile = File(...)):
             try:
                 creds = await get_active_credentials(user_id)
                 if creds:
-                    fb_id = await upload_whatsapp_media(contents, file.filename, m_type, creds)
+                    fb_id, upload_err = await upload_whatsapp_media(contents, file.filename, m_type, creds)
                     if fb_id:
                         meta_id = fb_id
                         print(f"DEBUG: Immediate Meta upload success for {username}: {meta_id}")
+                    else:
+                        print(f"DEBUG: Immediate Meta upload failed: {upload_err}")
             except Exception as e:
                 print(f"DEBUG: Immediate Meta upload failed: {e}")
 
@@ -594,11 +596,13 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                             # Download from remote URL and upload to Meta
                             res = await client.get(full_url)
                             if res.status_code == 200:
-                                fb_id = await upload_whatsapp_media(res.content, "campaign_media", res.headers.get("Content-Type", "image/png"), creds)
+                                fb_id, upload_err = await upload_whatsapp_media(res.content, "campaign_media", res.headers.get("Content-Type", "image/png"), creds)
                                 if fb_id:
                                     meta_media_id = fb_id
                                     await db.execute("UPDATE campaigns SET meta_media_id = :mid WHERE id = :id", {"mid": meta_media_id, "id": campaign_id})
                                     campaign['meta_media_id'] = meta_media_id
+                                else:
+                                    print(f"DEBUG: Auto-upload to Meta failed: {upload_err}")
             except Exception as e:
                 print(f"DEBUG: Auto-upload to Meta failed: {e}")
         # ----------------------------
@@ -1536,10 +1540,12 @@ async def upload_file(
             try:
                 creds = await get_active_credentials(u_id)
                 if creds:
-                    fb_id = await upload_whatsapp_media(m_content, media_file.filename, media_file.content_type, creds)
+                    fb_id, upload_err = await upload_whatsapp_media(m_content, media_file.filename, media_file.content_type, creds)
                     if fb_id:
                         meta_media_id = fb_id
                         print(f"DEBUG: Manually uploaded campaign media to Meta: {meta_media_id}")
+                    else:
+                        print(f"DEBUG: Manual Meta upload in campaign failed: {upload_err}")
             except Exception as e:
                 print(f"DEBUG: Immediate Meta upload in campaign creation failed: {e}")
         except Exception as e:
