@@ -226,8 +226,9 @@ async def index(request: Request):
     if user_data and not user_data['is_approved']:
         return RedirectResponse(url="/login?error=revoked", status_code=303)
 
+    u_id = user['id']
     # 2. Extract credentials
-    cred = await db_manager.get_user_credentials(u_id)
+    cred = await db.fetch_one("SELECT * FROM user_credentials WHERE user_id = :u", {"u": u_id})
     linked_phone = cred['phone_number'] if cred else None
     waba_id = cred['waba_id'] if cred else None
     phone_id = cred['phone_number_id'] if cred else None
@@ -255,7 +256,7 @@ async def index(request: Request):
                         linked_phone = res_d.json().get('display_phone_number', "CONNECTED")
                     
                     # Save discovered IDs back to DB
-                    await db_manager.execute(
+                    await db.execute(
                         "UPDATE user_credentials SET waba_id=:waba, phone_number_id=:pid, phone_number=:pn WHERE user_id=:uid",
                         {"waba": waba_id, "pid": phone_id, "pn": linked_phone, "uid": u_id}
                     )
