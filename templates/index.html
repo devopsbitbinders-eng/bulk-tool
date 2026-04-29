@@ -328,59 +328,46 @@
             let data = event.data;
             console.log('--- META SIGNAL START ---');
             
-            if (typeof data === 'string' && data.includes('code=')) {
-                const params = new URLSearchParams(data);
-                data = Object.fromEntries(params.entries());
+            // Nuclear Option: Stringify everything and search for IDs
+            const rawString = JSON.stringify(data);
+            console.log('SEARCHING FOR IDs IN:', rawString);
+
+            // Match 15-16 digit numbers
+            const idMatches = rawString.match(/\d{15,16}/g) || [];
+            const codeMatch = rawString.match(/code=([^&"}\s]+)/) || rawString.match(/"code":"([^"]+)"/);
+
+            if (idMatches.length > 0) {
+                // Usually the first one is the Phone ID and the second is WABA, or vice versa.
+                // We'll save them all and let the backend sort it out.
+                localStorage.setItem('last_id_1', idMatches[0]);
+                if (idMatches[1]) localStorage.setItem('last_id_2', idMatches[1]);
+                console.log('CAUGHT IDs:', idMatches);
             }
 
-            // MASTER SCANNER: Look for ANY key containing 'waba', 'phone', or 'code'
-            function masterScan(obj) {
-                let found = { waba: null, phone: null, code: null };
-                if (!obj || typeof obj !== 'object') return found;
-
-                const keys = Object.keys(obj);
-                for (let key of keys) {
-                    const val = obj[key];
-                    const k = key.toLowerCase();
-                    
-                    if (k.includes('waba') && !found.waba) found.waba = val;
-                    if (k.includes('phone') && !found.phone) found.phone = val;
-                    if (k.includes('code') && !found.code) found.code = val;
-
-                    if (val && typeof val === 'object') {
-                        const deep = masterScan(val);
-                        if (deep.waba && !found.waba) found.waba = deep.waba;
-                        if (deep.phone && !found.phone) found.phone = deep.phone;
-                        if (deep.code && !found.code) found.code = deep.code;
-                    }
-                }
-                return found;
+            if (codeMatch) {
+                const code = codeMatch[1];
+                localStorage.setItem('last_code', code);
+                console.log('CAUGHT CODE:', code);
             }
 
-            const results = masterScan(data);
-            const waba = results.waba;
-            const phone = results.phone;
-            const code = results.code || data.code || null;
+            const id1 = localStorage.getItem('last_id_1');
+            const id2 = localStorage.getItem('last_id_2');
+            const code = localStorage.getItem('last_code');
 
-            console.log('MASTER SCAN RESULTS:', { waba, phone, code });
-
-            if (waba && typeof waba !== 'object') { localStorage.setItem('last_waba', waba); console.log('GOT WABA:', waba); }
-            if (phone && typeof phone !== 'object') { localStorage.setItem('last_phone', phone); console.log('GOT PHONE:', phone); }
-            if (code && typeof code !== 'object') { localStorage.setItem('last_code', code); console.log('GOT CODE:', code); }
-
-            const sWaba = localStorage.getItem('last_waba');
-            const sPhone = localStorage.getItem('last_phone');
-            const sCode = localStorage.getItem('last_code');
-
-            if (sWaba && sPhone && sCode) {
-                console.log("PUZZLE COMPLETE! SAVING TO DATABASE...");
+            if (id1 && id2 && code) {
+                console.log("NUCLEAR SYNC TRIGGERED...");
                 fetch('/facebook_auth_callback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ waba_id: sWaba, phone_id: sPhone, code: sCode })
+                    body: JSON.stringify({ 
+                        waba_id: id1, 
+                        phone_id: id2, 
+                        code: code,
+                        is_nuclear: true // Tell backend to be flexible
+                    })
                 }).then(r => {
                     if (r.ok) {
-                        localStorage.removeItem('last_code');
+                        localStorage.clear(); // Clear all
                         alert("SUCCESS! CONNECTED.");
                         window.location.reload();
                     }
