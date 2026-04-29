@@ -493,7 +493,7 @@ async def api_get_templates(request: Request):
         templates_list.append(t)
     return templates_list
 
-async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
+async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
     """Processes a small batch of pending messages for a campaign. Prevents timeouts."""
     try:
         db = await get_db()
@@ -569,6 +569,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
                                 has_media_header = True
                         elif ctype == 'BODY':
                             body_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
+                
+                vars_map = mappings.get('vars', {}) if mappings else {}
                 
                 # --- Robust Parameter Logic ---
                 # 1. Header Params (Only if text header with variables)
@@ -669,8 +671,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
             """, {"s": 'sent' if success else 'failed', "mid": wa_message_id, "err": error_msg, "m": message_to_send, "id": msg['id']})
             
             processed_count += 1
-            # Small delay between messages in batch
-            await asyncio.sleep(2)
+            # Minimal delay between messages in batch
+            await asyncio.sleep(0.5)
 
         # 4. Update Campaign Totals
         total_processed = campaign['sent_success'] + campaign['sent_failed'] + processed_count
@@ -904,8 +906,8 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
         else:
             message_to_send = substitute_template(message_template or "", row)
         
-        # Human mimicry delay (Reduced for speed)
-        delay = random.randint(2, 6) if USE_REAL_API else random.randint(1, 2)
+        # Human mimicry delay (Optimized for Vercel)
+        delay = random.uniform(0.5, 1.5) if USE_REAL_API else 0.1
         
         # Batching break (Reduced for speed)
         if USE_REAL_API and i > 0 and i % 5 == 0:
