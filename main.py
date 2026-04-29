@@ -226,9 +226,45 @@ async def index(request: Request):
     if user_data and not user_data['is_approved']:
         return RedirectResponse(url="/login?error=revoked", status_code=303)
 
-    cred = await db.fetch_one("SELECT phone_number, waba_id FROM user_credentials WHERE is_active = 1 AND user_id = :u LIMIT 1", {"u": u_id})
+    # 2. Extract credentials
+    cred = await db_manager.get_user_credentials(u_id)
     linked_phone = cred['phone_number'] if cred else None
     waba_id = cred['waba_id'] if cred else None
+    phone_id = cred['phone_number_id'] if cred else None
+    access_token = cred['access_token'] if cred else None
+
+    # AUTO-DISCOVERY: If IDs are missing but we have a token, try to find them now
+    if access_token and (not waba_id or waba_id in ["AUTO_DETECT", "PENDING", ""]):
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                # Try to get WABA ID
+                res = await client.get("https://graph.facebook.com/v21.0/me/whatsapp_business_accounts", 
+                                       headers={"Authorization": f"Bearer {access_token}"})
+                accounts = res.json().get('data', [])
+                if accounts:
+                    waba_id = accounts[0]['id']
+                    # Try to get Phone ID
+                    res_p = await client.get(f"https://graph.facebook.com/v21.0/{waba_id}/phone_numbers", 
+                                           headers={"Authorization": f"Bearer {access_token}"})
+                    phones = res_p.json().get('data', [])
+                    if phones:
+                        phone_id = phones[0]['id']
+                        # Try to get display phone
+                        res_d = await client.get(f"https://graph.facebook.com/v21.0/{phone_id}", 
+                                               headers={"Authorization": f"Bearer {access_token}"})
+                        linked_phone = res_d.json().get('display_phone_number', "CONNECTED")
+                    
+                    # Save discovered IDs back to DB
+                    await db_manager.execute(
+                        "UPDATE user_credentials SET waba_id=:waba, phone_number_id=:pid, phone_number=:pn WHERE user_id=:uid",
+                        {"waba": waba_id, "pid": phone_id, "pn": linked_phone, "uid": u_id}
+                    )
+        except Exception as e:
+            print(f"Auto-discovery failed: {e}")
+
+    # UI Fallbacks
+    if not linked_phone and waba_id: linked_phone = "CONNECTED"
+    if waba_id in ["AUTO_DETECT", ""]: waba_id = "PENDING"
 
     campaigns = await db.fetch_all("SELECT * FROM campaigns WHERE user_id = :u ORDER BY timestamp DESC LIMIT 50", {"u": u_id})
     
