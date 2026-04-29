@@ -3550,7 +3550,7 @@
 
                 while (!completed) {
                     try {
-                        const res = await fetch(`/api/campaigns/${id}/process`, { method: 'POST' });
+                        const res = await fetch(`/api/campaign/process-batch/${id}`, { method: 'POST' });
                         if (!res.ok) throw new Error('Batch failed');
 
                         const data = await res.json();

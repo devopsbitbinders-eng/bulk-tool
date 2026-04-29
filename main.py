@@ -328,7 +328,17 @@ async def index(request: Request):
         })
     except Exception as e:
         print(f"DASHBOARD ERROR: {e}")
-        return HTMLResponse(content=f"Dashboard Error: {str(e)}. Please refresh.", status_code=500)
+        return HTMLResponse(content=f"Dashboard Error: {str(e)}", status_code=500)
+
+@app.get("/api/history")
+async def get_history(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    campaigns = await db.fetch_all("SELECT id, name, status, timestamp, sent_success, sent_failed, total_numbers FROM campaigns WHERE user_id = :u ORDER BY timestamp DESC LIMIT 50", {"u": u_id})
+    return [dict(c) for c in campaigns]
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
