@@ -18,6 +18,7 @@ def get_whatsapp_templates(credentials=None):
     """Fetches templates from Meta API."""
     token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     waba_id = credentials.get('waba_id', WHATSAPP_BUSINESS_ACCOUNT_ID) if credentials else WHATSAPP_BUSINESS_ACCOUNT_ID
+    phone_id = credentials.get('phone_number_id') or credentials.get('phone_id', WHATSAPP_PHONE_NUMBER_ID) if credentials else WHATSAPP_PHONE_NUMBER_ID
     
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{waba_id}/message_templates"
     headers = {"Authorization": f"Bearer {token}"}
@@ -34,7 +35,7 @@ def get_whatsapp_templates(credentials=None):
 
 def create_whatsapp_template(name, category, language, body_text=None, components=None, credentials=None, subtype=None):
     """Creates a new template on Meta API. Supports rich components."""
-    token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
+    token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     waba_id = credentials.get('waba_id', WHATSAPP_BUSINESS_ACCOUNT_ID) if credentials else WHATSAPP_BUSINESS_ACCOUNT_ID
     
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{waba_id}/message_templates"
@@ -80,7 +81,7 @@ def create_whatsapp_template(name, category, language, body_text=None, component
 
 def create_whatsapp_otp_template(name, language, add_security_recommendation=False, code_expiration_minutes=None, credentials=None):
     """Creates a specialized AUTHENTICATION template on Meta API for OTPs."""
-    token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
+    token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     waba_id = credentials.get('waba_id', WHATSAPP_BUSINESS_ACCOUNT_ID) if credentials else WHATSAPP_BUSINESS_ACCOUNT_ID
     
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{waba_id}/message_templates"
@@ -137,7 +138,7 @@ def update_whatsapp_template(name, category, body_text=None, components=None, cr
     For APPROVED templates, only certain fields can be updated without re-review.
     We use POST /{waba-id}/message_templates with the same name.
     """
-    token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
+    token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     waba_id = credentials.get('waba_id', WHATSAPP_BUSINESS_ACCOUNT_ID) if credentials else WHATSAPP_BUSINESS_ACCOUNT_ID
     
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{waba_id}/message_templates"
@@ -169,7 +170,7 @@ def update_whatsapp_template(name, category, body_text=None, components=None, cr
 
 async def delete_whatsapp_template(name, credentials=None):
     """Deletes a template from Meta API."""
-    token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
+    token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     waba_id = credentials.get('waba_id', WHATSAPP_BUSINESS_ACCOUNT_ID) if credentials else WHATSAPP_BUSINESS_ACCOUNT_ID
     
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{waba_id}/message_templates"
@@ -186,7 +187,7 @@ async def delete_whatsapp_template(name, credentials=None):
 
 async def get_meta_header_handle(file_bytes, mime_type, credentials):
     """Obtains a header_handle from Meta for template examples using Resumable Uploads."""
-    token = credentials.get('token', WHATSAPP_TOKEN)
+    token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     # Try to get App ID from credentials or environment or fallback to hardcoded
     app_id = credentials.get('app_id', os.environ.get('FB_APP_ID', "916270141105838"))
     
@@ -225,8 +226,8 @@ async def get_meta_header_handle(file_bytes, mime_type, credentials):
         return None, str(e)
 
 async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
-    token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
-    phone_id = credentials.get('phone_id', WHATSAPP_PHONE_NUMBER_ID) if credentials else WHATSAPP_PHONE_NUMBER_ID
+    token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
+    phone_id = credentials.get('phone_number_id') or credentials.get('phone_id', WHATSAPP_PHONE_NUMBER_ID) if credentials else WHATSAPP_PHONE_NUMBER_ID
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{phone_id}/media"
     headers = {"Authorization": f"Bearer {token}"}
     files = {
@@ -256,8 +257,8 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
         return True, {"messages": [{"id": f"wamid.{random.randint(1000,9999)}"}]}
 
     # Real API Logic
-    token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
-    phone_id = credentials.get('phone_id', WHATSAPP_PHONE_NUMBER_ID) if credentials else WHATSAPP_PHONE_NUMBER_ID
+    token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
+    phone_id = credentials.get('phone_number_id') or credentials.get('phone_id', WHATSAPP_PHONE_NUMBER_ID) if credentials else WHATSAPP_PHONE_NUMBER_ID
     
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{phone_id}/messages"
     headers = {
@@ -395,7 +396,7 @@ async def fetch_meta_templates(credentials):
 
 def update_whatsapp_template(name, category, components, credentials=None):
     """Updates an existing template on Meta API by deleting and re-creating it."""
-    token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
+    token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     waba_id = credentials.get('waba_id', WHATSAPP_BUSINESS_ACCOUNT_ID) if credentials else WHATSAPP_BUSINESS_ACCOUNT_ID
 
     # Meta does not support direct template updates via API for most fields.
