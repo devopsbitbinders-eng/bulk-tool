@@ -620,18 +620,25 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                             m_val = row.get(str(header_mapping).lower())
                             if m_val: media_url = m_val
 
-                if has_media_header and media_url:
-                    # Direct link logic with type detection
-                    mtype = "image"
+                if has_media_header and media_url:                    # USE TEMPLATE'S HEADER FORMAT AS THE PRIMARY TYPE
+                    mtype = media_header_type or "image"
+                    
+                    # Optional: refinements if the URL is definitely different
                     low_url = str(media_url).lower()
                     if any(ext in low_url for ext in [".mp4", ".mov", ".avi"]): mtype = "video"
                     elif any(ext in low_url for ext in [".pdf", ".doc", ".docx", ".xls", ".xlsx"]): mtype = "document"
+                    
+                    # Final override: if template says IMAGE but URL is PDF, it will fail anyway, 
+                    # but we MUST match what the template expects.
+                    if media_header_type:
+                        mtype = media_header_type
                     
                     if str(media_url).startswith("http"):
                         forced_components.append({
                             "type": "header",
                             "parameters": [{"type": mtype, mtype: {"link": media_url}}]
                         })
+
                 
                 # FINAL SAFETY PADDING for Media Headers
                 has_header = any(c['type'] == 'header' for c in forced_components)
@@ -920,12 +927,18 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
             # BUILD FINAL COMPONENTS
             if has_media_header and media_url:
                 if str(media_url).startswith("http"):
-                    # Direct link logic with type detection
-                    mtype = "image"
+                    # USE TEMPLATE'S HEADER FORMAT AS THE PRIMARY TYPE
+                    mtype = media_header_type or "image"
+                    
+                    # Optional: refinements if the URL is definitely different
                     low_url = str(media_url).lower()
                     if any(ext in low_url for ext in [".mp4", ".mov", ".avi"]): mtype = "video"
                     elif any(ext in low_url for ext in [".pdf", ".doc", ".docx", ".xls", ".xlsx"]): mtype = "document"
                     
+                    # Final override: ensure it matches template requirements
+                    if media_header_type:
+                        mtype = media_header_type
+
                     forced_components.append({
                         "type": "header",
                         "parameters": [{"type": mtype, mtype: {"link": media_url}}]
