@@ -717,7 +717,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
 
                 
                 # FINAL SAFETY PADDING for Media Headers
-                has_header = any(c['type'] == 'header' for c in forced_components)
+                has_header = any(str(c['type']).upper() == 'HEADER' for c in forced_components)
                 if has_media_header and not has_header:
                      # If media is required but missing, use a placeholder
                      m_type = media_header_type or "image"
@@ -735,10 +735,10 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                      })
 
                 if header_var_count > 0 and not has_header:
-                     forced_components.append({"type": "header", "parameters": [{"type": "text", "text": " "}]})
-                has_body = any(c['type'] == 'body' for c in forced_components)
+                     forced_components.append({"type": "HEADER", "parameters": [{"type": "text", "text": " "}]})
+                has_body = any(str(c['type']).upper() == 'BODY' for c in forced_components)
                 if body_var_count > 0 and not has_body:
-                     forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
+                     forced_components.append({"type": "BODY", "parameters": [{"type": "text", "text": " "}]})
             else:
                 message_to_send = substitute_template(message_template or "", row)
 
@@ -1030,7 +1030,7 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                 forced_components.append({"type": "BODY", "parameters": body_params})
             
             # FINAL SAFETY PADDING for Media Headers
-            has_header = any(c['type'] == 'header' for c in forced_components)
+            has_header = any(str(c['type']).upper() == 'HEADER' for c in forced_components)
             if has_media_header and not has_header:
                  # If media is required but missing, use a placeholder
                  m_type = media_header_type or "image"
@@ -1048,11 +1048,11 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
 
             # FINAL SAFETY: If we expected a header variable but didn't send one, add a blank one
             if header_var_count > 0 and not has_header:
-                 forced_components.append({"type": "header", "parameters": [{"type": "text", "text": " "}]})
+                 forced_components.append({"type": "HEADER", "parameters": [{"type": "text", "text": " "}]})
             
-            has_body = any(c['type'] == 'body' for c in forced_components)
+            has_body = any(str(c['type']).upper() == 'BODY' for c in forced_components)
             if body_var_count > 0 and not has_body:
-                 forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
+                 forced_components.append({"type": "BODY", "parameters": [{"type": "text", "text": " "}]})
 
             print(f"DEBUG: Smart Components for {phone}: {json.dumps(forced_components)}")
         else:
