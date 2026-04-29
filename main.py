@@ -141,6 +141,13 @@ async def upload_media(request: Request, file: UploadFile = File(...)):
         save_path = os.path.join(UPLOAD_DIR, unique_name)
         
         contents = await file.read()
+        
+        # IMPROVED MIME TYPE DETECTION
+        m_type = file.content_type
+        if not m_type or m_type == "application/octet-stream":
+            import mimetypes
+            m_type = mimetypes.guess_type(file.filename)[0] or "image/png"
+            
         with open(save_path, "wb") as buffer:
             buffer.write(contents)
             
@@ -152,7 +159,7 @@ async def upload_media(request: Request, file: UploadFile = File(...)):
             try:
                 creds = await get_active_credentials(user_id)
                 if creds:
-                    fb_id = await upload_whatsapp_media(contents, file.filename, file.content_type, creds)
+                    fb_id = await upload_whatsapp_media(contents, file.filename, m_type, creds)
                     if fb_id:
                         meta_id = fb_id
                         print(f"DEBUG: Immediate Meta upload success for {username}: {meta_id}")
@@ -651,7 +658,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                         if not val or val == "None": val = " "
                         header_params.append({"type": "text", "text": val})
                     if header_params:
-                        forced_components.append({"type": "header", "parameters": header_params})
+                        forced_components.append({"type": "HEADER", "parameters": header_params})
 
                 # 2. Body Params
                 if body_var_count > 0:
@@ -664,7 +671,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                         body_params.append({"type": "text", "text": val})
                     
                     if body_params:
-                        forced_components.append({"type": "body", "parameters": body_params})
+                        forced_components.append({"type": "BODY", "parameters": body_params})
                 # ------------------------------
 
                 # Header Media logic
@@ -699,8 +706,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                     # Use Media ID if available, otherwise fallback to link
                     if campaign_media_id:
                         forced_components.append({
-                            "type": "header",
-                            "parameters": [{"type": mtype, mtype: {"id": campaign_media_id}}]
+                            "type": "HEADER",
+                            "parameters": [{"type": mtype, mtype: {"id": str(campaign_media_id)}}]
                         })
                     elif str(media_url).startswith("http"):
                         forced_components.append({
@@ -1008,8 +1015,8 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                     mtype = media_header_type or "image"
                     if campaign_media_id:
                         forced_components.append({
-                            "type": "header",
-                            "parameters": [{"type": mtype, mtype: {"id": campaign_media_id}}]
+                            "type": "HEADER",
+                            "parameters": [{"type": mtype, mtype: {"id": str(campaign_media_id)}}]
                         })
                     elif media_url and str(media_url).startswith("http"):
                         forced_components.append({
@@ -1017,10 +1024,10 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                             "parameters": [{"type": mtype, mtype: {"link": media_url}}]
                         })
             elif header_params:
-                forced_components.append({"type": "header", "parameters": header_params})
+                forced_components.append({"type": "HEADER", "parameters": header_params})
             
             if body_params:
-                forced_components.append({"type": "body", "parameters": body_params})
+                forced_components.append({"type": "BODY", "parameters": body_params})
             
             # FINAL SAFETY PADDING for Media Headers
             has_header = any(c['type'] == 'header' for c in forced_components)
