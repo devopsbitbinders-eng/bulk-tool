@@ -233,7 +233,7 @@ async def index(request: Request):
         linked_phone = cred.get('phone_number') if cred else None
         waba_id = cred.get('waba_id') if cred else None
         phone_id = cred.get('phone_number_id') if cred else None
-        access_token = cred.get('access_token') if cred else None
+        access_token = cred.get('whatsapp_token') if cred else None
 
         # AUTO-DISCOVERY: If IDs are missing but we have a token, try to find them now
         if access_token and (not waba_id or waba_id in ["AUTO_DETECT", "PENDING", ""]):
@@ -254,7 +254,8 @@ async def index(request: Request):
                             # Try to get display phone
                             res_d = await client.get(f"https://graph.facebook.com/v21.0/{phone_id}", 
                                                    headers={"Authorization": f"Bearer {access_token}"})
-                            linked_phone = res_d.json().get('display_phone_number', "CONNECTED")
+                            res_data = res_d.json()
+                            linked_phone = res_data.get('display_phone_number') or res_data.get('verified_name') or "CONNECTED"
                         
                         # Save discovered IDs back to DB
                         await db.execute(
