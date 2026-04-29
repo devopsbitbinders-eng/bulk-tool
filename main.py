@@ -1115,6 +1115,7 @@ async def facebook_auth_callback(request: Request):
     """Unified handler for all WhatsApp linking routes."""
     try:
         data = await request.json()
+        print(f"DEBUG: CALLBACK DATA RECEIVED: {data}")
         code = data.get('code')
         access_token = data.get('access_token')
         waba_id = data.get('waba_id')
