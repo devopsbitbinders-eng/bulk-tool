@@ -1455,6 +1455,7 @@ async def upload_file(
     mappings: str = Form(None),
     scheduled_at: str = Form(None),
     media_url: str = Form(None),
+    meta_media_id: str = Form(None),
     media_file: UploadFile = File(None)
 ):
     session_token = request.cookies.get("session_token")
@@ -1510,8 +1511,16 @@ async def upload_file(
             with open(save_path, "wb") as buffer:
                 m_content = await media_file.read()
                 buffer.write(m_content)
-            # Use absolute URL if possible for Meta compatibility, or relative and handle in worker
-            final_media_url = f"/static/uploads/{unique_name}"
+            # PROPER FIX: Upload to Meta immediately if it's a new upload
+            try:
+                creds = await get_active_credentials(u_id)
+                if creds:
+                    fb_id = await upload_whatsapp_media(m_content, media_file.filename, media_file.content_type, creds)
+                    if fb_id:
+                        meta_media_id = fb_id
+                        print(f"DEBUG: Manually uploaded campaign media to Meta: {meta_media_id}")
+            except Exception as e:
+                print(f"DEBUG: Immediate Meta upload in campaign creation failed: {e}")
         except Exception as e:
             print(f"DEBUG: Media upload failed: {e}")
 
@@ -1525,12 +1534,12 @@ async def upload_file(
 
     campaign_id = await db.execute("""
         INSERT INTO campaigns (user_id, name, total_numbers, status, timestamp, 
-                              message_template, msg_type, template_name, language_code, mappings, phone_col, scheduled_at, media_url) 
-        VALUES (:u, :name, :total, :status, :ts, :msg, :mtype, :tname, :lang, :maps, :pcol, :sch, :murl)
+                              message_template, msg_type, template_name, language_code, mappings, phone_col, scheduled_at, media_url, meta_media_id) 
+        VALUES (:u, :name, :total, :status, :ts, :msg, :mtype, :tname, :lang, :maps, :pcol, :sch, :murl, :mid)
     """, {
         "u": u_id, "name": filename, "total": len(data), "status": status, "ts": now_utc,
         "msg": message, "mtype": msg_type, "tname": template_name, "lang": language_code, 
-        "maps": json.dumps(mappings_dict), "pcol": phone_col, "sch": final_schedule, "murl": final_media_url
+        "maps": json.dumps(mappings_dict), "pcol": phone_col, "sch": final_schedule, "murl": final_media_url, "mid": meta_media_id
     })
 
     # 2. Bulk Insert pending messages
