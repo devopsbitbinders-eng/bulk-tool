@@ -658,7 +658,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                         if not val or val == "None": val = " "
                         header_params.append({"type": "text", "text": val})
                     if header_params:
-                        forced_components.append({"type": "HEADER", "parameters": header_params})
+                        forced_components.append({"type": "header", "parameters": header_params})
 
                 # 2. Body Params
                 if body_var_count > 0:
@@ -671,7 +671,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                         body_params.append({"type": "text", "text": val})
                     
                     if body_params:
-                        forced_components.append({"type": "BODY", "parameters": body_params})
+                        forced_components.append({"type": "body", "parameters": body_params})
                 # ------------------------------
 
                 # Header Media logic
@@ -705,9 +705,10 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                     
                     # Use Media ID if available, otherwise fallback to link
                     if campaign_media_id:
+                        m_tag = str(mtype or "image").lower()
                         forced_components.append({
-                            "type": "HEADER",
-                            "parameters": [{"type": mtype, mtype: {"id": str(campaign_media_id)}}]
+                            "type": "header",
+                            "parameters": [{"type": m_tag, m_tag: {"id": str(campaign_media_id)}}]
                         })
                     elif str(media_url).startswith("http"):
                         forced_components.append({
@@ -717,7 +718,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
 
                 
                 # FINAL SAFETY PADDING for Media Headers
-                has_header = any(str(c['type']).upper() == 'HEADER' for c in forced_components)
+                has_header = any(str(c['type']).lower() == 'header' for c in forced_components)
                 if has_media_header and not has_header:
                      # If media is required but missing, use a placeholder
                      m_type = media_header_type or "image"
@@ -735,10 +736,10 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                      })
 
                 if header_var_count > 0 and not has_header:
-                     forced_components.append({"type": "HEADER", "parameters": [{"type": "text", "text": " "}]})
-                has_body = any(str(c['type']).upper() == 'BODY' for c in forced_components)
+                     forced_components.append({"type": "header", "parameters": [{"type": "text", "text": " "}]})
+                has_body = any(str(c['type']).lower() == 'body' for c in forced_components)
                 if body_var_count > 0 and not has_body:
-                     forced_components.append({"type": "BODY", "parameters": [{"type": "text", "text": " "}]})
+                     forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
             else:
                 message_to_send = substitute_template(message_template or "", row)
 
@@ -779,9 +780,9 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                 elif "132000" in raw_err:
                     error_msg = "Meta Error 132000: Variable mismatch. Check header/body variables."
                 elif "Media" in raw_err or "media" in raw_err:
-                    error_msg = f"Media Error: {raw_err[:100]}"
+                    error_msg = f"Media Error: {raw_err}"
                 else:
-                    error_msg = raw_err[:500]
+                    error_msg = raw_err
 
             # Update Message Record
             await db.execute("""
@@ -1014,9 +1015,10 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                 if has_media_header:
                     mtype = media_header_type or "image"
                     if campaign_media_id:
+                        m_tag = str(mtype or "image").lower()
                         forced_components.append({
-                            "type": "HEADER",
-                            "parameters": [{"type": mtype, mtype: {"id": str(campaign_media_id)}}]
+                            "type": "header",
+                            "parameters": [{"type": m_tag, m_tag: {"id": str(campaign_media_id)}}]
                         })
                     elif media_url and str(media_url).startswith("http"):
                         forced_components.append({
