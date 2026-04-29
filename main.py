@@ -653,10 +653,10 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
             # Send Message
             credentials = await get_active_credentials(user_id)
             
-            # CRITICAL FIX: If we have forced_components with a link, we must NOT 
+            # CRITICAL FIX: If we have a template with forced_components, we must NOT 
             # let send_whatsapp_message try to upload it again.
             actual_media_url = media_url
-            if str(actual_media_url).startswith("http"):
+            if msg_type == "template" and str(actual_media_url).startswith("http"):
                 # Pass None as media_url to send_whatsapp_message so it relies solely on forced_components
                 actual_media_url = None
 
@@ -964,10 +964,10 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
 
         credentials = await get_active_credentials(user_id)
         
-        # CRITICAL FIX: If we have forced_components with a link, we must NOT 
+        # CRITICAL FIX: If we have a template with forced_components, we must NOT 
         # let send_whatsapp_message try to upload it again.
         actual_media_url = media_url
-        if str(actual_media_url).startswith("http"):
+        if msg_type == "template" and str(actual_media_url).startswith("http"):
             # Pass None as media_url to send_whatsapp_message so it relies solely on forced_components
             actual_media_url = None
 
