@@ -638,6 +638,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
 
                 if header_var_count > 0 and not has_header:
                      forced_components.append({"type": "header", "parameters": [{"type": "text", "text": " "}]})
+                has_body = any(c['type'] == 'body' for c in forced_components)
                 if body_var_count > 0 and not has_body:
                      forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
             else:
