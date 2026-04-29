@@ -327,10 +327,15 @@
             
             let data = event.data;
             console.log('--- META SIGNAL START ---');
+            console.log('RAW DATA:', data);
             
             // Nuclear Option: Stringify everything and search for IDs
-            const rawString = JSON.stringify(data);
-            console.log('SEARCHING FOR IDs IN:', rawString);
+            let rawString = "";
+            try {
+                rawString = typeof data === 'string' ? data : JSON.stringify(data);
+            } catch(e) { rawString = String(data); }
+            
+            console.log('SCANNING FOR IDs...', rawString);
 
             // Match 15-16 digit numbers
             const idMatches = rawString.match(/\d{15,16}/g) || [];
