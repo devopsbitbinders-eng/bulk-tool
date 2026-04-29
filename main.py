@@ -1169,15 +1169,17 @@ async def facebook_auth_callback(request: Request):
 
         # 2.1 Fetch Display Phone Number
         display_phone = "CONNECTED"
-        if phone_id and phone_id != "PENDING" and phone_id != "AUTO_DETECT":
+        if phone_id and phone_id not in ["PENDING", "AUTO_DETECT"]:
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
+                    # Try fetching display_phone_number
                     res = await client.get(f"https://graph.facebook.com/v21.0/{phone_id}", 
-                                           headers={"Authorization": f"Bearer {access_token}"})
+                                           params={"access_token": access_token})
                     res_data = res.json()
+                    print(f"DEBUG: META PHONE RESPONSE: {res_data}")
                     display_phone = res_data.get('display_phone_number') or res_data.get('verified_name') or "CONNECTED"
             except Exception as e:
-                print(f"PHONE FETCH ERROR: {e}")
+                print(f"DEBUG: PHONE FETCH CRITICAL ERROR: {e}")
 
         # 3. Final Persistence
         db = await get_db()
