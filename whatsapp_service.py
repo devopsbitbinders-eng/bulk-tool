@@ -16,7 +16,7 @@ WHATSAPP_VERSION = "v21.0"
 
 def get_whatsapp_templates(credentials=None):
     """Fetches templates from Meta API."""
-    token = credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
+    token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     waba_id = credentials.get('waba_id', WHATSAPP_BUSINESS_ACCOUNT_ID) if credentials else WHATSAPP_BUSINESS_ACCOUNT_ID
     
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{waba_id}/message_templates"
@@ -340,11 +340,11 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
 
 async def fetch_meta_templates(credentials):
     """Fetch all message templates from Meta WABA."""
-    token = credentials.get('token')
+    token = credentials.get('whatsapp_token') or credentials.get('token')
     waba_id = credentials.get('waba_id')
     
     if not token or not waba_id:
-        print("DEBUG: Missing credentials for template fetch")
+        print(f"DEBUG: Missing credentials for template fetch. Token? {bool(token)}, WABA? {bool(waba_id)}")
         return []
 
     # Use the same version as configured

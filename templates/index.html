@@ -2050,6 +2050,29 @@
                 const s = (t.status || '').toUpperCase();
                 return s === 'APPROVED' || s === 'PENDING' || s === 'IN_APPEAL';
             });
+
+            async function syncTemplates() {
+                const btn = document.getElementById('syncBtn');
+                const originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<span class="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-600"></span> Syncing...`;
+
+                try {
+                    const res = await fetch('/api/templates/sync', { method: 'POST' });
+                    const data = await res.json();
+                    if (res.ok) {
+                        showToast(`Successfully synced ${data.count || 0} templates!`, 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast(data.error || 'Sync failed', 'error');
+                    }
+                } catch (err) {
+                    showToast('Network error during sync', 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            }
             const templateData = templatesList.reduce((acc, t) => { acc[t.name] = t.content; return acc; }, {});
             const templateComponents = templatesList.reduce((acc, t) => { acc[t.name] = t.components; return acc; }, {});
 
