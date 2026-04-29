@@ -228,11 +228,11 @@ async def index(request: Request):
 
     try:
         # 2. Extract credentials
-        cred = await db.fetch_one("SELECT * FROM user_credentials WHERE user_id = :u", {"u": u_id})
-        linked_phone = cred['phone_number'] if cred else None
-        waba_id = cred['waba_id'] if cred else None
-        phone_id = cred['phone_number_id'] if cred else None
-        access_token = cred['access_token'] if cred else None
+        cred = await db.fetch_one("SELECT * FROM user_credentials WHERE user_id = :u AND is_active = 1 LIMIT 1", {"u": u_id})
+        linked_phone = cred.get('phone_number') if cred else None
+        waba_id = cred.get('waba_id') if cred else None
+        phone_id = cred.get('phone_number_id') if cred else None
+        access_token = cred.get('access_token') if cred else None
 
         # AUTO-DISCOVERY: If IDs are missing but we have a token, try to find them now
         if access_token and (not waba_id or waba_id in ["AUTO_DETECT", "PENDING", ""]):
