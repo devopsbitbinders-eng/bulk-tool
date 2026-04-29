@@ -577,8 +577,9 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                 if not has_media_header and header_var_count > 0:
                     header_params = []
                     for i in range(1, header_var_count + 1):
-                        val = str(row.get(vars_map.get(str(i)), " ")).strip()
-                        if not val: val = " "
+                        m_val = vars_map.get(str(i))
+                        val = str(row.get(str(m_val).lower(), " ")).strip() if m_val else " "
+                        if not val or val == "None": val = " "
                         header_params.append({"type": "text", "text": val})
                     if header_params:
                         forced_components.append({"type": "header", "parameters": header_params})
@@ -588,8 +589,9 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                     body_params = []
                     for i in range(1, body_var_count + 1):
                         mapping_key = str(i + header_var_count)
-                        val = str(row.get(vars_map.get(mapping_key), " ")).strip()
-                        if not val: val = " "
+                        m_val = vars_map.get(mapping_key)
+                        val = str(row.get(str(m_val).lower(), " ")).strip() if m_val else " "
+                        if not val or val == "None": val = " "
                         body_params.append({"type": "text", "text": val})
                     
                     if body_params:
@@ -602,11 +604,12 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                     if header_mapping:
                         if isinstance(header_mapping, dict):
                             if header_mapping.get('type') == 'column':
-                                media_url = row.get(header_mapping.get('value'))
+                                m_col = header_mapping.get('value')
+                                media_url = row.get(str(m_col).lower()) if m_col else None
                             elif header_mapping.get('type') == 'fixed':
                                 media_url = header_mapping.get('value')
                         else:
-                            media_url = row.get(header_mapping)
+                            media_url = row.get(str(header_mapping).lower())
 
                 if has_media_header and media_url:
                     # Direct link logic with type detection
@@ -852,8 +855,9 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                 if not has_media_header and header_var_count > 0:
                     header_params = []
                     for i in range(1, header_var_count + 1):
-                        val = str(vars_map.get(str(i), " ")).strip()
-                        if not val: val = " "
+                        m_val = vars_map.get(str(i))
+                        val = str(row.get(str(m_val).lower(), " ")).strip() if m_val else " "
+                        if not val or val == "None": val = " "
                         header_params.append({"type": "text", "text": val})
                     
                 # 2. Body Params
@@ -861,8 +865,9 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                     body_params = []
                     for i in range(1, body_var_count + 1):
                         mapping_key = str(i + header_var_count)
-                        val = str(vars_map.get(mapping_key, " ")).strip()
-                        if not val: val = " "
+                        m_val = vars_map.get(mapping_key)
+                        val = str(row.get(str(m_val).lower(), " ")).strip() if m_val else " "
+                        if not val or val == "None": val = " "
                         body_params.append({"type": "text", "text": val})
                 # ------------------------------
 
@@ -870,11 +875,12 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                 if header_mapping:
                     if isinstance(header_mapping, dict):
                         if header_mapping.get('type') == 'column':
-                            media_url = row.get(header_mapping.get('value'))
+                            m_col = header_mapping.get('value')
+                            media_url = row.get(str(m_col).lower()) if m_col else None
                         elif header_mapping.get('type') == 'fixed':
                             media_url = header_mapping.get('value')
                     else:
-                        media_url = row.get(header_mapping)
+                        media_url = row.get(str(header_mapping).lower())
 
             # BUILD FINAL COMPONENTS
             if has_media_header and media_url:
