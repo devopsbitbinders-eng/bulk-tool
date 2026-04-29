@@ -603,6 +603,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
             row = json.loads(msg['row_data']) if msg['row_data'] else {}
             
             media_url = campaign_media_url
+            campaign_media_id = campaign.get('meta_media_id')
             message_to_send = ""
             forced_components = []
 
@@ -681,7 +682,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                             m_val = row.get(str(header_mapping).lower())
                             if m_val: media_url = m_val
 
-                if has_media_header and media_url:                    # USE TEMPLATE'S HEADER FORMAT AS THE PRIMARY TYPE
+                if has_media_header:
+                    # USE TEMPLATE'S HEADER FORMAT AS THE PRIMARY TYPE
                     mtype = media_header_type or "image"
                     
                     # Optional: refinements if the URL is definitely different
@@ -695,8 +697,6 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                         mtype = media_header_type
                     
                     # Use Media ID if available, otherwise fallback to link
-                    campaign_media_id = campaign.get('meta_media_id')
-                    
                     if campaign_media_id:
                         forced_components.append({
                             "type": "header",
@@ -754,7 +754,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
 
             success, response = await send_whatsapp_message(
                 phone, message_to_send, final_msg_type, template_name, language_code, 
-                media_url=actual_media_url, credentials=credentials, forced_components=forced_components
+                media_url=actual_media_url, credentials=credentials, 
+                forced_components=forced_components, media_id=campaign_media_id
             )
 
             wa_message_id = None
@@ -910,9 +911,12 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
 
     # 1. Fetch Campaign Metadata for media
     campaign_media_url = None
+    campaign_media_id = None
     try:
-        camp_row = await db.fetch_one("SELECT media_url FROM campaigns WHERE id = :id", {"id": campaign_id})
-        if camp_row: campaign_media_url = camp_row['media_url']
+        camp_row = await db.fetch_one("SELECT media_url, meta_media_id FROM campaigns WHERE id = :id", {"id": campaign_id})
+        if camp_row: 
+            campaign_media_url = camp_row['media_url']
+            campaign_media_id = camp_row['meta_media_id']
     except: pass
 
     for i, row in enumerate(data):
@@ -993,24 +997,25 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                         m_val = row.get(str(header_mapping).lower())
                         if m_val: media_url = m_val
 
-            # BUILD FINAL COMPONENTS
-                # Use Media ID if available, otherwise fallback to link
+                # --- REFINED MEDIA LOGIC ---
                 campaign_media_id = None
                 try:
                     c_row = await db.fetch_one("SELECT meta_media_id FROM campaigns WHERE id = :id", {"id": campaign_id})
                     if c_row: campaign_media_id = c_row['meta_media_id']
                 except: pass
-
-                if campaign_media_id:
-                    forced_components.append({
-                        "type": "header",
-                        "parameters": [{"type": mtype, mtype: {"id": campaign_media_id}}]
-                    })
-                elif str(media_url).startswith("http"):
-                    forced_components.append({
-                        "type": "header",
-                        "parameters": [{"type": mtype, mtype: {"link": media_url}}]
-                    })
+                
+                if has_media_header:
+                    mtype = media_header_type or "image"
+                    if campaign_media_id:
+                        forced_components.append({
+                            "type": "header",
+                            "parameters": [{"type": mtype, mtype: {"id": campaign_media_id}}]
+                        })
+                    elif media_url and str(media_url).startswith("http"):
+                        forced_components.append({
+                            "type": "header",
+                            "parameters": [{"type": mtype, mtype: {"link": media_url}}]
+                        })
             elif header_params:
                 forced_components.append({"type": "header", "parameters": header_params})
             
@@ -1071,12 +1076,13 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
             await queue.put(typing_event)
         await asyncio.sleep(delay)
         
-        # Auto-detect msg_type if it's text but we have a media_url
+        # Auto-detect msg_type if it's text but we have a media_url or ID
         final_msg_type = msg_type
-        if msg_type == "text" and media_url:
+        if msg_type == "text" and (media_url or campaign_media_id):
             final_msg_type = "image"
-            if str(media_url).lower().endswith((".mp4", ".mov")): final_msg_type = "video"
-            elif str(media_url).lower().endswith((".pdf", ".doc", ".docx", ".xlsx", ".xls")): final_msg_type = "document"
+            target_str = str(media_url or "").lower()
+            if target_str.endswith((".mp4", ".mov")): final_msg_type = "video"
+            elif target_str.endswith((".pdf", ".doc", ".docx", ".xlsx", ".xls")): final_msg_type = "document"
 
         credentials = await get_active_credentials(user_id)
         
@@ -1089,7 +1095,8 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
 
         success, response = await send_whatsapp_message(
             phone, message_to_send, final_msg_type, template_name, language_code, 
-            media_url=actual_media_url, credentials=credentials, forced_components=forced_components
+            media_url=actual_media_url, credentials=credentials, 
+            forced_components=forced_components, media_id=campaign_media_id
         )
         
         if not success:
