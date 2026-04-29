@@ -634,9 +634,17 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 5):
 
             # Send Message
             credentials = await get_active_credentials(user_id)
+            
+            # CRITICAL FIX: If we have forced_components with a link, we must NOT 
+            # let send_whatsapp_message try to upload it again.
+            actual_media_url = media_url
+            if str(actual_media_url).startswith("http"):
+                # Pass None as media_url to send_whatsapp_message so it relies solely on forced_components
+                actual_media_url = None
+
             success, response = await send_whatsapp_message(
                 phone, message_to_send, final_msg_type, template_name, language_code, 
-                media_url=media_url, credentials=credentials, forced_components=forced_components
+                media_url=actual_media_url, credentials=credentials, forced_components=forced_components
             )
 
             wa_message_id = None
@@ -920,9 +928,17 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
             elif str(media_url).lower().endswith((".pdf", ".doc", ".docx", ".xlsx", ".xls")): final_msg_type = "document"
 
         credentials = await get_active_credentials(user_id)
+        
+        # CRITICAL FIX: If we have forced_components with a link, we must NOT 
+        # let send_whatsapp_message try to upload it again.
+        actual_media_url = media_url
+        if str(actual_media_url).startswith("http"):
+            # Pass None as media_url to send_whatsapp_message so it relies solely on forced_components
+            actual_media_url = None
+
         success, response = await send_whatsapp_message(
             phone, message_to_send, final_msg_type, template_name, language_code, 
-            media_url=media_url, credentials=credentials, forced_components=forced_components
+            media_url=actual_media_url, credentials=credentials, forced_components=forced_components
         )
         
         if not success:
