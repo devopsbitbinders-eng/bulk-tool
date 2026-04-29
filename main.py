@@ -65,17 +65,10 @@ async def get_user_id(username: str):
 async def get_active_credentials(user_id: int):
     db = await get_db()
     # First, try to find active credentials
+    # Try to find credentials
     row = await db.fetch_one("SELECT whatsapp_token as token, phone_number_id as phone_id, waba_id FROM user_credentials WHERE is_active = 1 AND user_id = :u ORDER BY last_updated DESC LIMIT 1", {"u": user_id})
     if row:
         return dict(row)
-    
-    # Fallback: Check if any credentials exist at all (maybe inactive?)
-    any_creds = await db.fetch_one("SELECT id FROM user_credentials WHERE user_id = :u LIMIT 1", {"u": user_id})
-    if any_creds:
-        print(f"DEBUG: User {user_id} has credentials but NONE ARE ACTIVE.")
-    else:
-        print(f"DEBUG: User {user_id} has NO credentials in the database.")
-        
     return None
 
 @asynccontextmanager
@@ -533,6 +526,46 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                 {"name": template_name, "u": user_id}
             )
 
+        # --- AUTO UPLOAD TO META ---
+        # If we have a media_url but no meta_media_id, try to upload it once for this campaign
+        meta_media_id = campaign.get('meta_media_id')
+        if not meta_media_id and campaign_media_url and str(campaign_media_url).startswith("http"):
+            # Only try if it's a local/tmp file or a link that we want to persist
+            # Actually, let's try to upload it to Meta so we don't rely on the URL
+            try:
+                # 1. Get credentials
+                creds = await get_active_credentials(user_id)
+                if creds:
+                    # 2. Download the file from the URL
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        # If it's a relative URL, make it absolute
+                        full_url = campaign_media_url
+                        if str(full_url).startswith("/static"):
+                            # This is a local file on Vercel/Local. 
+                            # If we are on Vercel, it might be in /tmp
+                            file_name = os.path.basename(full_url)
+                            local_path = os.path.join(UPLOAD_DIR, file_name)
+                            if os.path.exists(local_path):
+                                with open(local_path, "rb") as f:
+                                    fb_id = await upload_whatsapp_media(f.read(), file_name, "image/png", creds)
+                                    if fb_id:
+                                        meta_media_id = fb_id
+                                        await db.execute("UPDATE campaigns SET meta_media_id = :mid WHERE id = :id", {"mid": meta_media_id, "id": campaign_id})
+                                        campaign['meta_media_id'] = meta_media_id
+                                        print(f"DEBUG: Successfully uploaded campaign media to Meta: {meta_media_id}")
+                        elif str(full_url).startswith("http"):
+                            # Download from remote URL and upload to Meta
+                            res = await client.get(full_url)
+                            if res.status_code == 200:
+                                fb_id = await upload_whatsapp_media(res.content, "campaign_media", res.headers.get("Content-Type", "image/png"), creds)
+                                if fb_id:
+                                    meta_media_id = fb_id
+                                    await db.execute("UPDATE campaigns SET meta_media_id = :mid WHERE id = :id", {"mid": meta_media_id, "id": campaign_id})
+                                    campaign['meta_media_id'] = meta_media_id
+            except Exception as e:
+                print(f"DEBUG: Auto-upload to Meta failed: {e}")
+        # ----------------------------
+
         processed_count = 0
         success_batch = 0
         failed_batch = 0
@@ -633,7 +666,15 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                     if media_header_type:
                         mtype = media_header_type
                     
-                    if str(media_url).startswith("http"):
+                    # Use Media ID if available, otherwise fallback to link
+                    campaign_media_id = campaign.get('meta_media_id')
+                    
+                    if campaign_media_id:
+                        forced_components.append({
+                            "type": "header",
+                            "parameters": [{"type": mtype, mtype: {"id": campaign_media_id}}]
+                        })
+                    elif str(media_url).startswith("http"):
                         forced_components.append({
                             "type": "header",
                             "parameters": [{"type": mtype, mtype: {"link": media_url}}]
@@ -925,20 +966,19 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                         if m_val: media_url = m_val
 
             # BUILD FINAL COMPONENTS
-            if has_media_header and media_url:
-                if str(media_url).startswith("http"):
-                    # USE TEMPLATE'S HEADER FORMAT AS THE PRIMARY TYPE
-                    mtype = media_header_type or "image"
-                    
-                    # Optional: refinements if the URL is definitely different
-                    low_url = str(media_url).lower()
-                    if any(ext in low_url for ext in [".mp4", ".mov", ".avi"]): mtype = "video"
-                    elif any(ext in low_url for ext in [".pdf", ".doc", ".docx", ".xls", ".xlsx"]): mtype = "document"
-                    
-                    # Final override: ensure it matches template requirements
-                    if media_header_type:
-                        mtype = media_header_type
+                # Use Media ID if available, otherwise fallback to link
+                campaign_media_id = None
+                try:
+                    c_row = await db.fetch_one("SELECT meta_media_id FROM campaigns WHERE id = :id", {"id": campaign_id})
+                    if c_row: campaign_media_id = c_row['meta_media_id']
+                except: pass
 
+                if campaign_media_id:
+                    forced_components.append({
+                        "type": "header",
+                        "parameters": [{"type": mtype, mtype: {"id": campaign_media_id}}]
+                    })
+                elif str(media_url).startswith("http"):
                     forced_components.append({
                         "type": "header",
                         "parameters": [{"type": mtype, mtype: {"link": media_url}}]
