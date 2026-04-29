@@ -229,16 +229,29 @@ async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
     token = credentials.get('whatsapp_token') or credentials.get('token', WHATSAPP_TOKEN) if credentials else WHATSAPP_TOKEN
     phone_id = credentials.get('phone_number_id') or credentials.get('phone_id', WHATSAPP_PHONE_NUMBER_ID) if credentials else WHATSAPP_PHONE_NUMBER_ID
     
-    # STRICT MIME MAPPING
-    ext = str(filename).split('.')[-1].lower() if '.' in str(filename) else ''
-    if ext in ['jpg', 'jpeg']: mime_type = 'image/jpeg'
-    elif ext == 'png': mime_type = 'image/png'
-    elif ext == 'pdf': mime_type = 'application/pdf'
+    # INDUSTRIAL GRADE MIME MAPPER
+    import mimetypes
+    ext = os.path.splitext(str(filename)).lower()[1] if '.' in str(filename) else ''
+    ext = f".{ext}" if ext else ''
+    
+    ext_map = {
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp',
+        '.pdf': 'application/pdf', '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.mp4': 'video/mp4', '.3gp': 'video/3gp', '.mov': 'video/quicktime',
+        '.aac': 'audio/aac', '.amr': 'audio/amr', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg'
+    }
+    
+    final_mime = ext_map.get(ext)
+    if not final_mime:
+        final_mime = mime_type or mimetypes.guess_type(str(filename))[0] or "image/jpeg"
+    
+    print(f"DEBUG: Meta Upload - Filename: {filename}, Extension: {ext}, Final MIME: {final_mime}")
     
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{phone_id}/media"
     headers = {"Authorization": f"Bearer {token}"}
     files = {
-        'file': (filename, file_bytes, mime_type),
+        'file': (filename, file_bytes, final_mime),
     }
     data = {'messaging_product': 'whatsapp'}
     try:
