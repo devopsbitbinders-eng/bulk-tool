@@ -324,29 +324,35 @@
 
         window.addEventListener('message', (event) => {
             if (!event.origin.includes("facebook.com")) return;
-            console.log('META SIGNAL RECEIVED:', event.data);
             
             let data = event.data;
+            console.log('--- META SIGNAL START ---');
+            console.log('RAW:', data);
+            
             if (typeof data === 'string' && data.includes('code=')) {
                 const params = new URLSearchParams(data);
                 data = Object.fromEntries(params.entries());
+                console.log('PARSED STRING DATA:', data);
             }
 
-            // Extract IDs from any possible nesting
             const waba = data.waba_id || (data.data && data.data.waba_id) || data.waba_account_id;
             const phone = data.phone_number_id || (data.data && data.data.phone_number_id);
             const code = data.code || null;
 
-            if (waba) localStorage.setItem('last_waba', waba);
-            if (phone) localStorage.setItem('last_phone', phone);
-            if (code) localStorage.setItem('last_code', code);
+            console.log('EXTRACTED:', { waba, phone, code });
+
+            if (waba) { localStorage.setItem('last_waba', waba); console.log('SAVED WABA:', waba); }
+            if (phone) { localStorage.setItem('last_phone', phone); console.log('SAVED PHONE:', phone); }
+            if (code) { localStorage.setItem('last_code', code); console.log('SAVED CODE:', code); }
 
             const sWaba = localStorage.getItem('last_waba');
             const sPhone = localStorage.getItem('last_phone');
             const sCode = localStorage.getItem('last_code');
 
+            console.log('CURRENT MEMORY STATUS:', { sWaba, sPhone, sCode });
+
             if (sWaba && sPhone && sCode) {
-                console.log("SYNCING TO DATABASE...", { waba: sWaba, phone: sPhone });
+                console.log("PUZZLE COMPLETE! SYNCING TO DATABASE...");
                 fetch('/facebook_auth_callback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -354,11 +360,14 @@
                 }).then(r => {
                     if (r.ok) {
                         localStorage.removeItem('last_code');
-                        alert("SUCCESS! CONNECTED.");
+                        alert("SUCCESS! SYSTEM CONNECTED.");
                         window.location.reload();
+                    } else {
+                        console.error("DATABASE REJECTED DATA");
                     }
                 });
             }
+            console.log('--- META SIGNAL END ---');
         });
 
         async function launchFBLogin() {
