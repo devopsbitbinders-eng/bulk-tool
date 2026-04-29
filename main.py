@@ -859,7 +859,7 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                     body_params = []
                     for i in range(1, body_var_count + 1):
                         mapping_key = str(i + header_var_count)
-                        val = str(vars_map.get(mapping_key), " ")).strip()
+                        val = str(vars_map.get(mapping_key, " ")).strip()
                         if not val: val = " "
                         body_params.append({"type": "text", "text": val})
                 # ------------------------------
