@@ -743,8 +743,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
             # CRITICAL FIX: If we have a template with forced_components, we must NOT 
             # let send_whatsapp_message try to upload it again.
             actual_media_url = media_url
-            if msg_type == "template" and str(actual_media_url).startswith("http"):
-                # Pass None as media_url to send_whatsapp_message so it relies solely on forced_components
+            if msg_type == "template" and str(actual_media_url).startswith("http") and campaign_media_id:
+                # ONLY set to None if we have a valid campaign_media_id to use instead
                 actual_media_url = None
 
             success, response = await send_whatsapp_message(

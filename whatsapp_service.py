@@ -334,17 +334,27 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
         }
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, headers=headers, content=json.dumps(payload))
-            if response.status_code not in [200, 201]:
-                print(f"DEBUG ERROR: Meta API {response.status_code} - {response.text}")
             
-            if response.status_code == 200 or response.status_code == 201:
+            if response.status_code in [200, 201]:
                 return True, response.json()
             else:
-                return False, response.text
+                # DETAILED ERROR EXTRACTION
+                try:
+                    err_json = response.json()
+                    err_obj = err_json.get('error', {})
+                    msg = err_obj.get('message', response.text)
+                    code = err_obj.get('code', 'Unknown')
+                    subcode = err_obj.get('error_subcode', '')
+                    full_err = f"Meta Error {code} (Sub:{subcode}): {msg}"
+                    print(f"DEBUG: WhatsApp Send Failed: {full_err}")
+                    return False, full_err
+                except:
+                    print(f"DEBUG: WhatsApp Send Failed (Raw): {response.text}")
+                    return False, response.text
     except Exception as e:
-        print(f"DEBUG: Error in send_whatsapp_message: {str(e)}")
+        print(f"DEBUG: WhatsApp Service Exception: {str(e)}")
         return False, str(e)
 
 async def fetch_meta_templates(credentials):
