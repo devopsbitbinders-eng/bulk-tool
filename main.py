@@ -1105,14 +1105,25 @@ async def facebook_auth_callback(request: Request):
                 res = await client.get("https://graph.facebook.com/v21.0/me/whatsapp_business_accounts", 
                                        headers={"Authorization": f"Bearer {access_token}"})
                 accounts = res.json().get('data', [])
-                if accounts: waba_id = accounts[0]['id']
+                if accounts: 
+                    waba_id = accounts[0]['id']
+                else:
+                    # Fallback: If we have phone_id, try to get WABA ID from it
+                    if phone_id and phone_id != "AUTO_DETECT":
+                        res = await client.get(f"https://graph.facebook.com/v21.0/{phone_id}?fields=whatsapp_business_account", 
+                                               headers={"Authorization": f"Bearer {access_token}"})
+                        waba_id = res.json().get('whatsapp_business_account', {}).get('id')
 
-        if waba_id and (not phone_id or phone_id == "AUTO_DETECT"):
+        if waba_id and waba_id != "AUTO_DETECT" and (not phone_id or phone_id == "AUTO_DETECT"):
             async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.get(f"https://graph.facebook.com/v21.0/{waba_id}/phone_numbers", 
                                        headers={"Authorization": f"Bearer {access_token}"})
                 phones = res.json().get('data', [])
                 if phones: phone_id = phones[0]['id']
+
+        # Cleanup placeholders
+        if waba_id == "AUTO_DETECT": waba_id = "PENDING"
+        if phone_id == "AUTO_DETECT": phone_id = "PENDING"
 
         # 2.1 Fetch Display Phone Number
         display_phone = "CONNECTED"
