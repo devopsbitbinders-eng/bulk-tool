@@ -12,7 +12,8 @@ google-auth-httplib2
 google-auth-oauthlib
 gspread
 gspread-formatting
-databases[mysql]
+databases
 aiomysql
 cryptography
 python-dotenv
+email-validator
