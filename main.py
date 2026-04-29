@@ -1110,6 +1110,7 @@ async def facebook_unlink(request: Request):
 @app.post("/api/index")
 @app.post("/api/whatsapp-link")
 @app.post("/direct-whatsapp-link")
+@app.post("/facebook_auth_callback")
 async def facebook_auth_callback(request: Request):
     """Unified handler for all WhatsApp linking routes."""
     try:
