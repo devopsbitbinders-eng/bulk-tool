@@ -2404,15 +2404,28 @@
                 const header = components.find(c => c.type === 'HEADER');
                 currentHeaderType = header ? header.format : "NONE";
                 
-                // Smart Auto-Fill: Priority 1: dedicated media_url column, Priority 2: components meta, Priority 3: localStorage
-                currentHeaderSampleUrl = template.media_url || "";
-                if (!currentHeaderSampleUrl && header && header.example) {
+                // Smart Auto-Fill Priority: 
+                // 1. Meta components example (The most reliable source from Meta's API)
+                // 2. Local template.media_url (Only if it's a real public URL, not a local one)
+                // 3. localStorage (Last resort)
+                currentHeaderSampleUrl = "";
+                if (header && header.example) {
                     const ex = header.example;
                     currentHeaderSampleUrl = (ex.header_handle && ex.header_handle[0]) ? ex.header_handle[0] : 
                                             ((ex.header_text && ex.header_text[0]) ? ex.header_text[0] : "");
                 }
-                if (!currentHeaderSampleUrl && currentHeaderType !== 'NONE' && currentHeaderType !== 'TEXT') {
-                    currentHeaderSampleUrl = localStorage.getItem(`last_header_url_${templateName}`) || "";
+                
+                // If we found nothing, or if the URL found is a broken local link, try other sources
+                const isBrokenLocal = (url) => !url || url.includes('static/uploads') || url.includes('bitbinders.in');
+                
+                if (isBrokenLocal(currentHeaderSampleUrl)) {
+                    const savedMedia = template.media_url || "";
+                    if (!isBrokenLocal(savedMedia)) currentHeaderSampleUrl = savedMedia;
+                }
+                
+                if (isBrokenLocal(currentHeaderSampleUrl) && currentHeaderType !== 'NONE' && currentHeaderType !== 'TEXT') {
+                    const localSaved = localStorage.getItem(`last_header_url_${templateName}`) || "";
+                    if (!isBrokenLocal(localSaved)) currentHeaderSampleUrl = localSaved;
                 }
                 
                 selectedTemplateLang = template.language || "en_US";
