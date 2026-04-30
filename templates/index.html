@@ -2406,8 +2406,10 @@
                 
                 // Smart Auto-Fill: Priority 1: dedicated media_url column, Priority 2: components meta, Priority 3: localStorage
                 currentHeaderSampleUrl = template.media_url || "";
-                if (!currentHeaderSampleUrl) {
-                    currentHeaderSampleUrl = (header && header.example) ? (header.example._original_url || "") : "";
+                if (!currentHeaderSampleUrl && header && header.example) {
+                    const ex = header.example;
+                    currentHeaderSampleUrl = (ex.header_handle && ex.header_handle[0]) ? ex.header_handle[0] : 
+                                            ((ex.header_text && ex.header_text[0]) ? ex.header_text[0] : "");
                 }
                 if (!currentHeaderSampleUrl && currentHeaderType !== 'NONE' && currentHeaderType !== 'TEXT') {
                     currentHeaderSampleUrl = localStorage.getItem(`last_header_url_${templateName}`) || "";
