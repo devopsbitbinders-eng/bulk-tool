@@ -342,8 +342,31 @@ async def get_history(request: Request):
     if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     u_id = await get_user_id(username)
     db = await get_db()
-    campaigns = await db.fetch_all("SELECT id, name, status, timestamp, sent_success, sent_failed, total_numbers FROM campaigns WHERE user_id = :u ORDER BY timestamp DESC LIMIT 50", {"u": u_id})
+    
+    # Smarter query to get real-time stats from messages table
+    query = """
+        SELECT 
+            c.id, c.name, c.status, c.timestamp,
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('sent', 'delivered', 'read')) as sent_success,
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed,
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered,
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read
+        FROM campaigns c 
+        WHERE c.user_id = :u 
+        ORDER BY c.timestamp DESC 
+        LIMIT 50
+    """
+    campaigns = await db.fetch_all(query, {"u": u_id})
     return [dict(c) for c in campaigns]
+
+@app.get("/api/campaigns/{campaign_id}/export")
+async def export_campaign_route(request: Request, campaign_id: int):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    
+    # We use the existing export_campaign function
+    return await export_campaign(campaign_id)
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):

@@ -2247,10 +2247,16 @@
                         <td class="px-8 py-5 text-center text-sm font-medium text-blue-600">${c.delivered || 0}</td>
                         <td class="px-8 py-5 text-center text-sm font-medium text-emerald-600">${c.read || 0}</td>
                         <td class="px-8 py-5 text-right">
-                            <button onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}')" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1 justify-end">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                                Details
-                            </button>
+                            <div class="flex items-center justify-end gap-3">
+                                <button onclick="window.location.href='/api/campaigns/${c.id}/export'" class="text-emerald-600 hover:text-emerald-800 text-[10px] font-bold flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                    Export
+                                </button>
+                                <button onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}')" class="text-indigo-600 hover:text-indigo-800 text-[10px] font-bold flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                    Details
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `).join('');
