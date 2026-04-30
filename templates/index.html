@@ -2427,19 +2427,20 @@
                 // Media Header Mapping
                 if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(currentHeaderType)) {
                     if (method === 'bulk') {
+                        const hasUploadedMedia = !!document.getElementById('metaMediaId')?.value;
                         html += `
                         <div class="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span class="text-[10px] font-bold text-slate-500 w-24">Header (${currentHeaderType})</span>
                                 <select name="map_header" id="bulk_header_map" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1" onchange="document.querySelector('input[name=\\'val_header\\']').disabled = (this.value !== '')">
-                                    <option value="">-- Use Fixed URL below --</option>
-                                    <option value="__UPLOADED__">-- Use Uploaded Campaign Media --</option>
+                                    <option value="" ${hasUploadedMedia ? '' : 'selected'}>-- Use Fixed URL below --</option>
+                                    <option value="__UPLOADED__" ${hasUploadedMedia ? 'selected' : ''}>-- Use Uploaded Campaign Media --</option>
                                     ${currentFileColumns.map(c => `<option value="${c}">Use Column: ${c}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
                                 <span class="text-[10px] font-bold text-slate-400 w-24 ml-1">Fixed URL</span>
-                                <input type="text" name="val_header" value="${currentHeaderSampleUrl}" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1 disabled:opacity-50" placeholder="Paste image link here...">
+                                <input type="text" name="val_header" value="${currentHeaderSampleUrl}" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1 disabled:opacity-50" ${hasUploadedMedia ? 'disabled' : ''} placeholder="Paste image link here...">
                             </div>
                             <p class="text-[9px] text-slate-400 italic ml-24">Select "Use Uploaded Campaign Media" to use the file you uploaded above, map a column, or paste a link.</p>
                         </div>
