@@ -2602,9 +2602,9 @@ async def send_chat_reply(
         else: msg_type = "document"
 
         # Upload to Meta
-        media_id = await upload_whatsapp_media(file_bytes, filename, mime_type, credentials)
+        media_id, upload_err = await upload_whatsapp_media(file_bytes, filename, mime_type, credentials)
         if not media_id:
-            return JSONResponse(status_code=500, content={"error": "Failed to upload media to WhatsApp"})
+            return JSONResponse(status_code=500, content={"error": f"Failed to upload media to WhatsApp: {upload_err}"})
         
         if not display_message:
             display_message = f"[Sent {msg_type}: {filename}]"
