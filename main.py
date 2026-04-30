@@ -1704,8 +1704,13 @@ async def upload_file(
                     creds = await get_active_credentials(u_id)
                     if creds:
                         print(f"DEBUG: Downloading fixed URL for handshake: {fixed_url}")
-                        async with httpx.AsyncClient(timeout=30.0) as client:
-                            res = await client.get(fixed_url)
+                        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                            # Adding browser-like headers because Meta's scontent URLs can be picky
+                            h = {
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                                "Accept": "image/*,video/*,application/pdf"
+                            }
+                            res = await client.get(fixed_url, headers=h)
                             if res.status_code == 200:
                                 m_content = res.content
                                 m_mime = res.headers.get("Content-Type", "image/jpeg")
