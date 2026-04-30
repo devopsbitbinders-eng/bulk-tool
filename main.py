@@ -427,6 +427,8 @@ async def login(username: str = Form(...), password: str = Form(...)):
         return JSONResponse(status_code=500, content={"error": f"Database Error: {str(e)}"})
 
 @app.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie("session_token")
     return response
 
