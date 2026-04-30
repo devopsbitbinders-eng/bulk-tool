@@ -1696,10 +1696,15 @@ async def upload_file(
             return JSONResponse(status_code=400, content={"error": f"Local media processing failed: {e}"})
 
     # PRE-UPLOAD HANDSHAKE FOR FIXED URLS (Fail Fast)
-    if not meta_media_id and mappings_dict and mappings_dict.get('header'):
-        if isinstance(mappings_dict.get('header'), dict) and mappings_dict['header'].get('type') == 'fixed':
-            fixed_url = mappings_dict['header'].get('value')
-            if fixed_url and str(fixed_url).startswith("http"):
+    h_data = mappings_dict.get('header') if mappings_dict else None
+    fixed_url = None
+    if isinstance(h_data, dict) and h_data.get('type') == 'fixed':
+        fixed_url = h_data.get('value')
+    elif isinstance(h_data, str) and h_data.startswith("http"):
+        fixed_url = h_data
+
+    if not meta_media_id and fixed_url:
+        if str(fixed_url).startswith("http"):
                 try:
                     creds = await get_active_credentials(u_id)
                     if creds:
