@@ -1627,9 +1627,16 @@ async def upload_file(
     u_id = await get_user_id(username)
     db = await get_db()
     mappings_dict = None
+    fixed_url_from_mapping = None
     if mappings:
         try:
             mappings_dict = json.loads(mappings)
+            # Capture the fixed URL before single_mobile logic transforms mappings_dict
+            h_data = mappings_dict.get('header')
+            if isinstance(h_data, dict) and h_data.get('type') == 'fixed':
+                fixed_url_from_mapping = h_data.get('value')
+            elif isinstance(h_data, str) and h_data.startswith("http"):
+                fixed_url_from_mapping = h_data
         except: pass
 
     if single_mobile:
@@ -1696,14 +1703,8 @@ async def upload_file(
             return JSONResponse(status_code=400, content={"error": f"Local media processing failed: {e}"})
 
     # PRE-UPLOAD HANDSHAKE FOR FIXED URLS (Fail Fast)
-    h_data = mappings_dict.get('header') if mappings_dict else None
-    fixed_url = None
-    if isinstance(h_data, dict) and h_data.get('type') == 'fixed':
-        fixed_url = h_data.get('value')
-    elif isinstance(h_data, str) and h_data.startswith("http"):
-        fixed_url = h_data
-
-    if not meta_media_id and fixed_url:
+    if not meta_media_id and fixed_url_from_mapping:
+        fixed_url = fixed_url_from_mapping
         if str(fixed_url).startswith("http"):
                 try:
                     creds = await get_active_credentials(u_id)
