@@ -231,7 +231,7 @@ async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
     
     # INDUSTRIAL GRADE MIME MAPPER
     import mimetypes
-    ext = os.path.splitext(str(filename)).lower()[1] if '.' in str(filename) else ''
+    ext = os.path.splitext(str(filename))[1].lower().replace('.', '') if '.' in str(filename) else ''
     ext = f".{ext}" if ext else ''
     
     ext_map = {
