@@ -612,6 +612,12 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
         m_raw = campaign.get('mappings')
         mappings = json.loads(m_raw) if m_raw else None
         campaign_media_url = campaign.get('media_url')
+        
+        # PRE-UPLOAD HANDSHAKE FIX: If bulk mapped a fixed URL, pre-upload it once to avoid throttling.
+        if not campaign_media_url and mappings and mappings.get('header'):
+            if isinstance(mappings.get('header'), dict) and mappings.get('header').get('type') == 'fixed':
+                campaign_media_url = mappings.get('header').get('value')
+                
         campaign_media_id = campaign.get('meta_media_id')
         print(f"DEBUG: Processing Campaign {campaign_id}. Media ID: {campaign_media_id}")
         
@@ -664,6 +670,13 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                         if res.status_code == 200:
                             m_content = res.content
                             m_mime = res.headers.get("Content-Type", "image/png")
+                            # Extract filename for Meta strict typing
+                            from urllib.parse import urlparse
+                            import os
+                            parsed = urlparse(full_url)
+                            path_filename = os.path.basename(parsed.path)
+                            if path_filename and '.' in path_filename:
+                                m_filename = path_filename
                 
                 if m_content:
                     fb_id, upload_err = await upload_whatsapp_media(m_content, m_filename, m_mime, credentials)
