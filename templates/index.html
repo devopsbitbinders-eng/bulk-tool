@@ -2425,16 +2425,17 @@
                         <div class="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span class="text-[10px] font-bold text-slate-500 w-24">Header (${currentHeaderType})</span>
-                                <select name="map_header" id="bulk_header_map" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1">
+                                <select name="map_header" id="bulk_header_map" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1" onchange="document.querySelector('input[name=\\'val_header\\']').disabled = (this.value !== '')">
                                     <option value="">-- Use Fixed URL below --</option>
+                                    <option value="__UPLOADED__">-- Use Uploaded Campaign Media --</option>
                                     ${currentFileColumns.map(c => `<option value="${c}">Use Column: ${c}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
                                 <span class="text-[10px] font-bold text-slate-400 w-24 ml-1">Fixed URL</span>
-                                <input type="text" name="val_header" value="${currentHeaderSampleUrl}" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1" placeholder="Paste image link here...">
+                                <input type="text" name="val_header" value="${currentHeaderSampleUrl}" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1 disabled:opacity-50" placeholder="Paste image link here...">
                             </div>
-                            <p class="text-[9px] text-slate-400 italic ml-24">Select a column above to use different images, or keep the link below to use the same image for everyone.</p>
+                            <p class="text-[9px] text-slate-400 italic ml-24">Select "Use Uploaded Campaign Media" to use the file you uploaded above, map a column, or paste a link.</p>
                         </div>
                     `;
                     } else {
@@ -2494,14 +2495,21 @@
                     const headerInput = document.querySelector('input[name="val_header"]');
                     const headerSelect = document.querySelector('select[name="map_header"]');
                     
-                    if (method === 'single' && headerInput && !headerInput.value.trim()) {
-                        return showToast(`Please provide a URL for the ${currentHeaderType} header!`, 'error');
+                    if (method === 'single' && headerInput && !headerInput.value.trim() && !document.getElementById('metaMediaId').value) {
+                        return showToast(`Please provide a URL or upload a file for the ${currentHeaderType} header!`, 'error');
                     }
                     if (method === 'bulk') {
-                        const hasColumn = headerSelect && headerSelect.value;
+                        const hasColumn = headerSelect && headerSelect.value && headerSelect.value !== '__UPLOADED__';
+                        const isUploaded = headerSelect && headerSelect.value === '__UPLOADED__';
                         const hasFixedUrl = headerInput && headerInput.value.trim();
-                        if (!hasColumn && !hasFixedUrl) {
-                            return showToast(`Please either map a column OR provide a fixed URL for the ${currentHeaderType} header!`, 'error');
+                        const hasMetaId = document.getElementById('metaMediaId').value;
+                        
+                        if (isUploaded && !hasMetaId) {
+                            return showToast('You selected "Use Uploaded Campaign Media" but haven\\'t uploaded any file in the Campaign Media section above!', 'error');
+                        }
+                        
+                        if (!hasColumn && !hasFixedUrl && !isUploaded && !hasMetaId) {
+                            return showToast(`Please either map a column, provide a fixed URL, or upload a file for the ${currentHeaderType} header!`, 'error');
                         }
                     }
                 }
@@ -2533,14 +2541,19 @@
                     if (method === 'bulk') {
                         const headerSelect = mappingContainer.querySelector('select[name="map_header"]');
                         const headerInput = mappingContainer.querySelector('input[name="val_header"]');
-                        if (headerSelect && headerSelect.value) {
+                        if (headerSelect && headerSelect.value && headerSelect.value !== '__UPLOADED__') {
                             mappings.header = { type: 'column', value: headerSelect.value };
-                        } else if (headerInput && headerInput.value.trim()) {
+                        } else if (headerSelect && headerSelect.value === '__UPLOADED__') {
+                            mappings.header = null; // Backend will use meta_media_id automatically
+                        } else if (headerInput && headerInput.value.trim() && (!headerSelect || !headerSelect.value)) {
                             mappings.header = { type: 'fixed', value: headerInput.value.trim() };
+                        } else if (document.getElementById('metaMediaId').value) {
+                            mappings.header = null; // Backend will use meta_media_id automatically
                         }
                     } else {
                         const headerInput = mappingContainer.querySelector('input[name="val_header"]');
-                        if (headerInput) mappings.header = headerInput.value;
+                        if (headerInput && headerInput.value.trim()) mappings.header = headerInput.value;
+                        else if (document.getElementById('metaMediaId').value) mappings.header = null;
                     }
 
                     // Var Mappings
