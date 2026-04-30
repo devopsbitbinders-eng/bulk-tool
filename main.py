@@ -1664,6 +1664,36 @@ async def upload_file(
             print(f"DEBUG: Media upload failed: {e}")
             return JSONResponse(status_code=400, content={"error": f"Local media processing failed: {e}"})
 
+    # PRE-UPLOAD HANDSHAKE FOR FIXED URLS (Fail Fast)
+    if not meta_media_id and mappings_dict and mappings_dict.get('header'):
+        if isinstance(mappings_dict.get('header'), dict) and mappings_dict['header'].get('type') == 'fixed':
+            fixed_url = mappings_dict['header'].get('value')
+            if fixed_url and str(fixed_url).startswith("http"):
+                try:
+                    creds = await get_active_credentials(u_id)
+                    if creds:
+                        print(f"DEBUG: Downloading fixed URL for handshake: {fixed_url}")
+                        async with httpx.AsyncClient(timeout=30.0) as client:
+                            res = await client.get(fixed_url)
+                            if res.status_code == 200:
+                                m_content = res.content
+                                m_mime = res.headers.get("Content-Type", "image/jpeg")
+                                from urllib.parse import urlparse
+                                import os
+                                parsed = urlparse(fixed_url)
+                                path_filename = os.path.basename(parsed.path)
+                                m_filename = path_filename if path_filename and '.' in path_filename else "media_file.jpg"
+                                
+                                fb_id, upload_err = await upload_whatsapp_media(m_content, m_filename, m_mime, creds)
+                                if fb_id:
+                                    meta_media_id = fb_id
+                                else:
+                                    return JSONResponse(status_code=400, content={"error": f"Failed to verify and upload fixed URL to Meta: {upload_err}"})
+                            else:
+                                return JSONResponse(status_code=400, content={"error": f"Failed to download fixed URL. Server returned HTTP {res.status_code}. Make sure the URL is publicly accessible."})
+                except Exception as e:
+                    return JSONResponse(status_code=400, content={"error": f"Error during fixed URL handshake: {e}"})
+
     # 1. Create Campaign with Metadata
     status = 'Scheduled' if scheduled_at else 'Pending'
     # Format scheduled_at to match our DB string format (YYYY-MM-DD HH:MM:SS)
