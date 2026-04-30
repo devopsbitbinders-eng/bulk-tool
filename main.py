@@ -665,11 +665,19 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                 # If not local or disk read failed, try HTTP
                 if not m_content and full_url.startswith("http"):
                     print(f"DEBUG: Fetching remote media for Meta upload: {full_url}")
-                    async with httpx.AsyncClient(timeout=30.0) as client:
-                        res = await client.get(full_url)
+                    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                        # Adding browser-like headers because Meta's scontent URLs can be picky
+                        h = {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                            "Accept": "image/*,video/*,application/pdf"
+                        }
+                        res = await client.get(full_url, headers=h)
                         if res.status_code == 200:
                             m_content = res.content
                             m_mime = res.headers.get("Content-Type", "image/png")
+                            print(f"DEBUG: Successfully fetched remote media. Size: {len(m_content)} bytes")
+                        else:
+                            print(f"DEBUG: Remote fetch failed: {res.status_code} - {res.text[:100]}")
                             # Extract filename for Meta strict typing
                             from urllib.parse import urlparse
                             import os
