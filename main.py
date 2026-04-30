@@ -165,8 +165,13 @@ async def upload_media(request: Request, file: UploadFile = File(...)):
                         print(f"DEBUG: Immediate Meta upload success for {username}: {meta_id}")
                     else:
                         print(f"DEBUG: Immediate Meta upload failed: {upload_err}")
+                        return JSONResponse(status_code=400, content={"error": f"Meta Upload Error: {upload_err}"})
             except Exception as e:
                 print(f"DEBUG: Immediate Meta upload failed: {e}")
+                return JSONResponse(status_code=400, content={"error": f"Meta Upload Exception: {e}"})
+
+        if not meta_id:
+            return JSONResponse(status_code=400, content={"error": "Failed to sync media with Meta. Please check your WhatsApp account link."})
 
         print(f"DEBUG: File uploaded to {save_path}, URL: {url}, MetaID: {meta_id}")
         return JSONResponse({
@@ -781,8 +786,15 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
                     param_obj = {"type": m_tag}
                     if campaign_media_id:
                         param_obj[m_tag] = {"id": str(campaign_media_id)}
-                    elif str(media_url).startswith("http"):
+                    elif str(media_url).startswith("http") and "/static/uploads/" not in str(media_url):
                         param_obj[m_tag] = {"link": str(media_url)}
+                    else:
+                        # FALLBACK: If we have no ID and the URL is a local serverless file, it's dead. 
+                        # Use a placeholder so Meta doesn't fail with "Media upload error".
+                        placeholder = "https://bitbinders.in/transparent.png"
+                        if m_tag == "video": placeholder = "https://bitbinders.in/placeholder.mp4"
+                        elif m_tag == "document": placeholder = "https://bitbinders.in/placeholder.pdf"
+                        param_obj[m_tag] = {"link": placeholder}
                     
                     # DOCUMENTS REQUIRE A FILENAME
                     if m_tag == 'document':
@@ -833,14 +845,25 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
             # CRITICAL FIX: If we have a template with forced_components, we must NOT 
             # let send_whatsapp_message try to upload it again.
             actual_media_url = media_url
-            if msg_type == "template" and str(actual_media_url).startswith("http") and campaign_media_id and campaign_media_id != "None":
-                # ONLY set to None if we have a valid campaign_media_id to use instead
+            actual_media_id = campaign_media_id
+            
+            if msg_type == "template" and str(actual_media_url).startswith("http") and actual_media_id and actual_media_id != "None":
+                # ONLY set to None if we have a valid actual_media_id to use instead
                 actual_media_url = None
+                
+            # FIX DEAD NON-TEMPLATE URLs
+            if final_msg_type in ["image", "video", "document", "audio"]:
+                if not actual_media_id and str(actual_media_url).startswith("http") and "/static/uploads/" in str(actual_media_url):
+                    # Dead URL. Force placeholder.
+                    placeholder = "https://bitbinders.in/transparent.png"
+                    if final_msg_type == "video": placeholder = "https://bitbinders.in/placeholder.mp4"
+                    elif final_msg_type == "document": placeholder = "https://bitbinders.in/placeholder.pdf"
+                    actual_media_url = placeholder
 
             success, response = await send_whatsapp_message(
                 phone, message_to_send, final_msg_type, template_name, language_code, 
                 media_url=actual_media_url, credentials=credentials, 
-                forced_components=forced_components, media_id=campaign_media_id
+                forced_components=forced_components, media_id=actual_media_id
             )
 
             wa_message_id = None
@@ -1617,10 +1640,16 @@ async def upload_file(
                         print(f"DEBUG: Manually uploaded campaign media to Meta: {meta_media_id}")
                     else:
                         print(f"DEBUG: Manual Meta upload in campaign failed: {upload_err}")
+                        return JSONResponse(status_code=400, content={"error": f"Meta Upload Error: {upload_err}"})
             except Exception as e:
                 print(f"DEBUG: Immediate Meta upload in campaign creation failed: {e}")
+                return JSONResponse(status_code=400, content={"error": f"Meta Upload Exception: {e}"})
+                
+            if not meta_media_id:
+                return JSONResponse(status_code=400, content={"error": "Failed to upload media to Meta. Please verify your account link."})
         except Exception as e:
             print(f"DEBUG: Media upload failed: {e}")
+            return JSONResponse(status_code=400, content={"error": f"Local media processing failed: {e}"})
 
     # 1. Create Campaign with Metadata
     status = 'Scheduled' if scheduled_at else 'Pending'
