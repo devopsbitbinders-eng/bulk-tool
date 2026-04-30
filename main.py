@@ -349,8 +349,8 @@ async def get_history(request: Request):
             c.id, c.name, c.status, c.timestamp,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('sent', 'delivered', 'read')) as sent_success,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered_count,
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read_count
         FROM campaigns c 
         WHERE c.user_id = :u 
         ORDER BY c.timestamp DESC 

@@ -331,7 +331,11 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
             msg_type: {}
         }
         if media_id:
-            payload[msg_type]["id"] = media_id
+            # Meta Error 100 Fix: If ID is numeric, some Meta versions expect it as an integer, not string.
+            if str(media_id).isdigit():
+                payload[msg_type]["id"] = int(media_id)
+            else:
+                payload[msg_type]["id"] = media_id
         elif media_url:
             payload[msg_type]["link"] = media_url
             

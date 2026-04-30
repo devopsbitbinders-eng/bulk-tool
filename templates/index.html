@@ -2244,8 +2244,8 @@
                         <td class="px-8 py-5 text-xs text-slate-500 capitalize sync-time">${c.timestamp}</td>
                         <td class="px-8 py-5 text-center text-sm font-medium text-slate-600">${c.sent_success}</td>
                         <td class="px-8 py-5 text-center text-sm font-medium text-rose-600">${c.failed || 0}</td>
-                        <td class="px-8 py-5 text-center text-sm font-medium text-blue-600">${c.delivered || 0}</td>
-                        <td class="px-8 py-5 text-center text-sm font-medium text-emerald-600">${c.read || 0}</td>
+                        <td class="px-8 py-5 text-center text-sm font-medium text-blue-600">${c.delivered_count || 0}</td>
+                        <td class="px-8 py-5 text-center text-sm font-medium text-emerald-600">${c.read_count || 0}</td>
                         <td class="px-8 py-5 text-right">
                             <div class="flex items-center justify-end gap-3">
                                 <button onclick="window.location.href='/api/campaigns/${c.id}/export'" class="text-emerald-600 hover:text-emerald-800 text-[10px] font-bold flex items-center gap-1">
