@@ -730,6 +730,12 @@
                                             onchange="handleCampaignMedia(this)">
                                     </label>
                                 </div>
+                                <div id="campaignMediaStatus" class="mt-2 hidden flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    <span id="campaignMediaFilename">File Attached</span>
+                                </div>
                                 <p class="mt-1 text-[10px] text-slate-400 font-medium italic">Max size: Images 5MB,
                                     Video 16MB, Documents 100MB.</p>
                             </div>
@@ -2810,6 +2816,24 @@
                             document.getElementById('metaMediaId').value = data.meta_media_id;
                             console.log("DEBUG: Meta ID captured:", data.meta_media_id);
                         }
+                        
+                        // UI Feedback
+                        const statusEl = document.getElementById('campaignMediaStatus');
+                        const nameEl = document.getElementById('campaignMediaFilename');
+                        if (statusEl && nameEl) {
+                            statusEl.classList.remove('hidden');
+                            nameEl.innerText = file.name;
+                        }
+
+                        // Auto-select "Use Uploaded" in mapping if applicable
+                        const headerMap = document.getElementById('bulk_header_map');
+                        if (headerMap) {
+                            headerMap.value = '__UPLOADED__';
+                            // Trigger the onchange logic manually
+                            const headerInput = document.querySelector('input[name="val_header"]');
+                            if (headerInput) headerInput.disabled = true;
+                        }
+
                         showToast('Media attached to campaign!', 'success');
                     } else {
                         showToast(data.error || 'Upload failed', 'error');
