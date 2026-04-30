@@ -2417,6 +2417,12 @@
                 
                 selectedTemplateLang = template.language || "en_US";
 
+                // Clear old media states when switching templates to prioritize the new template's own image
+                document.getElementById('metaMediaId').value = "";
+                document.getElementById('campaignMediaUrl').value = "";
+                const statusEl = document.getElementById('campaignMediaStatus');
+                if (statusEl) statusEl.classList.add('hidden');
+
                 document.getElementById('mappingArea').classList.remove('hidden');
                 renderMappingUI(varMap);
             }
@@ -2434,6 +2440,15 @@
 
                 // Media Header Mapping
                 if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(currentHeaderType)) {
+                    // PREVIEW OF TEMPLATE IMAGE
+                    if (currentHeaderSampleUrl && currentHeaderType === 'IMAGE') {
+                        html += `
+                        <div class="mb-4 flex flex-col items-center gap-2 p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Template Image Preview</span>
+                            <img src="${currentHeaderSampleUrl}" class="max-h-40 rounded-lg border border-slate-200" onerror="this.parentElement.style.display='none'">
+                        </div>`;
+                    }
+
                     if (method === 'bulk') {
                         const hasUploadedMedia = !!document.getElementById('metaMediaId')?.value;
                         html += `
@@ -2441,7 +2456,7 @@
                             <div class="flex items-center gap-3">
                                 <span class="text-[10px] font-bold text-slate-500 w-24">Header (${currentHeaderType})</span>
                                 <select name="map_header" id="bulk_header_map" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1" onchange="document.querySelector('input[name=\\'val_header\\']').disabled = (this.value !== '')">
-                                    <option value="" ${hasUploadedMedia ? '' : 'selected'}>-- Use Fixed URL below --</option>
+                                    <option value="" ${hasUploadedMedia ? '' : 'selected'}>-- Use Template Image / Fixed URL --</option>
                                     <option value="__UPLOADED__" ${hasUploadedMedia ? 'selected' : ''}>-- Use Uploaded Campaign Media --</option>
                                     ${currentFileColumns.map(c => `<option value="${c}">Use Column: ${c}</option>`).join('')}
                                 </select>
@@ -2450,16 +2465,19 @@
                                 <span class="text-[10px] font-bold text-slate-400 w-24 ml-1">Fixed URL</span>
                                 <input type="text" name="val_header" value="${currentHeaderSampleUrl}" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1 disabled:opacity-50" ${hasUploadedMedia ? 'disabled' : ''} placeholder="Paste image link here...">
                             </div>
-                            <p class="text-[9px] text-slate-400 italic ml-24">Select "Use Uploaded Campaign Media" to use the file you uploaded above, map a column, or paste a link.</p>
+                            <p class="text-[9px] text-slate-400 italic ml-24">Default is your approved template image. Upload a new one below only if you want to change it.</p>
                         </div>
                     `;
                     } else {
                         html += `
-                        <div class="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200">
-                            <span class="text-[10px] font-bold text-slate-500 w-24">Header URL</span>
-                            <input type="text" name="val_header" value="${currentHeaderSampleUrl}" class="flex-1 bg-transparent border-none outline-none text-[10px] font-medium" placeholder="https://example.com/image.jpg">
+                        <div class="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-bold text-slate-500 w-24">Header URL</span>
+                                <input type="text" name="val_header" value="${currentHeaderSampleUrl}" class="flex-1 bg-white border border-slate-200 rounded-lg outline-none text-[10px] font-medium p-1" placeholder="https://example.com/image.jpg">
+                            </div>
+                            <p class="text-[9px] text-slate-400 italic ml-24">Pre-filled with your approved template image.</p>
                         </div>
-                    `;
+                        `;
                     }
                 }
 
