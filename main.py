@@ -1806,15 +1806,32 @@ async def upload_file(
         "maps": json.dumps(mappings_dict), "pcol": phone_col, "sch": final_schedule, "murl": final_media_url, "mid": meta_media_id
     })
 
-    # 2. Bulk Insert pending messages
+    # 2. Bulk Insert messages (Insert ALL rows for full report transparency)
+    failed_initial_count = 0
     for row in data:
         raw_phone = str(row.get(phone_col, ""))
         phone = normalize_phone(raw_phone)
-        if phone:
-            await db.execute("""
-                INSERT INTO messages (user_id, campaign_id, phone, status, row_data) 
-                VALUES (:u, :c, :p, :s, :rd)
-            """, {"u": u_id, "c": campaign_id, "p": phone, "s": 'pending', "rd": json.dumps(row)})
+        
+        # If phone is invalid, insert it as failed immediately
+        status = 'pending' if phone else 'failed'
+        error_msg = "" if phone else "Invalid or missing phone number"
+        
+        if not phone:
+            failed_initial_count += 1
+        
+        await db.execute("""
+            INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
+            VALUES (:u, :c, :p, :s, :rd, :err)
+        """, {
+            "u": u_id, "c": campaign_id, "p": phone or raw_phone, 
+            "s": status, "rd": json.dumps(row), "err": error_msg
+        })
+        
+    # Update campaign failed count for invalid numbers
+    if failed_initial_count > 0:
+        await db.execute("""
+            UPDATE campaigns SET sent_failed = sent_failed + :f WHERE id = :id
+        """, {"f": failed_initial_count, "id": campaign_id})
     
     return {"message": "Campaign queued", "campaign_id": campaign_id, "total": len(data)}
 
