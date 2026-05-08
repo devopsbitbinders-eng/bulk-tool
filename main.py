@@ -615,7 +615,7 @@ async def api_get_templates(request: Request):
         templates_list.append(t)
     return templates_list
 
-async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
+async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
     """Processes a small batch of pending messages for a campaign. Prevents timeouts."""
     try:
         db = await get_db()
@@ -939,7 +939,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 3):
             
             processed_count += 1
             # Minimal delay between messages in batch
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.2)
 
         # 4. Update Campaign Totals
         total_processed = campaign['sent_success'] + campaign['sent_failed'] + processed_count
@@ -1821,9 +1821,9 @@ async def process_batch_endpoint(request: Request, campaign_id: int):
     if not verify_session_token(session_token):
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     
-    # Process batch of 5
+    # Process batch of 30
     try:
-        result = await process_campaign_batch(campaign_id, batch_size=5)
+        result = await process_campaign_batch(campaign_id, batch_size=30)
         return result
     except Exception as e:
         print(f"DEBUG CRITICAL: process_batch_endpoint error: {str(e)}")
