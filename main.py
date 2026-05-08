@@ -2265,6 +2265,18 @@ async def get_webhook_logs(request: Request):
     logs = await db.fetch_all("SELECT * FROM webhook_logs ORDER BY id DESC LIMIT 20")
     return [dict(l) for l in logs]
 
+@app.get("/api/force-subscribe")
+async def force_subscribe():
+    db = await get_db()
+    rows = await db.fetch_all("SELECT waba_id, whatsapp_token, user_id FROM user_credentials WHERE is_active = 1")
+    results = []
+    for r in rows:
+        waba_id = r['waba_id']
+        token = r['whatsapp_token']
+        success = await subscribe_waba_to_app(waba_id, token)
+        results.append({"user_id": r['user_id'], "waba_id": waba_id, "success": bool(success)})
+    return {"results": results}
+
 @app.post("/webhook")
 async def webhook_handler(request: Request):
     data = await request.json()
