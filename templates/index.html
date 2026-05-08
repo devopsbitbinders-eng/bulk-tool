@@ -3896,12 +3896,39 @@
                 document.getElementById('chatPlaceholder').classList.add('hidden');
                 document.getElementById('activeChat').classList.remove('hidden');
                 document.getElementById('activeChat').classList.add('flex');
-                document.getElementById('chatDisplayName').innerText = phone;
-                document.getElementById('chatInitials').innerText = phone.slice(-2);
+                
+                const contact = window.chatContactsData.find(c => c.phone === phone);
+                let displayName = phone;
+                let initials = phone.slice(-2);
+                let avatarColor = 'bg-slate-200 text-slate-500';
+                
+                if (contact) {
+                    const name = contact.name || phone;
+                    displayName = contact.name ? `${contact.name} (${phone})` : phone;
+                    avatarColor = `${getAvatarColor(name)} text-white`;
+                    
+                    if (contact.name) {
+                        const parts = contact.name.trim().split(/\s+/);
+                        if (parts.length >= 2) {
+                            initials = (parts[0][0] + parts[1][0]).toUpperCase();
+                        } else if (parts.length === 1 && parts[0].length >= 2) {
+                            initials = parts[0].slice(0, 2).toUpperCase();
+                        } else if (parts.length === 1) {
+                            initials = parts[0][0].toUpperCase();
+                        }
+                    }
+                }
+                
+                document.getElementById('chatDisplayName').innerText = displayName;
+                document.getElementById('chatInitials').innerText = initials;
+                
+                // Update avatar color in header
+                const avatarDiv = document.getElementById('chatInitials').parentElement;
+                avatarDiv.className = `w-10 h-10 ${avatarColor} rounded-full flex items-center justify-center font-bold`;
+                
                 document.getElementById('chatInput').value = '';
 
                 // Mark as read in UI & DB
-                const contact = window.chatContactsData.find(c => c.phone === phone);
                 if (contact && contact.has_unread) {
                     contact.has_unread = false;
                     renderChatContacts(); // clear unread dot
