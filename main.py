@@ -642,14 +642,18 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 campaign_media_url = mappings.get('header').get('value')
                 
         campaign_media_id = campaign.get('meta_media_id')
-        print(f"DEBUG: Processing Campaign {campaign_id}. Media ID: {campaign_media_id}")
-        
-        # 2. Fetch pending messages
-        pending_raw = await db.fetch_all(
-            "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit",
-            {"id": campaign_id, "limit": batch_size}
-        )
-        pending_messages = [dict(m) for m in pending_raw]
+        # 2. Fetch pending messages safely (Locking them)
+        pending_messages = []
+        async with db.transaction():
+            pending_raw = await db.fetch_all(
+                "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit",
+                {"id": campaign_id, "limit": batch_size}
+            )
+            if pending_raw:
+                pending_messages = [dict(m) for m in pending_raw]
+                ids = [m['id'] for m in pending_messages]
+                # Mark them as 'processing' immediately so other requests skip them
+                await db.execute(f"UPDATE messages SET status = 'processing' WHERE id IN ({','.join(map(str, ids))})")
         
         if not pending_messages:
             await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
@@ -945,8 +949,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
         total_processed = campaign['sent_success'] + campaign['sent_failed'] + processed_count
         await db.execute("""
             UPDATE campaigns 
-            SET sent_success = sent_success + :s, sent_failed = sent_failed + :f,
-                status = CASE WHEN (sent_success + sent_failed + :s + :f) >= total_numbers THEN 'Completed' ELSE 'Processing' END
+            SET sent_success = sent_success + :s, sent_failed = sent_failed + :f
             WHERE id = :id
         """, {"s": success_batch, "f": failed_batch, "id": campaign_id})
 
