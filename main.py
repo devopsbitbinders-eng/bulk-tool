@@ -347,9 +347,9 @@ async def get_history(request: Request):
     query = """
         SELECT 
             c.id, c.name, c.status, c.timestamp,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('sent', 'delivered', 'read')) as sent_success,
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'sent') as sent_success,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('delivered', 'read')) as delivered_count,
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered_count,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read_count
         FROM campaigns c 
         WHERE c.user_id = :u 
@@ -2219,8 +2219,8 @@ async def get_campaign_details(request: Request, campaign_id: int):
     stats = await db.fetch_one("""
         SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN status IN ('sent', 'delivered', 'read') THEN 1 ELSE 0 END) as sent,
-            SUM(CASE WHEN status IN ('delivered', 'read') THEN 1 ELSE 0 END) as delivered,
+            SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
+            SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) as delivered,
             SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END) as `read`,
             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
         FROM messages WHERE campaign_id = :id AND user_id = :u
