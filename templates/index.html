@@ -3684,6 +3684,19 @@
                         return;
                     }
 
+                    if (data.type === 'new_message') {
+                        console.log("New message received via SSE:", data);
+                        // Reload chat contacts list if function exists
+                        if (typeof loadChatContacts === 'function') {
+                            loadChatContacts();
+                        }
+                        // If user is actively chatting with this person, reload messages
+                        if (window.currentChatPhone === data.phone) {
+                            loadChatHistory(data.phone, true); // true for silent load
+                        }
+                        return;
+                    }
+
                     if (data.is_waiting) {
                         if (lastEventEl) lastEventEl.innerHTML = `<span class="text-amber-600 font-medium italic">${data.status_text}</span>`;
                         return;

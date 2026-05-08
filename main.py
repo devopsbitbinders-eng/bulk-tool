@@ -2430,6 +2430,16 @@ async def webhook_handler(request: Request):
                             VALUES (:u, :phone, :message, 'inbound', :id, 0, :ts)
                         """, {"u": u_id, "phone": clean_from, "message": body, "id": wa_message_id, "ts": get_now_utc()})
                         print(f"DEBUG WEBHOOK: Saved inbound {msg_type} from {clean_from} for user {u_id}")
+                        
+                        # BROADCAST to Live UI (SSE)
+                        inbound_event = json.dumps({
+                            "type": "new_message",
+                            "phone": clean_from,
+                            "message": body,
+                            "user_id": u_id
+                        })
+                        for queue in event_queues:
+                            await queue.put(inbound_event)
                 
     except Exception as e:
         print(f"DEBUG WEBHOOK: Error processing: {str(e)}")
