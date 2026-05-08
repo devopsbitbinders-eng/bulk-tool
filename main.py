@@ -2593,6 +2593,43 @@ async def get_chat_contacts(request: Request):
         
     return contacts
 
+@app.get("/api/fix-existing-contacts")
+async def fix_existing_contacts(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    
+    db = await get_db()
+    logs = await db.fetch_all("SELECT payload FROM webhook_logs")
+    
+    profile_names = {}
+    for log in logs:
+        try:
+            payload = json.loads(log['payload'])
+            entries = payload.get("entry", [])
+            for entry in entries:
+                changes = entry.get("changes", [])
+                for change in changes:
+                    value = change.get("value", {})
+                    contacts = value.get("contacts", [])
+                    for contact in contacts:
+                        wa_id = contact.get("wa_id")
+                        profile = contact.get("profile") or {}
+                        name = profile.get("name")
+                        if wa_id and name:
+                            profile_names[wa_id] = name
+        except: pass
+        
+    for wa_id, name in profile_names.items():
+        clean_phone = normalize_phone(wa_id)
+        await db.execute("""
+            UPDATE chat_messages 
+            SET sender_name = :name 
+            WHERE phone = :p AND (sender_name IS NULL OR sender_name = '')
+        """, {"name": name, "p": clean_phone})
+        
+    return {"message": f"Scanned past logs and found names for {len(profile_names)} contacts. Applied updates."}
+
 @app.post("/api/chat/read/{phone}")
 async def mark_chat_read(phone: str):
     db = await get_db()
