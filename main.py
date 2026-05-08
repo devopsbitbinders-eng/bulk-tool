@@ -1417,7 +1417,7 @@ async def export_campaign(campaign_id: int):
 
     db = await get_db()
     rows = await db.fetch_all("""
-        SELECT row_data, status, timestamp, phone 
+        SELECT row_data, status, timestamp, phone, error_message 
         FROM messages 
         WHERE campaign_id = :id
     """, {"id": campaign_id})
@@ -1425,18 +1425,30 @@ async def export_campaign(campaign_id: int):
     if not rows:
         return JSONResponse({"error": "No data found for this campaign"}, status_code=404)
 
-    # Reconstruct original columns + new status/time
+    # Strictly show only: Phone Number, Name, Status, Error, and Time
     report_data = []
     from datetime import datetime, timedelta
     
     for r in rows:
         raw = r['row_data']
+        name_val = ""
         if raw:
-            data = json.loads(raw)
-        else:
-            data = {"Phone": r['phone']}
-            
-        data['Delivery Status'] = str(r['status']).capitalize() if r['status'] else "Unknown"
+            orig_data = json.loads(raw)
+            # Try to find a name from var_1 or columns containing 'name'
+            if 'var_1' in orig_data:
+                name_val = orig_data['var_1']
+            else:
+                for k, v in orig_data.items():
+                    if 'name' in k.lower():
+                        name_val = v
+                        break
+                        
+        data = {
+            "Phone Number": r['phone'],
+            "Name": name_val,
+            "Status": str(r['status']).capitalize() if r['status'] else "Unknown",
+            "Error": r['error_message'] if r['error_message'] else ""
+        }
         
         # Convert timestamp to IST (UTC + 5:30)
         if r['timestamp']:
@@ -1447,11 +1459,11 @@ async def export_campaign(campaign_id: int):
                     dt = r['timestamp'] # Assume it's a datetime object
                     
                 ist_dt = dt + timedelta(hours=5, minutes=30)
-                data['Sent At'] = ist_dt.strftime("%Y-%m-%d %H:%M:%S")
+                data['Time'] = ist_dt.strftime("%Y-%m-%d %H:%M:%S")
             except Exception:
-                data['Sent At'] = str(r['timestamp'])
+                data['Time'] = str(r['timestamp'])
         else:
-            data['Sent At'] = ""
+            data['Time'] = ""
             
         report_data.append(data)
 
