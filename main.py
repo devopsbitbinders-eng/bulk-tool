@@ -1291,11 +1291,27 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
             
         # Log message status with UTC (browser converts to local)
         now_utc = get_now_utc()
+        
+        # Compute message text with variables replaced for DB storage
+        db_message_text = substitute_template(message_template or "", row)
+        
+        # If it has media, store as JSON for the chat UI to render
+        if (media_url or campaign_media_id) or (final_msg_type in ["image", "video", "document", "audio"]):
+            db_message = json.dumps({
+                "is_media": True,
+                "media_type": final_msg_type or "image",
+                "media_url": media_url if isinstance(media_url, str) and media_url.startswith("http") else None,
+                "media_id": str(campaign_media_id) if campaign_media_id else None,
+                "caption": db_message_text
+            })
+        else:
+            db_message = db_message_text
+
         await db.execute("""
             INSERT INTO messages (user_id, campaign_id, phone, message, status, error_message, whatsapp_message_id, row_data, timestamp)
             VALUES (:u, :campaign_id, :phone, :message, :status, :error_message, :wa_id, :row_data, :timestamp)
         """, {
-            "u": user_id, "campaign_id": campaign_id, "phone": phone, "message": str(message_to_send), 
+            "u": user_id, "campaign_id": campaign_id, "phone": phone, "message": db_message, 
             "status": status, "error_message": error, "wa_id": wa_message_id, 
             "row_data": json.dumps(row), "timestamp": now_utc
         })

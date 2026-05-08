@@ -3914,7 +3914,7 @@
                             if (m.message.trim().startsWith('{') && m.message.trim().endsWith('}')) {
                                 const data = JSON.parse(m.message);
                                 if (data.is_media) {
-                                    const mediaUrl = `/api/chat/media/${data.media_id}`;
+                                    const mediaUrl = data.media_url || `/api/chat/media/${data.media_id}`;
                                     if (data.media_type === 'image') {
                                         displayMsg = `<div class="mb-2"><img src="${mediaUrl}" class="rounded-lg max-w-full h-auto cursor-pointer border border-slate-100" onclick="window.open('${mediaUrl}')" loading="lazy" /></div>`;
                                         if (data.caption) displayMsg += `<p class="text-sm">${data.caption}</p>`;
