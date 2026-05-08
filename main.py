@@ -1686,7 +1686,9 @@ async def upload_file(
 
     if single_mobile:
         single_mobile = single_mobile.strip()
-        data = [{"phone": single_mobile}]
+        # Support multiple numbers separated by comma
+        numbers = [n.strip() for n in single_mobile.split(",") if n.strip()]
+        data = [{"phone": n} for n in numbers]
         phone_col = "phone"
         filename = "Manual Entry"
         
@@ -1694,10 +1696,12 @@ async def upload_file(
             new_mappings = {"vars": {}, "header": None}
             if "vars" in mappings_dict:
                 for k, v in mappings_dict["vars"].items():
-                    data[0][f"var_{k}"] = v
+                    for row in data:
+                        row[f"var_{k}"] = v
                     new_mappings["vars"][k] = f"var_{k}"
             if "header" in mappings_dict and mappings_dict["header"]:
-                data[0]["header_url"] = mappings_dict["header"]
+                for row in data:
+                    row["header_url"] = mappings_dict["header"]
                 new_mappings["header"] = "header_url"
             mappings_dict = new_mappings
     else:
