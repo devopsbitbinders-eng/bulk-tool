@@ -2396,8 +2396,22 @@ async def webhook_handler(request: Request):
                         })
                         for queue in event_queues:
                             await queue.put(update_event)
-                    else:
-                        print(f"DEBUG WEBHOOK: Message ID {wa_message_id} not found in DB")
+                
+                # Ensure sender_name column exists in chat_messages
+                try:
+                    await db.execute("ALTER TABLE chat_messages ADD COLUMN sender_name TEXT")
+                except: pass
+
+                # Extract profile names from contacts array
+                contacts_data = value.get("contacts", [])
+                profile_names = {}
+                for contact in contacts_data:
+                    wa_id = contact.get("wa_id")
+                    profile = contact.get("profile") or {}
+                    name = profile.get("name")
+                    if wa_id and name:
+                        profile_names[wa_id] = name
+
                 # Check if it's an incoming message
                 incoming_messages = value.get("messages", [])
                 for msg_data in incoming_messages:
@@ -2408,19 +2422,16 @@ async def webhook_handler(request: Request):
                     # Fallback User ID lookup if phone_number_id failed
                     # We check who was the last user to message this phone number
                     if u_id is None:
-                        print(f"DEBUG WEBHOOK: u_id is None for inbound from {from_phone}. Attempting fallback lookup...")
                         last_msg = await db.fetch_one("SELECT user_id FROM messages WHERE phone LIKE :p ORDER BY timestamp DESC LIMIT 1", {"p": f"%{from_phone[-10:]}"})
                         if not last_msg:
                             last_msg = await db.fetch_one("SELECT user_id FROM chat_messages WHERE phone LIKE :p ORDER BY timestamp DESC LIMIT 1", {"p": f"%{from_phone[-10:]}"})
                         
                         if last_msg:
                             u_id = last_msg['user_id']
-                            print(f"DEBUG WEBHOOK: Fallback u_id found: {u_id}")
                         else:
                             # Final fallback: just use the first active admin user if any
                             first_user = await db.fetch_one("SELECT id FROM users WHERE is_approved = 1 LIMIT 1")
                             u_id = first_user['id'] if first_user else None
-                            print(f"DEBUG WEBHOOK: Final fallback u_id: {u_id}")
 
                     body = ""
                     if msg_type == "text":
@@ -2445,10 +2456,12 @@ async def webhook_handler(request: Request):
                     existing = await db.fetch_one("SELECT id FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
                     if not existing:
                         clean_from = normalize_phone(from_phone)
+                        sender_name = profile_names.get(from_phone) or profile_names.get(clean_from)
+                        
                         await db.execute("""
-                            INSERT INTO chat_messages (user_id, phone, message, direction, wa_message_id, is_read, timestamp)
-                            VALUES (:u, :phone, :message, 'inbound', :id, 0, :ts)
-                        """, {"u": u_id, "phone": clean_from, "message": body, "id": wa_message_id, "ts": get_now_utc()})
+                            INSERT INTO chat_messages (user_id, phone, message, direction, wa_message_id, is_read, timestamp, sender_name)
+                            VALUES (:u, :phone, :message, 'inbound', :id, 0, :ts, :sender_name)
+                        """, {"u": u_id, "phone": clean_from, "message": body, "id": wa_message_id, "ts": get_now_utc(), "sender_name": sender_name})
                         print(f"DEBUG WEBHOOK: Saved inbound {msg_type} from {clean_from} for user {u_id}")
                         
                         # BROADCAST to Live UI (SSE)
@@ -2567,6 +2580,15 @@ async def get_chat_contacts(request: Request):
                 data_dict = json.loads(row_data)
                 name = data_dict.get('Name') or data_dict.get('name') or data_dict.get('Customer Name') or data_dict.get('customer name')
             except: pass
+            
+        # If name not found in campaign data, check if we captured it from inbound webhook
+        if not name:
+            try:
+                sender_row = await db.fetch_one("SELECT sender_name FROM chat_messages WHERE phone = :p AND sender_name IS NOT NULL LIMIT 1", {"p": phone})
+                if sender_row:
+                    name = sender_row['sender_name']
+            except: pass
+            
         contacts.append({"phone": phone, "name": name, "has_unread": has_unread})
         
     return contacts
