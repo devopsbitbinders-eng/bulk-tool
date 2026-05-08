@@ -2578,7 +2578,7 @@ async def get_chat_contacts(request: Request):
         if row_data:
             try:
                 data_dict = json.loads(row_data)
-                name = data_dict.get('Name') or data_dict.get('name') or data_dict.get('Customer Name') or data_dict.get('customer name')
+                name = data_dict.get('Name') or data_dict.get('name') or data_dict.get('Customer Name') or data_dict.get('customer name') or data_dict.get('var_1')
             except: pass
             
         # If name not found in campaign data, check if we captured it from inbound webhook
