@@ -2543,7 +2543,8 @@ async def get_chat_contacts(request: Request):
     # Unique phones and their unread status filtered by user_id
     rows = await db.fetch_all("""
         SELECT t.phone, 
-               MAX(CASE WHEN c.is_read = 0 AND c.direction = 'inbound' THEN 1 ELSE 0 END) as has_unread
+               MAX(CASE WHEN c.is_read = 0 AND c.direction = 'inbound' THEN 1 ELSE 0 END) as has_unread,
+               (SELECT row_data FROM messages WHERE phone = t.phone AND user_id = :u AND row_data IS NOT NULL ORDER BY timestamp DESC LIMIT 1) as row_data
         FROM (
             SELECT phone FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read')
             UNION
@@ -2554,7 +2555,21 @@ async def get_chat_contacts(request: Request):
         GROUP BY t.phone
         ORDER BY MAX(c.timestamp) DESC, t.phone ASC
     """, {"u": u_id})
-    return [{"phone": r['phone'], "has_unread": bool(r['has_unread'])} for r in rows]
+    
+    contacts = []
+    for r in rows:
+        phone = r['phone']
+        has_unread = bool(r['has_unread'])
+        name = None
+        row_data = r['row_data']
+        if row_data:
+            try:
+                data_dict = json.loads(row_data)
+                name = data_dict.get('Name') or data_dict.get('name') or data_dict.get('Customer Name') or data_dict.get('customer name')
+            except: pass
+        contacts.append({"phone": phone, "name": name, "has_unread": has_unread})
+        
+    return contacts
 
 @app.post("/api/chat/read/{phone}")
 async def mark_chat_read(phone: str):
