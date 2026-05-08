@@ -2602,6 +2602,11 @@ async def fix_existing_contacts(request: Request):
         
         db = await get_db()
         
+        # Ensure sender_name column exists in chat_messages
+        try:
+            await db.execute("ALTER TABLE chat_messages ADD COLUMN sender_name TEXT")
+        except: pass
+        
         # Check if table exists first
         try:
             logs = await db.fetch_all("SELECT payload FROM webhook_logs")
