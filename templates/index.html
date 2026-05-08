@@ -3940,13 +3940,13 @@
                             displayMsg = m.message;
                         }
 
-                        let tickColor = 'text-white/50'; 
+                        let tickColor = 'text-white/40'; 
                         if (m.wa_status === 'read') {
-                            tickColor = 'text-sky-300'; // Blue tick
+                            tickColor = 'text-[#53bdeb]'; // WhatsApp Blue tick
                         } else if (m.wa_status === 'delivered') {
-                            tickColor = 'text-white/90'; // Delivered
+                            tickColor = 'text-white'; // Delivered (bright white)
                         } else if (m.wa_status === 'failed') {
-                            tickColor = 'text-rose-300'; // Failed
+                            tickColor = 'text-red-300'; // Failed
                         }
 
                         return `
