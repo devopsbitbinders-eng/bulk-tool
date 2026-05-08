@@ -2259,6 +2259,12 @@ async def webhook_verify(request: Request):
         print("DEBUG WEBHOOK: Verification failed.")
         return JSONResponse(status_code=403, content={"error": "Verification failed"})
 
+@app.get("/api/webhook-logs")
+async def get_webhook_logs(request: Request):
+    db = await get_db()
+    logs = await db.fetch_all("SELECT * FROM webhook_logs ORDER BY id DESC LIMIT 20")
+    return [dict(l) for l in logs]
+
 @app.post("/webhook")
 async def webhook_handler(request: Request):
     data = await request.json()
