@@ -2622,7 +2622,7 @@ async def get_chat_history(request: Request, phone: str):
         FROM messages 
         WHERE phone = :p AND user_id = :u AND status != 'failed'
         UNION ALL
-        SELECT direction, message, timestamp, NULL as wa_status, wa_message_id
+        SELECT direction, message, timestamp, status as wa_status, wa_message_id
         FROM chat_messages
         WHERE phone = :p AND user_id = :u
         ORDER BY timestamp ASC
