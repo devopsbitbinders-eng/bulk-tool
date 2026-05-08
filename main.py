@@ -1441,11 +1441,15 @@ async def export_campaign(campaign_id: int):
         # Convert timestamp to IST (UTC + 5:30)
         if r['timestamp']:
             try:
-                dt = datetime.strptime(r['timestamp'], "%Y-%m-%d %H:%M:%S")
+                if isinstance(r['timestamp'], str):
+                    dt = datetime.strptime(r['timestamp'], "%Y-%m-%d %H:%M:%S")
+                else:
+                    dt = r['timestamp'] # Assume it's a datetime object
+                    
                 ist_dt = dt + timedelta(hours=5, minutes=30)
                 data['Sent At'] = ist_dt.strftime("%Y-%m-%d %H:%M:%S")
             except Exception:
-                data['Sent At'] = r['timestamp']
+                data['Sent At'] = str(r['timestamp'])
         else:
             data['Sent At'] = ""
             
