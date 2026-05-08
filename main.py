@@ -349,7 +349,7 @@ async def get_history(request: Request):
             c.id, c.name, c.status, c.timestamp,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('sent', 'delivered', 'read')) as sent_success,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered_count,
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('delivered', 'read')) as delivered_count,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read_count
         FROM campaigns c 
         WHERE c.user_id = :u 
@@ -1427,6 +1427,8 @@ async def export_campaign(campaign_id: int):
 
     # Reconstruct original columns + new status/time
     report_data = []
+    from datetime import datetime, timedelta
+    
     for r in rows:
         raw = r['row_data']
         if raw:
@@ -1434,8 +1436,19 @@ async def export_campaign(campaign_id: int):
         else:
             data = {"Phone": r['phone']}
             
-        data['Delivery Status'] = r['status']
-        data['Sent At'] = r['timestamp']
+        data['Delivery Status'] = str(r['status']).capitalize() if r['status'] else "Unknown"
+        
+        # Convert timestamp to IST (UTC + 5:30)
+        if r['timestamp']:
+            try:
+                dt = datetime.strptime(r['timestamp'], "%Y-%m-%d %H:%M:%S")
+                ist_dt = dt + timedelta(hours=5, minutes=30)
+                data['Sent At'] = ist_dt.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                data['Sent At'] = r['timestamp']
+        else:
+            data['Sent At'] = ""
+            
         report_data.append(data)
 
     df = pd.DataFrame(report_data)
