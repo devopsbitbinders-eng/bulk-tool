@@ -2567,51 +2567,57 @@ async def get_templates_api():
 
 @app.get("/api/chat/contacts")
 async def get_chat_contacts(request: Request):
-    session_token = request.cookies.get("session_token")
-    username = verify_session_token(session_token)
-    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-    u_id = await get_user_id(username)
-    
-    db = await get_db()
-    # Unique phones and their unread status filtered by user_id
-    rows = await db.fetch_all("""
-        SELECT t.phone, 
-               MAX(CASE WHEN c.is_read = 0 AND c.direction = 'inbound' THEN 1 ELSE 0 END) as has_unread,
-               (SELECT row_data FROM messages WHERE phone = t.phone AND user_id = :u AND row_data IS NOT NULL ORDER BY timestamp DESC LIMIT 1) as row_data
-        FROM (
-            SELECT phone FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read')
-            UNION
-            SELECT phone FROM chat_messages WHERE user_id = :u
-        ) t
-        LEFT JOIN chat_messages c ON t.phone = c.phone AND c.user_id = :u
-        WHERE t.phone IS NOT NULL AND t.phone != ''
-        GROUP BY t.phone
-        ORDER BY MAX(c.timestamp) DESC, t.phone ASC
-    """, {"u": u_id})
-    
-    contacts = []
-    for r in rows:
-        phone = r['phone']
-        has_unread = bool(r['has_unread'])
-        name = None
-        row_data = r['row_data']
-        if row_data:
-            try:
-                data_dict = json.loads(row_data)
-                name = data_dict.get('Name') or data_dict.get('name') or data_dict.get('Customer Name') or data_dict.get('customer name') or data_dict.get('var_1')
-            except: pass
-            
-        # If name not found in campaign data, check if we captured it from inbound webhook
-        if not name:
-            try:
-                sender_row = await db.fetch_one("SELECT sender_name FROM chat_messages WHERE phone = :p AND sender_name IS NOT NULL LIMIT 1", {"p": phone})
-                if sender_row:
-                    name = sender_row['sender_name']
-            except: pass
-            
-        contacts.append({"phone": phone, "name": name, "has_unread": has_unread})
+    try:
+        session_token = request.cookies.get("session_token")
+        username = verify_session_token(session_token)
+        if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+        u_id = await get_user_id(username)
         
-    return contacts
+        db = await get_db()
+        # Unique phones and their unread status filtered by user_id
+        rows = await db.fetch_all("""
+            SELECT t.phone, 
+                   MAX(CASE WHEN c.is_read = 0 AND c.direction = 'inbound' THEN 1 ELSE 0 END) as has_unread,
+                   (SELECT row_data FROM messages WHERE phone = t.phone AND user_id = :u AND row_data IS NOT NULL ORDER BY timestamp DESC LIMIT 1) as row_data
+            FROM (
+                SELECT phone FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read')
+                UNION
+                SELECT phone FROM chat_messages WHERE user_id = :u
+            ) t
+            LEFT JOIN chat_messages c ON t.phone = c.phone AND c.user_id = :u
+            WHERE t.phone IS NOT NULL AND t.phone != ''
+            GROUP BY t.phone
+            ORDER BY MAX(c.timestamp) DESC, t.phone ASC
+        """, {"u": u_id})
+        
+        contacts = []
+        for r in rows:
+            phone = r['phone']
+            has_unread = bool(r['has_unread'])
+            name = None
+            row_data = r['row_data']
+            if row_data:
+                try:
+                    data_dict = json.loads(row_data)
+                    name = data_dict.get('Name') or data_dict.get('name') or data_dict.get('Customer Name') or data_dict.get('customer name') or data_dict.get('var_1')
+                except: pass
+                
+            # If name not found in campaign data, check if we captured it from inbound webhook
+            if not name:
+                try:
+                    sender_row = await db.fetch_one("SELECT sender_name FROM chat_messages WHERE phone = :p AND sender_name IS NOT NULL LIMIT 1", {"p": phone})
+                    if sender_row:
+                        name = sender_row['sender_name']
+                except: pass
+                
+            contacts.append({"phone": phone, "name": name, "has_unread": has_unread})
+            
+        return contacts
+    except Exception as e:
+        import traceback
+        print(f"ERROR in get_chat_contacts: {str(e)}")
+        print(traceback.format_exc())
+        return JSONResponse(status_code=500, content={"error": f"API Error: {str(e)}"})
 
 @app.get("/api/fix-existing-contacts")
 async def fix_existing_contacts(request: Request):
