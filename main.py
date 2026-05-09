@@ -2600,6 +2600,11 @@ async def get_chat_contacts(request: Request):
                 try:
                     data_dict = json.loads(row_data)
                     name = data_dict.get('Name') or data_dict.get('name') or data_dict.get('Customer Name') or data_dict.get('customer name') or data_dict.get('var_1')
+                    
+                    # Fix for NaN values from pandas that crash JSON response
+                    import math
+                    if isinstance(name, float) and math.isnan(name):
+                        name = None
                 except: pass
                 
             # If name not found in campaign data, check if we captured it from inbound webhook
