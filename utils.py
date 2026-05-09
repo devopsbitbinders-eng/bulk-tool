@@ -77,12 +77,7 @@ def extract_phone_numbers(file_content, filename):
     else:
         print(f"DEBUG: Identified phone column: {phone_col}")
 
-    # Remove completely empty rows
-    df = df.dropna(how='all')
-    
-    # Remove rows where all columns are empty strings after stripping
-    df = df[df.apply(lambda x: x.astype(str).str.strip().str.len()).sum(axis=1) > 0]
-
+    # Keep all rows (even empty ones) so that the report matches the uploaded file count
     data = df.to_dict(orient='records')
     print(f"DEBUG: Extracted {len(data)} valid rows.")
     return data, phone_col
