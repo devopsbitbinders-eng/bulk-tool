@@ -594,7 +594,7 @@
                                 <div id="dropzone"
                                     class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-green-500 transition-colors cursor-pointer bg-slate-50">
                                     <input type="file" id="fileInput" class="hidden" accept=".csv,.xlsx,.xls">
-                                    <div class="flex flex-col items-center gap-2">
+                                    <div id="dropzoneContent" class="flex flex-col items-center gap-2">
                                         <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -2383,7 +2383,13 @@
                             currentFileColumns = data.columns;
                             document.getElementById('mappingStatus').innerText = `${currentFileColumns.length} columns found`;
                             if (data.total_rows !== undefined) {
-                                fileName.innerText = `${file.name} (${data.total_rows} rows)`;
+                                document.getElementById('dropzoneContent').innerHTML = `
+                                    <svg class="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <p class="text-sm text-slate-600 font-semibold text-green-600">${file.name}</p>
+                                    <p class="text-xs text-slate-500">Total Rows: <span class="font-bold text-slate-700">${data.total_rows}</span></p>
+                                `;
                             }
                             renderMappingUI();
                         }
