@@ -486,9 +486,9 @@ async def add_numbers(campaign_id: int, request: Request):
     db = await get_db()
     
     # Batch insert for speed
-    for row in numbers:
-        await db.execute("INSERT INTO messages (campaign_id, user_id, phone, status, row_data) VALUES (:c, :u, :p, 'pending', :r)",
-            {"c": campaign_id, "u": u_id, "p": row.get('phone'), "r": json.dumps(row)})
+    values = [{"c": campaign_id, "u": u_id, "p": row.get('phone'), "r": json.dumps(row)} for row in numbers]
+    if values:
+        await db.execute_many("INSERT INTO messages (campaign_id, user_id, phone, status, row_data) VALUES (:c, :u, :p, 'pending', :r)", values)
     
     await db.execute("UPDATE campaigns SET total_numbers = total_numbers + :n WHERE id = :id", {"n": len(numbers), "id": campaign_id})
     return {"message": "Numbers added", "count": len(numbers)}
@@ -2653,7 +2653,7 @@ async def get_templates_api():
     return safe_json_response([dict(r) for r in rows])
 
 @app.get("/api/chat/contacts")
-async def get_chat_contacts(request: Request):
+async def get_chat_contacts(request: Request, page: int = 1, limit: int = 50):
     try:
         session_token = request.cookies.get("session_token")
         username = verify_session_token(session_token)
@@ -2661,7 +2661,9 @@ async def get_chat_contacts(request: Request):
         u_id = await get_user_id(username)
         
         db = await get_db()
-        # Unique phones and their unread status filtered by user_id
+        offset = (page - 1) * limit
+        
+        # Unique phones and their unread status filtered by user_id with pagination
         rows = await db.fetch_all("""
             SELECT t.phone, 
                    MAX(CASE WHEN c.is_read = 0 AND c.direction = 'inbound' THEN 1 ELSE 0 END) as has_unread,
@@ -2675,7 +2677,8 @@ async def get_chat_contacts(request: Request):
             WHERE t.phone IS NOT NULL AND t.phone != ''
             GROUP BY t.phone
             ORDER BY MAX(c.timestamp) DESC, t.phone ASC
-        """, {"u": u_id})
+            LIMIT :limit OFFSET :offset
+        """, {"u": u_id, "limit": limit, "offset": offset})
         
         contacts = []
         for r in rows:
