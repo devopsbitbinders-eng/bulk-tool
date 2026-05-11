@@ -2381,6 +2381,9 @@
                         if (res.ok) {
                             currentFileColumns = data.columns;
                             document.getElementById('mappingStatus').innerText = `${currentFileColumns.length} columns found`;
+                            if (data.total_rows !== undefined) {
+                                fileName.innerText = `${file.name} (${data.total_rows} rows)`;
+                            }
                             renderMappingUI();
                         }
                     } catch (e) { console.error('Error fetching columns', e); }

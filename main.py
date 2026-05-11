@@ -2554,15 +2554,17 @@ async def get_columns(file: UploadFile = File(...)):
             f = StringIO(decoded)
             reader = csv.reader(f)
             headers = next(reader)
-            return {"columns": headers}
+            # Count remaining rows
+            total_rows = sum(1 for _ in reader)
+            return {"columns": headers, "total_rows": total_rows}
         elif filename.endswith((".xlsx", ".xls")):
             import pandas as pd
             from io import BytesIO
-            df = pd.read_excel(BytesIO(content), nrows=1)
-            return {"columns": df.columns.tolist()}
-        return {"columns": []}
+            df = pd.read_excel(BytesIO(content))
+            return {"columns": df.columns.tolist(), "total_rows": len(df)}
+        return {"columns": [], "total_rows": 0}
     except Exception as e:
-        return JSONResponse(status_code=400, content={"error": f"Could not read file headers: {str(e)}"})
+        return JSONResponse(status_code=400, content={"error": f"Could not read file: {str(e)}"})
 
 @app.get("/api/templates")
 async def get_templates_api():
