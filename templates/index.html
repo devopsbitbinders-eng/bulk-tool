@@ -2650,7 +2650,7 @@
                                 localStorage.setItem(`last_header_url_${tName}`, hInput.value);
                             }
 
-                            showToast('Campaign queued!', 'success');
+                            showToast('Campaign queued with ' + result.total + ' rows!', 'success');
                             document.getElementById('progressCard').classList.remove('hidden');
                             setupSSE();
                             // Reset Button
