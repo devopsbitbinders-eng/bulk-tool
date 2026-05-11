@@ -2212,30 +2212,7 @@ async def create_complex_template(
     
     return {"message": "Template created and submitted to Meta!"}
 
-@app.post("/api/get-columns")
-async def get_columns(file: UploadFile = File(...)):
-    try:
-        content = await file.read()
-        filename = file.filename.lower()
-        if filename.endswith(".csv"):
-            import csv
-            from io import StringIO
-            try:
-                decoded = content.decode('utf-8')
-            except UnicodeDecodeError:
-                decoded = content.decode('latin-1')
-            f = StringIO(decoded)
-            reader = csv.reader(f)
-            headers = next(reader)
-            return {"columns": headers}
-        elif filename.endswith((".xlsx", ".xls")):
-            import pandas as pd
-            from io import BytesIO
-            df = pd.read_excel(BytesIO(content), nrows=1)
-            return {"columns": df.columns.tolist()}
-        return {"columns": []}
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"error": f"Could not read file headers: {str(e)}"})
+
 
 @app.get("/api/templates")
 async def get_templates_api():
