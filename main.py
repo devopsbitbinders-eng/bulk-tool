@@ -646,7 +646,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
         pending_messages = []
         async with db.transaction():
             pending_raw = await db.fetch_all(
-                "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit",
+                "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit FOR UPDATE SKIP LOCKED",
                 {"id": campaign_id, "limit": batch_size}
             )
             if pending_raw:
@@ -989,6 +989,66 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
 @app.post("/api/campaign/process-batch/{campaign_id}")
 async def process_batch_endpoint(campaign_id: int):
     return await process_campaign_batch(campaign_id)
+
+@app.post("/api/cron/process")
+async def cron_process_endpoint():
+    """External Cron endpoint to process pending messages across all campaigns."""
+    db = await get_db()
+    
+    # Fetch active campaigns
+    active_campaigns = await db.fetch_all(
+        "SELECT id FROM campaigns WHERE status IN ('Processing', 'Pending') LIMIT 10"
+    )
+    
+    if not active_campaigns:
+        return {"message": "No active campaigns found."}
+        
+    total_processed = 0
+    max_messages = 100
+    chunk_size = 20
+    
+    import asyncio
+    
+    for c in active_campaigns:
+        campaign_id = c['id']
+        
+        # Fetch campaign metadata
+        campaign = await db.fetch_one("SELECT * FROM campaigns WHERE id = :id", {"id": campaign_id})
+        if not campaign: continue
+        campaign = dict(campaign)
+        
+        # Kill Switch Check
+        if campaign['status'] == 'Stopped' or campaign['status'] == 'Paused':
+            continue
+            
+        # Split into chunks of 20
+        # We will run 5 chunks of 20 parallel calls to process_campaign_batch(batch_size=1)
+        # This achieves the user's throttled parallelism goal!
+        
+        for _ in range(5): # 5 chunks of 20 = 100 messages
+            tasks = []
+            for _ in range(20):
+                tasks.append(process_campaign_batch(campaign_id, batch_size=1))
+                
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            processed_in_chunk = 0
+            for result in results:
+                if not isinstance(result, Exception):
+                    processed_in_chunk += result.get('processed', 0)
+                    total_processed += result.get('processed', 0)
+                    
+            if processed_in_chunk == 0:
+                # No more messages for this campaign
+                break
+                
+            # Wait 500ms before next chunk (Throttled Parallelism)
+            await asyncio.sleep(0.5)
+            
+        if total_processed >= max_messages:
+            break
+            
+    return {"message": f"Processed {total_processed} messages across campaigns."}
 
 async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col: str, message_template: str, msg_type: str = "text", template_name: str = "", language_code: str = "en_US", report_email: str = None, mappings: dict = None):
     print(f"DEBUG: Starting processing for Campaign {campaign_id} with {len(data)} rows. Type: {msg_type}")
