@@ -690,8 +690,13 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 await db.execute(f"UPDATE messages SET status = 'processing' WHERE id IN ({','.join(map(str, ids))})")
         
         if not pending_messages:
-            await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
-            return {"completed": True, "processed": 0}
+            # Check if there are still pending files to process for this campaign
+            pending_file = await db.fetch_one("SELECT id FROM campaign_files WHERE campaign_id = :id AND status = 'pending' LIMIT 1", {"id": campaign_id})
+            if not pending_file:
+                await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
+                return {"completed": True, "processed": 0}
+            else:
+                return {"completed": False, "processed": 0}
 
         # 3. Pre-fetch template for Smart Distribution
         template_def = None
@@ -1038,6 +1043,57 @@ async def cron_process_endpoint():
     for c in scheduled_campaigns:
         await db.execute("UPDATE campaigns SET status = 'Processing' WHERE id = :id", {"id": c['id']})
         
+    # 0.1 Background CSV Processing (Insert 1000 rows per minute to avoid timeouts)
+    pending_files = await db.fetch_all(
+        "SELECT id, campaign_id, csv_content, processed_rows FROM campaign_files WHERE status = 'pending' LIMIT 1"
+    )
+    for f in pending_files:
+        try:
+            file_id = f['id']
+            campaign_id = f['campaign_id']
+            processed_rows = f['processed_rows']
+            
+            campaign = await db.fetch_one("SELECT user_id, phone_col FROM campaigns WHERE id = :id", {"id": campaign_id})
+            if not campaign:
+                await db.execute("UPDATE campaign_files SET status = 'failed' WHERE id = :id", {"id": file_id})
+                continue
+                
+            u_id = campaign['user_id']
+            phone_col = campaign['phone_col'] or 'phone'
+            
+            data = json.loads(f['csv_content'])
+            chunk = data[processed_rows : processed_rows + 1000]
+            
+            if not chunk:
+                await db.execute("UPDATE campaign_files SET status = 'completed' WHERE id = :id", {"id": file_id})
+                continue
+                
+            values_list = []
+            for row in chunk:
+                raw_phone = str(row.get(phone_col, ""))
+                phone = normalize_phone(raw_phone)
+                values_list.append({
+                    "u": u_id, "c": campaign_id, "p": phone or raw_phone, 
+                    "s": 'pending' if phone else 'failed', "rd": json.dumps(row), 
+                    "err": "" if phone else "Invalid or missing phone number"
+                })
+                
+            if values_list:
+                await db.execute_many("""
+                    INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
+                    VALUES (:u, :c, :p, :s, :rd, :err)
+                """, values_list)
+                
+            new_processed = processed_rows + len(chunk)
+            if new_processed >= len(data):
+                await db.execute("UPDATE campaign_files SET processed_rows = :p, status = 'completed' WHERE id = :id", {"p": new_processed, "id": file_id})
+            else:
+                await db.execute("UPDATE campaign_files SET processed_rows = :p WHERE id = :id", {"p": new_processed, "id": file_id})
+                
+            print(f"DEBUG: Processed {len(chunk)} rows for campaign {campaign_id}")
+        except Exception as e:
+            print(f"ERROR processing campaign file {file_id}: {e}")
+
     # Fetch active campaigns
     active_campaigns = await db.fetch_all(
         "SELECT id FROM campaigns WHERE status IN ('Processing', 'Pending') LIMIT 10"
@@ -1909,34 +1965,27 @@ async def upload_file(
         "maps": json.dumps(mappings_dict), "pcol": phone_col, "sch": final_schedule, "murl": final_media_url, "mid": meta_media_id
     })
 
-    # 2. Bulk Insert messages (Insert ALL rows for full report transparency)
-    failed_initial_count = 0
-    values_list = []
-    for row in data:
-        raw_phone = str(row.get(phone_col, ""))
-        phone = normalize_phone(raw_phone)
-        
-        # If phone is invalid, insert it as failed immediately
-        status = 'pending' if phone else 'failed'
-        error_msg = "" if phone else "Invalid or missing phone number"
-        
-        if not phone:
-            failed_initial_count += 1
-            
-        values_list.append({
-            "u": u_id, "c": campaign_id, "p": phone or raw_phone, 
-            "s": status, "rd": json.dumps(row), "err": error_msg
-        })
-        
-    # Use execute_many in chunks of 1000 to prevent MySQL max_allowed_packet limits and Vercel timeouts
-    if values_list:
-        chunk_size = 1000
-        for i in range(0, len(values_list), chunk_size):
-            chunk = values_list[i:i+chunk_size]
+    # 2. Handle inserts or background processing
+    if single_mobile:
+        values_list = []
+        for row in data:
+            raw_phone = str(row.get('phone', ''))
+            phone = normalize_phone(raw_phone)
+            values_list.append({
+                "u": u_id, "c": campaign_id, "p": phone or raw_phone, 
+                "s": 'pending' if phone else 'failed', "rd": json.dumps(row), "err": "" if phone else "Invalid phone number"
+            })
+        if values_list:
             await db.execute_many("""
                 INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
                 VALUES (:u, :c, :p, :s, :rd, :err)
-            """, chunk)
+            """, values_list)
+    else:
+        # Save parsed data for background processing instead of immediate insert
+        await db.execute("""
+            INSERT INTO campaign_files (campaign_id, csv_content, status) 
+            VALUES (:c, :content, 'pending')
+        """, {"c": campaign_id, "content": json.dumps(data)})
         
     # Update campaign failed count for invalid numbers
     if failed_initial_count > 0:

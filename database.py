@@ -172,6 +172,18 @@ async def init_db():
         ) {table_opts}
     """)
 
+    # 8. Campaign Files Table
+    long_text_type = "LONGTEXT" if is_mysql else "TEXT"
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS campaign_files (
+            id INTEGER PRIMARY KEY {auto_inc},
+            campaign_id INTEGER,
+            csv_content {long_text_type},
+            processed_rows INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'pending'
+        ) {table_opts}
+    """)
+
     # Migrations for existing SQLite/MySQL
     if is_mysql:
         # For MySQL, ensure existing tables are converted
