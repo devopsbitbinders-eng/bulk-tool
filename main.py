@@ -613,6 +613,40 @@ async def api_get_templates(request: Request):
             try: t["variable_map"] = json.loads(t["variable_map"])
             except: t["variable_map"] = {}
         templates_list.append(t)
+        
+    # Fetch Quality from Meta API (Live Fetching to avoid DB changes!)
+    try:
+        credentials = await get_active_credentials(u_id)
+        if credentials and credentials.get('waba_id') and credentials.get('token'):
+            waba_id = credentials['waba_id']
+            token = credentials['token']
+            
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                res = await client.get(
+                    f"https://graph.facebook.com/v21.0/{waba_id}/message_templates",
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                if res.status_code == 200:
+                    meta_data = res.json()
+                    quality_map = {}
+                    for t_meta in meta_data.get('data', []):
+                        # Meta returns quality score as an object or string depending on version
+                        # Usually it's in quality_score field
+                        q_score = t_meta.get('quality_score', {})
+                        q = q_score.get('score', 'UNKNOWN') if isinstance(q_score, dict) else 'UNKNOWN'
+                        quality_map[t_meta.get('name')] = q
+                        
+                    # Merge with our list
+                    for t in templates_list:
+                        t['quality'] = quality_map.get(t['name'], 'UNKNOWN')
+    except Exception as e:
+        print(f"DEBUG: Failed to fetch template quality from Meta: {e}")
+        # Default to UNKNOWN if failed
+        for t in templates_list:
+            if 'quality' not in t:
+                t['quality'] = 'UNKNOWN'
+                
     return templates_list
 
 async def process_campaign_batch(campaign_id: int, batch_size: int = 30):

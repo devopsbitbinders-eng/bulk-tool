@@ -4135,6 +4135,11 @@
                                         String(t.status).toLowerCase() === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
                                         (String(t.status).toLowerCase() === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700')
                                     }">${t.status || 'UNKNOWN'}</span>
+                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest ${
+                                        String(t.quality).toLowerCase() === 'high' ? 'bg-emerald-100 text-emerald-700' : 
+                                        (String(t.quality).toLowerCase() === 'medium' ? 'bg-amber-100 text-amber-700' : 
+                                        (String(t.quality).toLowerCase() === 'low' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'))
+                                    }">${t.quality ? 'Quality: ' + t.quality : 'Quality: UNKNOWN'}</span>
                                 </div>
                             </td>
                             <td class="px-8 py-5">
