@@ -1808,6 +1808,7 @@ async def upload_file(
 
     # 2. Bulk Insert messages (Insert ALL rows for full report transparency)
     failed_initial_count = 0
+    values_list = []
     for row in data:
         raw_phone = str(row.get(phone_col, ""))
         phone = normalize_phone(raw_phone)
@@ -1818,14 +1819,18 @@ async def upload_file(
         
         if not phone:
             failed_initial_count += 1
-        
-        await db.execute("""
-            INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
-            VALUES (:u, :c, :p, :s, :rd, :err)
-        """, {
+            
+        values_list.append({
             "u": u_id, "c": campaign_id, "p": phone or raw_phone, 
             "s": status, "rd": json.dumps(row), "err": error_msg
         })
+        
+    # Use execute_many for MUCH faster inserts (prevents Vercel timeouts)
+    if values_list:
+        await db.execute_many("""
+            INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
+            VALUES (:u, :c, :p, :s, :rd, :err)
+        """, values_list)
         
     # Update campaign failed count for invalid numbers
     if failed_initial_count > 0:
