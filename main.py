@@ -2834,15 +2834,10 @@ async def get_chat_history(request: Request, phone: str):
         SELECT direction, message, timestamp, status as wa_status, wa_message_id
         FROM chat_messages
         WHERE phone = :p AND user_id = :u
-        ORDER BY timestamp DESC
-        LIMIT 50
+        ORDER BY timestamp ASC
     """, {"p": phone, "u": u_id})
     
-    # Reverse to show in chronological order (oldest first)
-    messages_list = [dict(r) for r in rows]
-    messages_list.reverse()
-    
-    return safe_json_response(messages_list)
+    return safe_json_response([dict(r) for r in rows])
 
 @app.post("/api/chat/send")
 async def send_chat_reply(

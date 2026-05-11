@@ -219,6 +219,10 @@ async def init_db():
     except: pass
     try: await db.execute("CREATE INDEX IF NOT EXISTS idx_chat_wa_id ON chat_messages (wa_message_id(50))")
     except: pass
+    try: await db.execute("CREATE INDEX IF NOT EXISTS idx_messages_phone_user ON messages (phone(20), user_id)")
+    except: pass
+    try: await db.execute("CREATE INDEX IF NOT EXISTS idx_chat_phone_user ON chat_messages (phone(20), user_id)")
+    except: pass
 
     # Webhook Logs for debugging
     await db.execute(f"""
