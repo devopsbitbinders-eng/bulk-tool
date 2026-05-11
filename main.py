@@ -1928,12 +1928,15 @@ async def upload_file(
             "s": status, "rd": json.dumps(row), "err": error_msg
         })
         
-    # Use execute_many for MUCH faster inserts (prevents Vercel timeouts)
+    # Use execute_many in chunks of 1000 to prevent MySQL max_allowed_packet limits and Vercel timeouts
     if values_list:
-        await db.execute_many("""
-            INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
-            VALUES (:u, :c, :p, :s, :rd, :err)
-        """, values_list)
+        chunk_size = 1000
+        for i in range(0, len(values_list), chunk_size):
+            chunk = values_list[i:i+chunk_size]
+            await db.execute_many("""
+                INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
+                VALUES (:u, :c, :p, :s, :rd, :err)
+            """, chunk)
         
     # Update campaign failed count for invalid numbers
     if failed_initial_count > 0:
