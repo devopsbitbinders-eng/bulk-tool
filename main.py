@@ -1068,9 +1068,9 @@ async def cron_process_endpoint():
         # We will run 5 chunks of 20 parallel calls to process_campaign_batch(batch_size=1)
         # This achieves the user's throttled parallelism goal!
         
-        for _ in range(5): # 5 chunks of 20 = 100 messages
+        for _ in range(6): # 6 chunks of 15 = 90 messages
             tasks = []
-            for _ in range(20):
+            for _ in range(15):
                 tasks.append(process_campaign_batch(campaign_id, batch_size=1))
                 
             results = await asyncio.gather(*tasks, return_exceptions=True)
