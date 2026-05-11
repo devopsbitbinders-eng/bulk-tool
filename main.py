@@ -995,6 +995,15 @@ async def cron_process_endpoint():
     """External Cron endpoint to process pending messages across all campaigns."""
     db = await get_db()
     
+    # 0. Handle Scheduled Campaigns (Since Vercel doesn't support background loops)
+    now_utc = get_now_utc()
+    scheduled_campaigns = await db.fetch_all(
+        "SELECT id FROM campaigns WHERE status = 'Scheduled' AND scheduled_at <= :now",
+        {"now": now_utc}
+    )
+    for c in scheduled_campaigns:
+        await db.execute("UPDATE campaigns SET status = 'Processing' WHERE id = :id", {"id": c['id']})
+        
     # Fetch active campaigns
     active_campaigns = await db.fetch_all(
         "SELECT id FROM campaigns WHERE status IN ('Processing', 'Pending') LIMIT 10"
