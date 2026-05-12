@@ -2213,34 +2213,32 @@ async def create_complex_template(
             
             print(f"DEBUG: Media header requested. Sample text: {h_text}")
             
-            if h_text and "/static/uploads/" in h_text:
+            if h_text and h_text.startswith("http"):
                 try:
-                    filename = h_text.split("/")[-1]
-                    # Use the globally defined UPLOAD_DIR
-                    local_path = os.path.join(UPLOAD_DIR, filename)
-                    print(f"DEBUG: Looking for local file at: {local_path}")
-                    
-                    if os.path.exists(local_path):
-                        with open(local_path, "rb") as f:
-                            file_bytes = f.read()
-                        
-                        from whatsapp_service import get_meta_header_handle
-                        # Detect MIME type
-                        ext = filename.split(".")[-1].lower()
-                        mime_map = {
-                            "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
-                            "mp4": "video/mp4", "pdf": "application/pdf"
-                        }
-                        mime = mime_map.get(ext, "image/jpeg")
-                        
-                        handle, upload_error = await get_meta_header_handle(file_bytes, mime, credentials)
-                        if handle:
-                            print(f"DEBUG: Successfully obtained header_handle: {handle}")
+                    print(f"DEBUG: Downloading sample media from: {h_text}")
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.get(h_text)
+                        if resp.status_code == 200:
+                            file_bytes = resp.content
+                            
+                            # Detect MIME type
+                            filename = h_text.split("/")[-1].split("?")[0]
+                            ext = filename.split(".")[-1].lower()
+                            mime_map = {
+                                "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                                "mp4": "video/mp4", "pdf": "application/pdf"
+                            }
+                            mime = mime_map.get(ext, "image/jpeg")
+                            
+                            from whatsapp_service import get_meta_header_handle
+                            handle, upload_error = await get_meta_header_handle(file_bytes, mime, credentials)
+                            if handle:
+                                print(f"DEBUG: Successfully obtained header_handle: {handle}")
+                            else:
+                                print(f"DEBUG: Meta handle creation failed: {upload_error}")
                         else:
-                            print(f"DEBUG: Meta handle creation failed: {upload_error}")
-                    else:
-                        upload_error = f"File not found on server: {local_path}"
-                        print(f"DEBUG: {upload_error}")
+                            upload_error = f"Failed to download file from URL. Status: {resp.status_code}"
+                            print(f"DEBUG: {upload_error}")
                 except Exception as e:
                     upload_error = str(e)
                     print(f"DEBUG: Exception during handle creation: {upload_error}")
