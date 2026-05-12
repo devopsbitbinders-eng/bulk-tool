@@ -690,13 +690,65 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 await db.execute(f"UPDATE messages SET status = 'processing' WHERE id IN ({','.join(map(str, ids))})")
         
         if not pending_messages:
-            # Check if there are still pending files to process for this campaign
-            pending_file = await db.fetch_one("SELECT id FROM campaign_files WHERE campaign_id = :id AND status = 'pending' LIMIT 1", {"id": campaign_id})
-            if not pending_file:
-                await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
-                return {"completed": True, "processed": 0}
-            else:
-                return {"completed": False, "processed": 0}
+            # Check if there are stuck 'processing' messages
+            processing_count = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'processing'", {"id": campaign_id})
+            if processing_count > 0:
+                print(f"DEBUG: Found {processing_count} stuck messages for Campaign {campaign_id}. Resetting to pending.")
+                await db.execute("UPDATE messages SET status = 'pending' WHERE campaign_id = :id AND status = 'processing'", {"id": campaign_id})
+                
+                # Try fetching them again
+                async with db.transaction():
+                    pending_raw = await db.fetch_all(
+                        "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit FOR UPDATE SKIP LOCKED",
+                        {"id": campaign_id, "limit": batch_size}
+                    )
+                    if pending_raw:
+                        pending_messages = [dict(m) for m in pending_raw]
+                        ids = [m['id'] for m in pending_messages]
+                        await db.execute(f"UPDATE messages SET status = 'processing' WHERE id IN ({','.join(map(str, ids))})")
+            
+            # If still no messages, check for files to process
+            if not pending_messages:
+                pending_file = await db.fetch_one("SELECT id, processed_rows, csv_content FROM campaign_files WHERE campaign_id = :id AND status = 'pending' LIMIT 1", {"id": campaign_id})
+                if not pending_file:
+                    await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
+                    return {"completed": True, "processed": 0}
+                else:
+                    # PROCESS THE FILE HERE!
+                    file_id = pending_file['id']
+                    processed_rows = pending_file['processed_rows']
+                    data = json.loads(pending_file['csv_content'])
+                    
+                    # Take a chunk of 500 rows
+                    chunk = data[processed_rows : processed_rows + 500]
+                    
+                    if not chunk:
+                        await db.execute("UPDATE campaign_files SET status = 'completed' WHERE id = :id", {"id": file_id})
+                        return {"completed": False, "processed": 0}
+                        
+                    values_list = []
+                    for row in chunk:
+                        raw_phone = str(row.get(phone_col, ""))
+                        phone = normalize_phone(raw_phone)
+                        values_list.append({
+                            "u": user_id, "c": campaign_id, "p": phone or raw_phone, 
+                            "s": 'pending' if phone else 'failed', "rd": json.dumps(row), 
+                            "err": "" if phone else "Invalid or missing phone number"
+                        })
+                        
+                    if values_list:
+                        await db.execute_many("""
+                            INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
+                            VALUES (:u, :c, :p, :s, :rd, :err)
+                        """, values_list)
+                        
+                    new_processed = processed_rows + len(chunk)
+                    if new_processed >= len(data):
+                        await db.execute("UPDATE campaign_files SET processed_rows = :p, status = 'completed' WHERE id = :id", {"p": new_processed, "id": file_id})
+                    else:
+                        await db.execute("UPDATE campaign_files SET processed_rows = :p WHERE id = :id", {"p": new_processed, "id": file_id})
+                        
+                    return {"completed": False, "processed": len(chunk)}
 
         # 3. Pre-fetch template for Smart Distribution
         template_def = None
