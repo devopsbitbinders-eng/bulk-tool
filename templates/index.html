@@ -3799,24 +3799,38 @@
                 link.remove();
             }
 
-            async function loadChatContacts() {
+            window.currentChatPage = 1;
+
+            async function loadChatContacts(page = 1, append = false) {
                 const list = document.getElementById('chatContactList');
                 if (!list) return;
-                list.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">Loading contacts...</div>`;
+                
+                if (!append) {
+                    list.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">Loading contacts...</div>`;
+                    window.currentChatPage = 1;
+                    window.chatContactsData = [];
+                }
 
                 try {
-                    const response = await fetch('/api/chat/contacts');
+                    const response = await fetch(`/api/chat/contacts?page=${page}&limit=50`);
                     if (!response.ok) throw new Error(`API error: ${response.status}`);
 
                     const contacts = await response.json();
                     if (!Array.isArray(contacts)) throw new Error('Expected array of contacts');
 
-                    window.chatContactsData = contacts;
+                    if (append) {
+                        window.chatContactsData = window.chatContactsData.concat(contacts);
+                    } else {
+                        window.chatContactsData = contacts;
+                    }
+                    
                     renderChatContacts();
 
                 } catch (err) {
                     console.error("Chat Contact JS Error:", err);
-                    list.innerHTML = `<div class="p-4 text-center text-xs text-rose-400">Error loading contacts:<br/>${err.message}</div>`;
+                    if (!append) {
+                        list.innerHTML = `<div class="p-4 text-center text-xs text-rose-400">Error loading contacts:<br/>${err.message}</div>`;
+                    }
                 }
             }
 
@@ -3896,6 +3910,19 @@
                 </button>
                 `;
                 }).join('');
+                
+                // Add Load More button if search is empty and we have a multiple of 50 contacts
+                if (!search && window.chatContactsData.length > 0 && window.chatContactsData.length % 50 === 0) {
+                    const btn = document.createElement('div');
+                    btn.className = "p-3 text-center border-t border-slate-100";
+                    btn.innerHTML = `<button id="btnLoadMoreChats" class="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Load More</button>`;
+                    list.appendChild(btn);
+                    
+                    document.getElementById('btnLoadMoreChats').onclick = () => {
+                        window.currentChatPage++;
+                        loadChatContacts(window.currentChatPage, true);
+                    };
+                }
             }
 
             document.getElementById('chatSearch')?.addEventListener('input', renderChatContacts);
