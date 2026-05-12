@@ -2821,7 +2821,7 @@
 
                 try {
                     showToast('Uploading media...', 'info');
-                    const res = await fetch('https://spread.bitbinders.in/upload.php', {
+                    const res = await fetch('https://bitbinders.in/spread/upload.php', {
                         method: 'POST',
                         body: formData
                     });
@@ -2862,7 +2862,7 @@
 
                 try {
                     showToast('Uploading campaign media...', 'info');
-                    const res = await fetch('https://spread.bitbinders.in/upload.php', { method: 'POST', body: formData });
+                    const res = await fetch('https://bitbinders.in/spread/upload.php', { method: 'POST', body: formData });
                     const data = await res.json();
                     if (data.success) {
                         const absoluteUrl = data.url;
