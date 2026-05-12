@@ -709,10 +709,21 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
             # If still no messages, check for files to process
             if not pending_messages:
                 async with db.transaction():
-                    pending_file = await db.fetch_one("SELECT id, processed_rows, csv_content FROM campaign_files WHERE campaign_id = :id AND status = 'pending' LIMIT 1 FOR UPDATE", {"id": campaign_id})
+                    # Atomic update to mark file as processing
+                    await db.execute("UPDATE campaign_files SET status = 'processing' WHERE campaign_id = :id AND status = 'pending'", {"id": campaign_id})
+                    
+                    pending_file = await db.fetch_one("SELECT id, processed_rows, csv_content FROM campaign_files WHERE campaign_id = :id AND status = 'processing' LIMIT 1", {"id": campaign_id})
+                    
                     if not pending_file:
-                        await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
-                        return {"completed": True, "processed": 0}
+                        # Check if it was already completed
+                        comp_file = await db.fetch_one("SELECT id FROM campaign_files WHERE campaign_id = :id AND status = 'completed' LIMIT 1", {"id": campaign_id})
+                        if comp_file:
+                            # Check if messages are all processed
+                            pending_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'pending'", {"id": campaign_id})
+                            if pending_msgs == 0:
+                                await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
+                                return {"completed": True, "processed": 0}
+                        return {"completed": False, "processed": 0}
                     else:
                         # PROCESS THE FILE HERE!
                         file_id = pending_file['id']
@@ -746,7 +757,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                         if new_processed >= len(data):
                             await db.execute("UPDATE campaign_files SET processed_rows = :p, status = 'completed' WHERE id = :id", {"p": new_processed, "id": file_id})
                         else:
-                            await db.execute("UPDATE campaign_files SET processed_rows = :p WHERE id = :id", {"p": new_processed, "id": file_id})
+                            await db.execute("UPDATE campaign_files SET processed_rows = :p, status = 'pending' WHERE id = :id", {"p": new_processed, "id": file_id})
                             
                         return {"completed": False, "processed": len(chunk)}
 
