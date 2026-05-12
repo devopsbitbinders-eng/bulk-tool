@@ -2821,14 +2821,13 @@
 
                 try {
                     showToast('Uploading media...', 'info');
-                    const res = await fetch('/api/upload-media', {
+                    const res = await fetch('https://spread.bitbinders.in/upload.php', {
                         method: 'POST',
                         body: formData
                     });
                     const data = await res.json();
-                    if (res.ok) {
-                        // Prepend origin for absolute URL required by Meta
-                        const absoluteUrl = window.location.origin + data.url;
+                    if (data.success) {
+                        const absoluteUrl = data.url;
                         document.getElementById('wiz_header_sample_url').value = absoluteUrl;
 
                         // Show status
@@ -2863,15 +2862,12 @@
 
                 try {
                     showToast('Uploading campaign media...', 'info');
-                    const res = await fetch('/api/upload-media', { method: 'POST', body: formData });
+                    const res = await fetch('https://spread.bitbinders.in/upload.php', { method: 'POST', body: formData });
                     const data = await res.json();
-                    if (res.ok) {
-                        const absoluteUrl = window.location.origin + data.url;
+                    if (data.success) {
+                        const absoluteUrl = data.url;
                         document.getElementById('campaignMediaUrl').value = absoluteUrl;
-                        if (data.meta_media_id) {
-                            document.getElementById('metaMediaId').value = data.meta_media_id;
-                            console.log("DEBUG: Meta ID captured:", data.meta_media_id);
-                        }
+                        document.getElementById('metaMediaId').value = ""; // Clear meta ID as we are using direct link
                         
                         // UI Feedback
                         const statusEl = document.getElementById('campaignMediaStatus');
