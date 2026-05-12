@@ -2715,20 +2715,21 @@ async def get_chat_contacts(request: Request, page: int = 1, limit: int = 50):
         db = await get_db()
         offset = (page - 1) * limit
         
-        # Unique phones and their unread status filtered by user_id with pagination
+        # Unique phones and their unread status filtered by user_id with pagination, ordered by latest activity
         rows = await db.fetch_all("""
             SELECT t.phone, 
                    MAX(CASE WHEN c.is_read = 0 AND c.direction = 'inbound' THEN 1 ELSE 0 END) as has_unread,
-                   (SELECT row_data FROM messages WHERE phone = t.phone AND user_id = :u AND row_data IS NOT NULL ORDER BY timestamp DESC LIMIT 1) as row_data
+                   (SELECT row_data FROM messages WHERE phone = t.phone AND user_id = :u AND row_data IS NOT NULL ORDER BY timestamp DESC LIMIT 1) as row_data,
+                   MAX(t.latest_ts) as last_activity
             FROM (
-                SELECT phone FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read')
+                SELECT phone, MAX(timestamp) as latest_ts FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') GROUP BY phone
                 UNION
-                SELECT phone FROM chat_messages WHERE user_id = :u
+                SELECT phone, MAX(timestamp) as latest_ts FROM chat_messages WHERE user_id = :u GROUP BY phone
             ) t
             LEFT JOIN chat_messages c ON t.phone = c.phone AND c.user_id = :u
             WHERE t.phone IS NOT NULL AND t.phone != ''
             GROUP BY t.phone
-            ORDER BY MAX(c.timestamp) DESC, t.phone ASC
+            ORDER BY last_activity DESC, t.phone ASC
             LIMIT :limit OFFSET :offset
         """, {"u": u_id, "limit": limit, "offset": offset})
         
