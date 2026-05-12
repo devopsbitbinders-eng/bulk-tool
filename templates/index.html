@@ -3032,8 +3032,10 @@
                             mediaImg.classList.remove('hidden');
                         } else if (headerType === 'VIDEO') {
                             if (videoPrev) {
-                                videoPrev.src = mediaUrl;
-                                videoPrev.load(); // Ensure the video loads
+                                if (videoPrev.src !== mediaUrl) {
+                                    videoPrev.src = mediaUrl;
+                                    videoPrev.load(); // Only load if URL changed
+                                }
                                 videoPrev.classList.remove('hidden');
                             }
                         } else {
