@@ -3032,9 +3032,10 @@
                             mediaImg.classList.remove('hidden');
                         } else if (headerType === 'VIDEO') {
                             if (videoPrev) {
-                                if (videoPrev.src !== mediaUrl) {
+                                if (videoPrev.getAttribute('data-loaded-url') !== mediaUrl) {
                                     videoPrev.src = mediaUrl;
                                     videoPrev.load(); // Only load if URL changed
+                                    videoPrev.setAttribute('data-loaded-url', mediaUrl);
                                 }
                                 videoPrev.classList.remove('hidden');
                             }
