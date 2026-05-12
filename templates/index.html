@@ -1699,7 +1699,7 @@
                                                     <img id="prev_media_img"
                                                         class="hidden max-w-full h-auto object-contain block mx-auto">
                                                     <video id="prev_media_video"
-                                                        class="hidden w-full h-full object-cover" autoplay muted
+                                                        class="hidden w-full h-full object-cover" controls autoplay muted
                                                         loop></video>
                                                     <div id="prev_media_placeholder"
                                                         class="text-[#8696a0] flex flex-col items-center gap-1">
@@ -3033,6 +3033,7 @@
                         } else if (headerType === 'VIDEO') {
                             if (videoPrev) {
                                 videoPrev.src = mediaUrl;
+                                videoPrev.load(); // Ensure the video loads
                                 videoPrev.classList.remove('hidden');
                             }
                         } else {
