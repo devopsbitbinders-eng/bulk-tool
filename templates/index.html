@@ -3033,7 +3033,8 @@
                         } else if (headerType === 'VIDEO') {
                             if (videoPrev) {
                                 if (videoPrev.getAttribute('data-loaded-url') !== mediaUrl) {
-                                    videoPrev.src = mediaUrl;
+                                    const cacheBusterUrl = mediaUrl + (mediaUrl.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+                                    videoPrev.src = cacheBusterUrl;
                                     videoPrev.load(); // Only load if URL changed
                                     videoPrev.setAttribute('data-loaded-url', mediaUrl);
                                 }
