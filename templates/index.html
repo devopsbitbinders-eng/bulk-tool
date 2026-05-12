@@ -3033,14 +3033,24 @@
                         } else if (headerType === 'VIDEO') {
                             if (videoPrev) {
                                 if (videoPrev.getAttribute('data-loaded-url') !== mediaUrl) {
-                                    const cacheBusterUrl = mediaUrl + (mediaUrl.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
-                                    videoPrev.src = cacheBusterUrl;
-                                    videoPrev.load(); // Only load if URL changed
                                     videoPrev.setAttribute('data-loaded-url', mediaUrl);
-                                }
-                                // Ensure it plays
-                                if (videoPrev.paused) {
-                                    videoPrev.play().catch(e => console.log("Autoplay blocked"));
+                                    
+                                    fetch(mediaUrl)
+                                        .then(response => {
+                                            if (!response.ok) throw new Error('HTTP error ' + response.status);
+                                            return response.blob();
+                                        })
+                                        .then(blob => {
+                                            const objectUrl = URL.createObjectURL(blob);
+                                            videoPrev.src = objectUrl;
+                                            videoPrev.load();
+                                            if (videoPrev.paused) {
+                                                videoPrev.play().catch(e => console.log("Autoplay blocked"));
+                                            }
+                                        })
+                                        .catch(e => {
+                                            console.error('Failed to fetch video:', e);
+                                        });
                                 }
                                 videoPrev.classList.remove('hidden');
                             }
