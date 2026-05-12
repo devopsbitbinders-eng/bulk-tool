@@ -3037,6 +3037,10 @@
                                     videoPrev.load(); // Only load if URL changed
                                     videoPrev.setAttribute('data-loaded-url', mediaUrl);
                                 }
+                                // Ensure it plays
+                                if (videoPrev.paused) {
+                                    videoPrev.play().catch(e => console.log("Autoplay blocked"));
+                                }
                                 videoPrev.classList.remove('hidden');
                             }
                         } else {
