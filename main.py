@@ -1091,8 +1091,11 @@ async def cron_process_endpoint():
                 await db.execute("UPDATE campaign_files SET processed_rows = :p WHERE id = :id", {"p": new_processed, "id": file_id})
                 
             print(f"DEBUG: Processed {len(chunk)} rows for campaign {campaign_id}")
+            # Return early to prevent Vercel timeout when both processing and sending are done in one request
+            return {"message": f"Processed {len(chunk)} rows for campaign {campaign_id}"}
         except Exception as e:
             print(f"ERROR processing campaign file {file_id}: {e}")
+            return {"error": str(e)}
 
     # Fetch active campaigns
     active_campaigns = await db.fetch_all(
