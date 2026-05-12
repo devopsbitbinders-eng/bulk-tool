@@ -3945,29 +3945,21 @@
                 </button>
                 `;
                 }).join('');
-                
-                // Removed Load More button, using infinite scroll instead
+                // Add Load More button if search is empty and we have a multiple of 50 contacts
+                if (!search && window.chatContactsData.length > 0 && window.chatContactsData.length % 50 === 0) {
+                    const btn = document.createElement('div');
+                    btn.className = "p-3 text-center border-t border-slate-100";
+                    btn.innerHTML = `<button id="btnLoadMoreChats" class="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Load More</button>`;
+                    list.appendChild(btn);
+                    
+                    document.getElementById('btnLoadMoreChats').onclick = () => {
+                        window.currentChatPage++;
+                        loadChatContacts(window.currentChatPage, true);
+                    };
                 }
             }
 
             document.getElementById('chatSearch')?.addEventListener('input', renderChatContacts);
-
-            // Infinite Scroll for Chat Contacts
-            const contactListEl = document.getElementById('chatContactList');
-            if (contactListEl) {
-                contactListEl.addEventListener('scroll', () => {
-                    const search = document.getElementById('chatSearch')?.value?.toLowerCase();
-                    if (!search && contactListEl.scrollTop + contactListEl.clientHeight >= contactListEl.scrollHeight - 50) {
-                        if (!window.isLoadingMoreChats && window.chatContactsData.length > 0 && window.chatContactsData.length % 50 === 0) {
-                            window.isLoadingMoreChats = true;
-                            window.currentChatPage++;
-                            loadChatContacts(window.currentChatPage, true).then(() => {
-                                window.isLoadingMoreChats = false;
-                            });
-                        }
-                    }
-                });
-            }
 
 
             async function openChat(phone) {
