@@ -718,6 +718,13 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                         # Check if it was already completed
                         comp_file = await db.fetch_one("SELECT id FROM campaign_files WHERE campaign_id = :id AND status = 'completed' LIMIT 1", {"id": campaign_id})
                         if comp_file:
+                            # SELF-HEALING: If file is completed but 0 messages were created, reset it!
+                            total_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id", {"id": campaign_id})
+                            if total_msgs == 0:
+                                print(f"DEBUG: Campaign {campaign_id} has completed file but 0 messages. Resetting file to pending.")
+                                await db.execute("UPDATE campaign_files SET status = 'pending', processed_rows = 0 WHERE campaign_id = :id", {"id": campaign_id})
+                                return {"completed": False, "processed": 0}
+                                
                             # Check if messages are all processed
                             pending_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'pending'", {"id": campaign_id})
                             if pending_msgs == 0:
