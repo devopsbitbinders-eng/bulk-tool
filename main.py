@@ -1838,6 +1838,7 @@ async def upload_file(
     db = await get_db()
     mappings_dict = None
     fixed_url_from_mapping = None
+    failed_initial_count = 0
     if mappings:
         try:
             mappings_dict = json.loads(mappings)

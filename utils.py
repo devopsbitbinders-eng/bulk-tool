@@ -13,7 +13,15 @@ def normalize_phone(phone):
     """Normalizes phone number to digits only and adds 91 if 10 digits."""
     if not phone:
         return ""
-    clean = re.sub(r'\D', '', str(phone))
+    
+    # Handle float conversion artifact (e.g., "919876543210.0")
+    phone_str = str(phone).strip()
+    if '.' in phone_str:
+        parts = phone_str.split('.')
+        if len(parts) == 2 and (parts[1] == '0' or parts[1] == '00' or not parts[1]):
+            phone_str = parts[0]
+            
+    clean = re.sub(r'\D', '', phone_str)
     if len(clean) == 10:
         clean = "91" + clean
     return clean
