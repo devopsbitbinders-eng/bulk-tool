@@ -213,9 +213,8 @@ async def get_dashboard_stats(user_id: int):
     inc_today = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :ts", {"u": user_id, "ts": today_str})
     inc_7d = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
 
-    # Outgoing
-    camp_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND timestamp >= :ts", {"u": user_id, "ts": today_str})
-    camp_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
+    camp_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status = 'sent' AND timestamp >= :ts", {"u": user_id, "ts": today_str})
+    camp_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status = 'sent' AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
     
     return {
         "templates": {
