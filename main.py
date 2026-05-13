@@ -2579,7 +2579,7 @@ async def webhook_handler(request: Request):
                     
                     db = await get_db()
                     # 1. Update Campaigns/Bulk Messages Table
-                    msg = await db.fetch_one("SELECT id, status FROM messages WHERE whatsapp_message_id = :id", {"id": wa_message_id})
+                    msg = await db.fetch_one("SELECT id, status, campaign_id, phone FROM messages WHERE whatsapp_message_id = :id", {"id": wa_message_id})
                     
                     # 2. Update Individual Chat Messages Table
                     chat_msg = await db.fetch_one("SELECT id, status FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
@@ -2588,7 +2588,7 @@ async def webhook_handler(request: Request):
                         # RACE CONDITION FIX: Wait and retry once if not found
                         print(f"DEBUG WEBHOOK: ID {wa_message_id} not found initially. Retrying in 2 seconds...")
                         await asyncio.sleep(2)
-                        msg = await db.fetch_one("SELECT id, status FROM messages WHERE whatsapp_message_id = :id", {"id": wa_message_id})
+                        msg = await db.fetch_one("SELECT id, status, campaign_id, phone FROM messages WHERE whatsapp_message_id = :id", {"id": wa_message_id})
                         chat_msg = await db.fetch_one("SELECT id, status FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
 
                     if not msg and not chat_msg:
@@ -2616,6 +2616,30 @@ async def webhook_handler(request: Request):
                                 await db.execute("UPDATE messages SET status = :status WHERE whatsapp_message_id = :id", {"status": new_status, "id": wa_message_id})
                             if chat_msg:
                                 await db.execute("UPDATE chat_messages SET status = :status WHERE wa_message_id = :id", {"status": new_status, "id": wa_message_id})
+                                
+                        # NEW: Forward to Google Sheet Webhook if it's a campaign message
+                        if msg:
+                            campaign_id = msg['campaign_id']
+                            phone = msg['phone']
+                            # Fetch campaign name
+                            campaign = await db.fetch_one("SELECT name FROM campaigns WHERE id = :id", {"id": campaign_id})
+                            campaign_name = campaign['name'] if campaign else ""
+                            
+                            webhook_url = "https://script.google.com/macros/s/AKfycbySBh9aNBpv4HFGHqGO6k5nGCm_bYIP5u6iEOIOqxtiWXrftOa8ccAidS2LQVDC2M_PNA/exec"
+                            
+                            payload = {
+                                "phone": phone,
+                                "status": new_status,
+                                "campaign_name": campaign_name
+                            }
+                            
+                            try:
+                                import httpx
+                                async with httpx.AsyncClient(timeout=10.0) as client:
+                                    await client.post(webhook_url, json=payload)
+                                    print(f"DEBUG WEBHOOK: Forwarded status to Google Sheet: {new_status} for {phone}")
+                            except Exception as e:
+                                print(f"DEBUG WEBHOOK: Failed to forward status to Google Sheet: {e}")
                         
                         # BROADCAST to Live UI (SSE)
                         update_event = json.dumps({
