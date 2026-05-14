@@ -2632,7 +2632,7 @@ async def webhook_handler(request: Request):
                             campaign = await db.fetch_one("SELECT name FROM campaigns WHERE id = :id", {"id": campaign_id})
                             campaign_name = campaign['name'] if campaign else ""
                             
-                            webhook_url = "https://script.google.com/macros/s/AKfycbyWb-U5Foivp0TciAGaU8zQdezIRpLzxk-jNF_-OHtPCGy-_fcIsFwgbNUz2QbsMTFtBw/exec"
+                            webhook_url = "https://script.google.com/macros/s/AKfycby_c47e9Vo28bZr3Bk3nvU7oUdAMZZ5Oydj5_uNbqejI7Szl71C2-n3gdHrPs9xDYdbrg/exec"
                             
                             payload = {
                                 "phone": phone,
