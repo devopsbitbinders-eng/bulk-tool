@@ -1709,7 +1709,14 @@ async def export_campaign(campaign_id: int):
                 else:
                     dt = r['timestamp'] # Assume it's a datetime object
                     
-                ist_dt = dt + timedelta(hours=5, minutes=30)
+                # Migration check: If before fix time (2026-05-14 12:35), it was UTC. So add 5:30.
+                fix_time = datetime(2026, 5, 14, 12, 35, 0)
+                
+                if dt < fix_time:
+                    ist_dt = dt + timedelta(hours=5, minutes=30)
+                else:
+                    ist_dt = dt
+                    
                 data['Time'] = ist_dt.strftime("%Y-%m-%d %H:%M:%S")
             except Exception:
                 data['Time'] = str(r['timestamp'])

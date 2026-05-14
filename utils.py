@@ -6,8 +6,8 @@ import time
 from datetime import datetime, timezone, timedelta
 
 def get_now_utc():
-    """Returns the current time in UTC in a format SQLite likes: YYYY-MM-DD HH:MM:SS"""
-    return datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    """Returns the current time in IST (UTC+5:30) in a format SQLite likes: YYYY-MM-DD HH:MM:SS"""
+    return (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).strftime('%Y-%m-%d %H:%M:%S')
 
 def normalize_phone(phone):
     """Normalizes phone number to digits only and adds 91 if 10 digits."""
