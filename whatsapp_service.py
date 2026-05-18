@@ -250,10 +250,8 @@ async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
     try:
         if file_bytes and len(file_bytes) > 12:
             if file_bytes[4:8] == b'ftyp' and file_bytes[8:12] == b'qt  ':
-                print("DEBUG MAGIC BYTES: QuickTime (.mov) container detected. Overriding to video/quicktime")
-                final_mime = "video/quicktime"
-                if not str(filename).lower().endswith(".mov"):
-                    filename = os.path.splitext(str(filename))[0] + ".mov"
+                print("DEBUG MAGIC BYTES: QuickTime (.mov) container detected. Rejecting.")
+                return None, "WhatsApp strictly does not support QuickTime (.mov) format videos via API. The video you uploaded or linked is a .mov file. Please convert it to a standard .mp4 video (with H.264 + AAC codecs) and try again."
     except Exception as e:
         print(f"DEBUG MAGIC BYTES Exception: {e}")
 
