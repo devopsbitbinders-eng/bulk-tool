@@ -246,6 +246,17 @@ async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
     if not final_mime:
         final_mime = mime_type or mimetypes.guess_type(str(filename))[0] or "image/jpeg"
     
+    # MAGIC BYTES INSPECTION FOR QUICKTIME (.mov) FILES MASQUED AS .mp4
+    try:
+        if file_bytes and len(file_bytes) > 12:
+            if file_bytes[4:8] == b'ftyp' and file_bytes[8:12] == b'qt  ':
+                print("DEBUG MAGIC BYTES: QuickTime (.mov) container detected. Overriding to video/quicktime")
+                final_mime = "video/quicktime"
+                if not str(filename).lower().endswith(".mov"):
+                    filename = os.path.splitext(str(filename))[0] + ".mov"
+    except Exception as e:
+        print(f"DEBUG MAGIC BYTES Exception: {e}")
+
     print(f"DEBUG: Meta Upload - Filename: {filename}, Extension: {ext}, Final MIME: {final_mime}")
     
     url = f"https://graph.facebook.com/{WHATSAPP_VERSION}/{phone_id}/media"
