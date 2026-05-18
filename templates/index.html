@@ -2111,15 +2111,8 @@
                 if (!ts) return "";
                 try {
                     let cleanTs = ts.toString().replace(' ', 'T');
-                    if (!cleanTs.includes('Z') && !cleanTs.includes('+') && !cleanTs.match(/-\d{2}:?\d{2}$/)) {
-                        cleanTs += 'Z';
-                    }
                     let d = new Date(cleanTs);
                     if (isNaN(d.getTime())) return ts;
-
-                    // Clamp future times (caused by server clock skew) to current browser "now"
-                    const browserNow = new Date();
-                    if (d > browserNow) d = browserNow;
 
                     const options = {
                         day: '2-digit',
@@ -2138,15 +2131,8 @@
                 try {
                     if (ts.length <= 8 && ts.includes(':') && !ts.includes('-')) return ts;
                     let cleanTs = ts.toString().replace(' ', 'T');
-                    if (!cleanTs.includes('Z') && !cleanTs.includes('+') && !cleanTs.match(/-\d{2}:?\d{2}$/)) {
-                        cleanTs += 'Z';
-                    }
                     let d = new Date(cleanTs);
                     if (isNaN(d.getTime())) return ts;
-
-                    // Clamp future times
-                    const browserNow = new Date();
-                    if (d > browserNow) d = browserNow;
 
                     return d.toLocaleTimeString('en-IN', {
                         hour: 'numeric',
