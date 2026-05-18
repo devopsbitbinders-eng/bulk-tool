@@ -2611,7 +2611,12 @@ async def webhook_handler(request: Request):
                         if new_status == 'failed':
                             errors = status_update.get("errors", [])
                             if errors:
-                                error_msg = errors[0].get("message", "Unknown Meta Error")
+                                err_obj = errors[0]
+                                code = err_obj.get("code", "")
+                                title = err_obj.get("title", "")
+                                details = err_obj.get("error_data", {}).get("details", "")
+                                message = err_obj.get("message", "Unknown Meta Error")
+                                error_msg = f"Meta Error [{code}]: {message} - {title}. Details: {details}".strip(" .")
                         
                         if error_msg:
                             if msg:
