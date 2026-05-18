@@ -948,9 +948,9 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                     else:
                         # FALLBACK: If we have no ID and the URL is a local serverless file, it's dead. 
                         # Use a placeholder so Meta doesn't fail with "Media upload error".
-                        placeholder = "https://bitbinders.in/transparent.png"
-                        if m_tag == "video": placeholder = "https://bitbinders.in/placeholder.mp4"
-                        elif m_tag == "document": placeholder = "https://bitbinders.in/placeholder.pdf"
+                        placeholder = "https://raw.githubusercontent.com/mathiasbynens/small/master/png-transparent.png"
+                        if m_tag == "video": placeholder = "https://www.w3schools.com/html/mov_bbb.mp4"
+                        elif m_tag == "document": placeholder = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
                         param_obj[m_tag] = {"link": placeholder}
                     
                     # DOCUMENTS REQUIRE A FILENAME
@@ -970,11 +970,11 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                      m_type = media_header_type or "image"
                      # Use different placeholders based on type
                      if m_type == "video":
-                         placeholder = "https://bitbinders.in/placeholder.mp4"
+                         placeholder = "https://" + "www.w3schools.com/html/mov_bbb.mp4"
                      elif m_type == "document":
-                         placeholder = "https://bitbinders.in/placeholder.pdf"
+                         placeholder = "https://" + "www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
                      else:
-                         placeholder = "https://bitbinders.in/transparent.png"
+                         placeholder = "https://" + "raw.githubusercontent.com/mathiasbynens/small/master/png-transparent.png"
                          
                      forced_components.append({
                          "type": "header", 
@@ -1012,9 +1012,9 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
             if final_msg_type in ["image", "video", "document", "audio"]:
                 if not actual_media_id and str(actual_media_url).startswith("http") and "/static/uploads/" in str(actual_media_url):
                     # Dead URL. Force placeholder.
-                    placeholder = "https://bitbinders.in/transparent.png"
-                    if final_msg_type == "video": placeholder = "https://bitbinders.in/placeholder.mp4"
-                    elif final_msg_type == "document": placeholder = "https://bitbinders.in/placeholder.pdf"
+                    placeholder = "https://raw.githubusercontent.com/mathiasbynens/small/master/png-transparent.png"
+                    if final_msg_type == "video": placeholder = "https://www.w3schools.com/html/mov_bbb.mp4"
+                    elif final_msg_type == "document": placeholder = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
                     actual_media_url = placeholder
 
             success, response = await send_whatsapp_message(
@@ -1419,11 +1419,11 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                  # If media is required but missing, use a placeholder
                  m_type = media_header_type or "image"
                  if m_type == "video":
-                     placeholder = "https://bitbinders.in/placeholder.mp4"
+                     placeholder = "https://" + "www.w3schools.com/html/mov_bbb.mp4"
                  elif m_type == "document":
-                     placeholder = "https://bitbinders.in/placeholder.pdf"
+                     placeholder = "https://" + "www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
                  else:
-                     placeholder = "https://bitbinders.in/transparent.png"
+                     placeholder = "https://" + "raw.githubusercontent.com/mathiasbynens/small/master/png-transparent.png"
                      
                  forced_components.append({
                      "type": "header", 
