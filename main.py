@@ -213,8 +213,8 @@ async def get_dashboard_stats(user_id: int):
     inc_today = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :ts", {"u": user_id, "ts": today_str})
     inc_7d = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
 
-    camp_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status = 'sent' AND timestamp >= :ts", {"u": user_id, "ts": today_str})
-    camp_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status = 'sent' AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
+    camp_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": today_str})
+    camp_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
     
     return {
         "templates": {
@@ -346,7 +346,7 @@ async def get_history(request: Request):
     query = """
         SELECT 
             c.id, c.name, c.status, c.timestamp,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'sent') as sent_success,
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('sent', 'delivered', 'read')) as sent_success,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered_count,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read_count
