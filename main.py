@@ -2613,7 +2613,7 @@ async def webhook_handler(request: Request):
                             
                             try:
                                 import httpx
-                                async with httpx.AsyncClient(timeout=10.0) as client:
+                                async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
                                     await client.post(webhook_url, json=payload)
                                     print(f"DEBUG WEBHOOK: Forwarded status to Google Sheet: {new_status} for {phone}")
                             except Exception as e:
