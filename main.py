@@ -782,7 +782,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
         # --- RE-UPLOAD TO META IF NEEDED (Ensures Phone ID Sync) ---
         try:
             credentials = await get_active_credentials(user_id)
-            if (not meta_media_id or meta_media_id == "None") and campaign_media_url:
+            is_meta_hosted = any(domain in str(campaign_media_url) for domain in ["scontent.whatsapp.net", "lookaside.fbsbx.com", "fbcdn.net"])
+            if (not meta_media_id or meta_media_id == "None") and campaign_media_url and not is_meta_hosted:
                 full_url = str(campaign_media_url)
                 m_content = None
                 m_filename = "media_file"
@@ -1963,7 +1964,12 @@ async def upload_file(
     # PRE-UPLOAD HANDSHAKE FOR FIXED URLS (Fail Fast)
     if not meta_media_id and fixed_url_from_mapping:
         fixed_url = fixed_url_from_mapping
-        if str(fixed_url).startswith("http"):
+        # BYPASS META-HOSTED CDN URLS FROM THE HANDSHAKE
+        is_meta_hosted = any(domain in str(fixed_url) for domain in ["scontent.whatsapp.net", "lookaside.fbsbx.com", "fbcdn.net"])
+        if is_meta_hosted:
+            print("DEBUG: Fixed URL is already hosted on Meta CDN. Bypassing handshake upload.")
+            final_media_url = fixed_url
+        elif str(fixed_url).startswith("http"):
                 try:
                     creds = await get_active_credentials(u_id)
                     if creds:
