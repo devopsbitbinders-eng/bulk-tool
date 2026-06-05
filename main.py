@@ -305,7 +305,7 @@ async def index(request: Request):
 
         campaigns_raw = await db.fetch_all("""
             SELECT c.*,
-                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('failed',sent', 'delivered', 'read')) as sent_success_combined,
+                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('failed', 'sent', 'delivered', 'read')) as sent_success_combined,
                 (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered_count,
                 (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read_count,
                 (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed_count
