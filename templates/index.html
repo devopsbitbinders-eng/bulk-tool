@@ -325,17 +325,17 @@
 
         window.addEventListener('message', (event) => {
             if (!event.origin.includes("facebook.com")) return;
-            
+
             let data = event.data;
             console.log('--- META SIGNAL START ---');
             console.log('RAW DATA:', data);
-            
+
             // Nuclear Option: Stringify everything and search for IDs
             let rawString = "";
             try {
                 rawString = typeof data === 'string' ? data : JSON.stringify(data);
-            } catch(e) { rawString = String(data); }
-            
+            } catch (e) { rawString = String(data); }
+
             console.log('SCANNING FOR IDs...', rawString);
 
             // Match 15-16 digit numbers
@@ -366,7 +366,7 @@
                 fetch('/facebook_auth_callback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         waba_id: id2, // id2 is WABA
                         phone_id: id1, // id1 is Phone
                         code: code,
@@ -611,7 +611,8 @@
                             <div id="singleDeliveryArea" class="hidden mb-6">
                                 <label class="block text-sm font-medium text-slate-700 mb-2 flex justify-between">
                                     Recipient Mobile Number(s)
-                                    <span class="text-[10px] text-slate-400 font-normal mt-0.5">Comma separated (e.g. 91...,91...)</span>
+                                    <span class="text-[10px] text-slate-400 font-normal mt-0.5">Comma separated (e.g.
+                                        91...,91...)</span>
                                 </label>
                                 <input type="text" id="singleMobileNumber" name="single_mobile"
                                     placeholder="e.g. 919876543210, 919876543211"
@@ -711,37 +712,53 @@
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
                                     Attach Campaign Media
-                                    <span class="text-[10px] font-normal text-slate-400">(Required for templates with Headers)</span>
+                                    <span class="text-[10px] font-normal text-slate-400">(Required for templates with
+                                        Headers)</span>
                                 </label>
-                                
+
                                 <div id="mediaDropzone" onclick="document.getElementById('campaignMediaFile').click()"
                                     class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-indigo-500 transition-all cursor-pointer bg-slate-50 group">
-                                    <input type="file" id="campaignMediaFile" class="hidden" onchange="handleCampaignMedia(this)">
+                                    <input type="file" id="campaignMediaFile" class="hidden"
+                                        onchange="handleCampaignMedia(this)">
                                     <div class="flex flex-col items-center gap-2">
-                                        <div id="mediaIcon" class="p-3 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform">
-                                            <svg class="w-6 h-6 text-slate-400 group-hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                        <div id="mediaIcon"
+                                            class="p-3 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform">
+                                            <svg class="w-6 h-6 text-slate-400 group-hover:text-indigo-600" fill="none"
+                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                                </path>
                                             </svg>
                                         </div>
-                                        <p class="text-xs text-slate-600" id="mediaStatusText"><span class="font-bold text-indigo-600">Click to upload</span> or drag image/video here</p>
-                                        <p class="text-[9px] text-slate-400 italic">This media will be used for the Template Header.</p>
+                                        <p class="text-xs text-slate-600" id="mediaStatusText"><span
+                                                class="font-bold text-indigo-600">Click to upload</span> or drag
+                                            image/video here</p>
+                                        <p class="text-[9px] text-slate-400 italic">This media will be used for the
+                                            Template Header.</p>
                                     </div>
                                 </div>
-                                <div id="campaignMediaStatus" class="mt-2 hidden flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
+                                <div id="campaignMediaStatus"
+                                    class="mt-2 hidden flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 13l4 4L19 7"></path>
                                     </svg>
                                     <span id="campaignMediaFilename">File Attached</span>
                                     <input type="hidden" id="metaMediaId" name="meta_media_id">
                                     <input type="hidden" id="campaignMediaUrl" name="media_url">
                                 </div>
-                                
+
                                 <div class="mt-3 p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 flex gap-3">
-                                    <svg class="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    <svg class="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                     </svg>
                                     <p class="text-[10px] text-indigo-600 leading-relaxed">
-                                        <span class="font-bold">Why upload again?</span> Even if your template is approved with an image, Meta requires you to provide the actual media content for every campaign you launch. Uploading it here ensures it is securely hosted on Meta's servers for 100% delivery success.
+                                        <span class="font-bold">Why upload again?</span> Even if your template is
+                                        approved with an image, Meta requires you to provide the actual media content
+                                        for every campaign you launch. Uploading it here ensures it is securely hosted
+                                        on Meta's servers for 100% delivery success.
                                     </p>
                                 </div>
                             </div>
@@ -856,9 +873,14 @@
                                             {{ c.status }}
                                         </span>
                                         {% if c.status == 'Pending' or c.status == 'Processing' %}
-                                        <button onclick="document.getElementById('progressCard').classList.remove('hidden'); setupSSE(); startBatchProcessing('{{ c.id }}'); this.remove();"
+                                        <button
+                                            onclick="document.getElementById('progressCard').classList.remove('hidden'); setupSSE(); startBatchProcessing('{{ c.id }}'); this.remove();"
                                             class="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-800 transition-colors">
-                                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd"
+                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
                                             Resume
                                         </button>
                                         {% endif %}
@@ -1305,9 +1327,8 @@
                                             class="w-full min-h-[100px] bg-[#d9dbdf] rounded-lg flex items-center justify-center overflow-hidden relative">
                                             <img id="view_media_img"
                                                 class="hidden max-w-full h-auto object-contain block mx-auto">
-                                            <video id="view_media_video"
-                                                class="hidden w-full h-full object-cover" controls autoplay muted
-                                                loop playsinline preload="auto"></video>
+                                            <video id="view_media_video" class="hidden w-full h-full object-cover"
+                                                controls autoplay muted loop playsinline preload="auto"></video>
                                             <div id="view_media_icon"
                                                 class="text-[#8696a0] flex flex-col items-center gap-1">
                                                 <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor"
@@ -1702,8 +1723,8 @@
                                                     <img id="prev_media_img"
                                                         class="hidden max-w-full h-auto object-contain block mx-auto">
                                                     <video id="prev_media_video"
-                                                        class="hidden w-full h-full object-cover" controls autoplay muted
-                                                        loop playsinline preload="auto"></video>
+                                                        class="hidden w-full h-full object-cover" controls autoplay
+                                                        muted loop playsinline preload="auto"></video>
                                                     <div id="prev_media_placeholder"
                                                         class="text-[#8696a0] flex flex-col items-center gap-1">
                                                         <svg class="w-8 h-8 opacity-50" fill="none"
@@ -2230,7 +2251,7 @@
                     tbody.innerHTML = campaigns.map(c => `
                     <tr class="hover:bg-slate-50/80 transition-colors">
                         <td class="px-8 py-5 text-sm font-bold text-slate-800">${c.name}</td>
-                        <td class="px-8 py-5 text-xs text-slate-500 capitalize sync-time">${c.timestamp}</td>
+                        <td class="px-8 py-5 text-xs text-slate-500 capitalize">${formatDateTime(c.timestamp)}</td>
                         <td class="px-8 py-5 text-center text-sm font-medium text-slate-600">${c.sent_success}</td>
                         <td class="px-8 py-5 text-center text-sm font-medium text-rose-600">${c.failed || 0}</td>
                         <td class="px-8 py-5 text-center text-sm font-medium text-blue-600">${c.delivered_count || 0}</td>
@@ -2408,7 +2429,7 @@
                 // Check for Media Header
                 const header = components.find(c => c.type === 'HEADER');
                 currentHeaderType = header ? header.format : "NONE";
-                
+
                 // Smart Auto-Fill Priority: 
                 // 1. Meta components example (The most reliable source from Meta's API)
                 // 2. Local template.media_url (Only if it's a real public URL, not a local one)
@@ -2416,23 +2437,23 @@
                 currentHeaderSampleUrl = "";
                 if (header && header.example) {
                     const ex = header.example;
-                    currentHeaderSampleUrl = (ex.header_handle && ex.header_handle[0]) ? ex.header_handle[0] : 
-                                            ((ex.header_text && ex.header_text[0]) ? ex.header_text[0] : "");
+                    currentHeaderSampleUrl = (ex.header_handle && ex.header_handle[0]) ? ex.header_handle[0] :
+                        ((ex.header_text && ex.header_text[0]) ? ex.header_text[0] : "");
                 }
-                
+
                 // If we found nothing, or if the URL found is a broken local link, try other sources
                 const isBrokenLocal = (url) => !url || url.includes('static/uploads') || url.includes('bitbinders.in');
-                
+
                 if (isBrokenLocal(currentHeaderSampleUrl)) {
                     const savedMedia = template.media_url || "";
                     if (!isBrokenLocal(savedMedia)) currentHeaderSampleUrl = savedMedia;
                 }
-                
+
                 if (isBrokenLocal(currentHeaderSampleUrl) && currentHeaderType !== 'NONE' && currentHeaderType !== 'TEXT') {
                     const localSaved = localStorage.getItem(`last_header_url_${templateName}`) || "";
                     if (!isBrokenLocal(localSaved)) currentHeaderSampleUrl = localSaved;
                 }
-                
+
                 selectedTemplateLang = template.language || "en_US";
 
                 // Clear old media states when switching templates to prioritize the new template's own image
@@ -2545,7 +2566,7 @@
                 if (currentHeaderType !== 'NONE' && currentHeaderType !== 'TEXT') {
                     const headerInput = document.querySelector('input[name="val_header"]');
                     const headerSelect = document.querySelector('select[name="map_header"]');
-                    
+
                     if (method === 'single' && headerInput && !headerInput.value.trim() && !document.getElementById('metaMediaId').value) {
                         return showToast(`Please provide a URL or upload a file for the ${currentHeaderType} header!`, 'error');
                     }
@@ -2554,11 +2575,11 @@
                         const isUploaded = headerSelect && headerSelect.value === '__UPLOADED__';
                         const hasFixedUrl = headerInput && headerInput.value.trim();
                         const hasMetaId = document.getElementById('metaMediaId').value;
-                        
+
                         if (isUploaded && !hasMetaId) {
                             return showToast("You selected 'Use Uploaded Campaign Media' but haven't uploaded any file in the Campaign Media section above!", 'error');
                         }
-                        
+
                         if (!hasColumn && !hasFixedUrl && !isUploaded && !hasMetaId) {
                             return showToast(`Please either map a column, provide a fixed URL, or upload a file for the ${currentHeaderType} header!`, 'error');
                         }
@@ -2857,7 +2878,7 @@
                         const absoluteUrl = data.url;
                         document.getElementById('campaignMediaUrl').value = absoluteUrl;
                         document.getElementById('metaMediaId').value = ""; // Clear meta ID as we are using direct link
-                        
+
                         // UI Feedback
                         const statusEl = document.getElementById('campaignMediaStatus');
                         const nameEl = document.getElementById('campaignMediaFilename');
@@ -3023,7 +3044,7 @@
                             if (videoPrev) {
                                 if (videoPrev.getAttribute('data-loaded-url') !== mediaUrl) {
                                     videoPrev.setAttribute('data-loaded-url', mediaUrl);
-                                    
+
                                     fetch(mediaUrl)
                                         .then(response => {
                                             if (!response.ok) throw new Error('HTTP error ' + response.status);
@@ -3825,7 +3846,7 @@
             async function loadChatContacts(page = 1, append = false) {
                 const list = document.getElementById('chatContactList');
                 if (!list) return;
-                
+
                 if (!append) {
                     list.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">Loading contacts...</div>`;
                     window.currentChatPage = 1;
@@ -3844,7 +3865,7 @@
                     } else {
                         window.chatContactsData = contacts;
                     }
-                    
+
                     renderChatContacts();
 
                 } catch (err) {
@@ -3897,10 +3918,10 @@
                     const hasUnread = pData.has_unread;
                     const isActive = currentChatPhone === phone;
                     const name = pData.name || phone;
-                    
+
                     // Format display name as "Name (Phone)" if name exists
                     const displayName = pData.name ? `${pData.name} (${phone})` : phone;
-                    
+
                     // Extract initials for avatar
                     let initials = phone.slice(-2);
                     if (pData.name) {
@@ -3913,7 +3934,7 @@
                             initials = parts[0][0].toUpperCase();
                         }
                     }
-                    
+
                     const avatarColor = getAvatarColor(name);
 
                     return `
@@ -3959,17 +3980,17 @@
                 document.getElementById('chatPlaceholder').classList.add('hidden');
                 document.getElementById('activeChat').classList.remove('hidden');
                 document.getElementById('activeChat').classList.add('flex');
-                
+
                 const contact = window.chatContactsData.find(c => c.phone === phone);
                 let displayName = phone;
                 let initials = phone.slice(-2);
                 let avatarColor = 'bg-slate-200 text-slate-500';
-                
+
                 if (contact) {
                     const name = contact.name || phone;
                     displayName = contact.name ? `${contact.name} (${phone})` : phone;
                     avatarColor = `${getAvatarColor(name)} text-white`;
-                    
+
                     if (contact.name) {
                         const parts = contact.name.trim().split(/\s+/);
                         if (parts.length >= 2) {
@@ -3981,14 +4002,14 @@
                         }
                     }
                 }
-                
+
                 document.getElementById('chatDisplayName').innerText = displayName;
                 document.getElementById('chatInitials').innerText = initials;
-                
+
                 // Update avatar color in header
                 const avatarDiv = document.getElementById('chatInitials').parentElement;
                 avatarDiv.className = `w-10 h-10 ${avatarColor} rounded-full flex items-center justify-center font-bold`;
-                
+
                 document.getElementById('chatInput').value = '';
 
                 // Mark as read in UI & DB
@@ -4058,7 +4079,7 @@
                             displayMsg = m.message;
                         }
 
-                        let tickColor = 'text-slate-400'; 
+                        let tickColor = 'text-slate-400';
                         if (m.wa_status === 'read') {
                             tickColor = 'text-[#53bdeb]'; // WhatsApp Blue tick
                         } else if (m.wa_status === 'delivered') {
@@ -4184,15 +4205,13 @@
                                 <div class="flex items-center gap-2 mt-1">
                                     <span class="px-1.5 py-0.5 bg-green-100 text-green-700 text-[9px] font-bold rounded uppercase">${t.language}</span>
                                     <span class="text-[9px] text-slate-400 capitalize">${t.category || ''}</span>
-                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest ${
-                                        String(t.status).toLowerCase() === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
-                                        (String(t.status).toLowerCase() === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700')
-                                    }">${t.status || 'UNKNOWN'}</span>
-                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest ${
-                                        String(t.quality).toLowerCase() === 'high' ? 'bg-emerald-100 text-emerald-700' : 
-                                        (String(t.quality).toLowerCase() === 'medium' ? 'bg-amber-100 text-amber-700' : 
-                                        (String(t.quality).toLowerCase() === 'low' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'))
-                                    }">${t.quality ? 'Quality: ' + t.quality : 'Quality: UNKNOWN'}</span>
+                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest ${String(t.status).toLowerCase() === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                (String(t.status).toLowerCase() === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700')
+                            }">${t.status || 'UNKNOWN'}</span>
+                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest ${String(t.quality).toLowerCase() === 'high' ? 'bg-emerald-100 text-emerald-700' :
+                                (String(t.quality).toLowerCase() === 'medium' ? 'bg-amber-100 text-amber-700' :
+                                    (String(t.quality).toLowerCase() === 'low' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'))
+                            }">${t.quality ? 'Quality: ' + t.quality : 'Quality: UNKNOWN'}</span>
                                 </div>
                             </td>
                             <td class="px-8 py-5">

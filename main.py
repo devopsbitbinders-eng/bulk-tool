@@ -346,7 +346,7 @@ async def get_history(request: Request):
     query = """
         SELECT 
             c.id, c.name, c.status, c.timestamp,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('sent', 'delivered', 'read')) as sent_success,
+            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'sent') as sent_success,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered_count,
             (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read_count
@@ -2611,13 +2611,17 @@ async def webhook_handler(request: Request):
                                 "campaign_name": campaign_name
                             }
                             
-                            try:
-                                import httpx
-                                async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-                                    await client.post(webhook_url, json=payload)
-                                    print(f"DEBUG WEBHOOK: Forwarded status to Google Sheet: {new_status} for {phone}")
-                            except Exception as e:
-                                print(f"DEBUG WEBHOOK: Failed to forward status to Google Sheet: {e}")
+                            async def send_to_sheet():
+                                try:
+                                    import httpx
+                                    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+                                        await client.post(webhook_url, json=payload)
+                                        print(f"DEBUG WEBHOOK: Forwarded status to Google Sheet: {new_status} for {phone}")
+                                except Exception as e:
+                                    print(f"DEBUG WEBHOOK: Failed to forward status to Google Sheet: {e}")
+                            
+                            import asyncio
+                            asyncio.create_task(send_to_sheet())
                         
                         # BROADCAST to Live UI (SSE)
                         update_event = json.dumps({
