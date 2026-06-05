@@ -303,7 +303,21 @@ async def index(request: Request):
         if not linked_phone and waba_id: linked_phone = "CONNECTED"
         if waba_id in ["AUTO_DETECT", ""]: waba_id = "PENDING"
 
-        campaigns = await db.fetch_all("SELECT * FROM campaigns WHERE user_id = :u ORDER BY timestamp DESC LIMIT 50", {"u": u_id})
+        campaigns_raw = await db.fetch_all("""
+            SELECT c.*,
+                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'sent') as sent_only,
+                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered_count,
+                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read_count,
+                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed_count
+            FROM campaigns c
+            WHERE c.user_id = :u ORDER BY c.timestamp DESC LIMIT 50
+        """, {"u": u_id})
+        # Override sent_success with real-time count
+        campaigns = []
+        for c in campaigns_raw:
+            d = dict(c)
+            d['sent_success'] = d.get('sent_only', 0)
+            campaigns.append(d)
         
         templates_raw = await db.fetch_all("SELECT * FROM templates WHERE user_id = :u ORDER BY name ASC", {"u": u_id})
         templates_list = []
@@ -756,7 +770,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                             
                         if values_list:
                             await db.execute_many("""
-                                INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
+                                INSERT IGNORE INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
                                 VALUES (:u, :c, :p, :s, :rd, :err)
                             """, values_list)
                             
