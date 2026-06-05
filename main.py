@@ -1,4 +1,4 @@
-ffrom fastapi import FastAPI, UploadFile, Form, Request, BackgroundTasks, File, staticfiles
+from fastapi import FastAPI, UploadFile, Form, Request, BackgroundTasks, File, staticfiles
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 load_dotenv()
