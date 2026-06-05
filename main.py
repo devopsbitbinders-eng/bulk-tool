@@ -305,18 +305,18 @@ async def index(request: Request):
 
         campaigns_raw = await db.fetch_all("""
             SELECT c.*,
-                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'sent') as sent_only,
+                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('sent', 'delivered', 'read')) as sent_success_combined,
                 (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered_count,
                 (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read_count,
                 (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed_count
             FROM campaigns c
             WHERE c.user_id = :u ORDER BY c.timestamp DESC LIMIT 50
         """, {"u": u_id})
-        # Override sent_success with real-time count
+        # Use combined sent+delivered+read for dashboard card display
         campaigns = []
         for c in campaigns_raw:
             d = dict(c)
-            d['sent_success'] = d.get('sent_only', 0)
+            d['sent_success'] = d.get('sent_success_combined', 0)
             campaigns.append(d)
         
         templates_raw = await db.fetch_all("SELECT * FROM templates WHERE user_id = :u ORDER BY name ASC", {"u": u_id})
