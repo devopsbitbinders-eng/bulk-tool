@@ -66,7 +66,10 @@ async def init_db():
             phone_col TEXT,
             scheduled_at DATETIME,
             media_url TEXT,
-            meta_media_id TEXT
+            meta_media_id TEXT,
+            retry_enabled BOOLEAN DEFAULT 0,
+            retry_max_count INTEGER DEFAULT 0,
+            retry_interval_hours INTEGER DEFAULT 0
         ) {table_opts}
     """)
     
@@ -83,6 +86,14 @@ async def init_db():
     except Exception as e:
         if "Duplicate column" not in str(e) and "already exists" not in str(e):
             print(f"MIGRATION ERROR (meta_media_id): {e}")
+
+    # 1.2 Migration for retry settings
+    try: await db.execute("ALTER TABLE campaigns ADD COLUMN retry_enabled BOOLEAN DEFAULT 0")
+    except: pass
+    try: await db.execute("ALTER TABLE campaigns ADD COLUMN retry_max_count INTEGER DEFAULT 0")
+    except: pass
+    try: await db.execute("ALTER TABLE campaigns ADD COLUMN retry_interval_hours INTEGER DEFAULT 0")
+    except: pass
 
     # 2. Messages Table
     await db.execute(f"""

@@ -788,6 +788,31 @@
                                 </div>
                             </div>
 
+                            <div class="mb-6 p-4 bg-orange-50 rounded-2xl border border-orange-200">
+                                <div class="flex items-center justify-between mb-3">
+                                    <label class="flex items-center gap-2 cursor-pointer group">
+                                        <input type="checkbox" id="retryEnabled" name="retry_enabled"
+                                            onchange="toggleRetryInput(this.checked)"
+                                            class="w-4 h-4 text-orange-600 rounded border-orange-300 focus:ring-orange-500">
+                                        <span class="text-sm font-bold text-orange-700 group-hover:text-orange-900 transition-colors">Auto-Retry Failed Numbers</span>
+                                    </label>
+                                    <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                </div>
+                                <div id="retrySettingsArea" class="hidden animate-in slide-in-from-top-2 duration-300 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-orange-700 uppercase tracking-wider mb-1">Max Retries</label>
+                                        <input type="number" id="retryMaxCount" name="retry_max_count" min="1" max="10" value="3" class="w-full px-3 py-2 rounded-xl border border-orange-200 focus:ring-2 focus:ring-orange-500 outline-none text-sm font-medium bg-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-orange-700 uppercase tracking-wider mb-1">Hours between Retries</label>
+                                        <input type="number" id="retryIntervalHours" name="retry_interval_hours" min="1" max="72" value="8" class="w-full px-3 py-2 rounded-xl border border-orange-200 focus:ring-2 focus:ring-orange-500 outline-none text-sm font-medium bg-white">
+                                    </div>
+                                    <p class="col-span-2 text-[10px] text-orange-500 italic mt-1 px-1">If a message fails, system will retry up to the max count with the specified delay between attempts.</p>
+                                </div>
+                            </div>
+
                             <button type="submit" id="submitBtn"
                                 class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
                                 <span id="submitBtnText">Launch Campaign</span>
@@ -2659,6 +2684,13 @@
                     if (isScheduled) {
                         formData.append('scheduled_at', document.getElementById('scheduledAt').value);
                     }
+                    if (document.getElementById('retryEnabled').checked) {
+                        formData.append('retry_enabled', 'true');
+                        formData.append('retry_max_count', document.getElementById('retryMaxCount').value);
+                        formData.append('retry_interval_hours', document.getElementById('retryIntervalHours').value);
+                    } else {
+                        formData.append('retry_enabled', 'false');
+                    }
                     const response = await fetch('/upload', { method: 'POST', body: formData });
                     const result = await response.json();
                     if (response.ok) {
@@ -2709,6 +2741,20 @@
                 document.getElementById('templateName').required = show;
             }
 
+            
+            function toggleRetryInput(checked) {
+                const area = document.getElementById('retrySettingsArea');
+                if (checked) { 
+                    area.classList.remove('hidden'); 
+                    document.getElementById('retryMaxCount').required = true; 
+                    document.getElementById('retryIntervalHours').required = true; 
+                } else { 
+                    area.classList.add('hidden'); 
+                    document.getElementById('retryMaxCount').required = false; 
+                    document.getElementById('retryIntervalHours').required = false; 
+                }
+            }
+            
             function toggleScheduleInput(checked) {
                 const area = document.getElementById('scheduleTimeArea');
                 const btnText = document.getElementById('submitBtnText');

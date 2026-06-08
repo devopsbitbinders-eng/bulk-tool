@@ -1051,13 +1051,30 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                     error_msg = "Meta Error 132000: Variable mismatch. Check header/body variables."
                 else:
                     error_msg = raw_err
+            # Determine if this failure should be retried (skip invalid/not-on-WA)
+            should_retry = False
+            next_retry_at = None
+            if not success and campaign.get('retry_enabled'):
+                is_permanent_fail = any([
+                    "131030" in error_msg,   # Not on WhatsApp
+                    "Invalid or missing phone number" in error_msg,
+                    ("invalid" in error_msg.lower() and "phone" in error_msg.lower()),
+                ])
+                if not is_permanent_fail:
+                    should_retry = True
+                    interval = int(campaign.get('retry_interval_hours', 0))
+                    if interval > 0:
+                        from datetime import timedelta
+                        next_retry_at = (get_now_utc() + timedelta(hours=interval)).strftime('%Y-%m-%d %H:%M:%S')
 
             # Update Message Record
             await db.execute("""
-                UPDATE messages SET status = :s, whatsapp_message_id = :mid, error_message = :err, message = :m
+                UPDATE messages SET status = :s, whatsapp_message_id = :mid, error_message = :err, message = :m, next_retry_at = :nra
                 WHERE id = :id
-            """, {"s": 'sent' if success else 'failed', "mid": wa_message_id, "err": error_msg, "m": message_to_send, "id": msg['id']})
-            
+            """, {
+                "s": 'sent' if success else 'failed', "mid": wa_message_id, "err": error_msg, 
+                "m": message_to_send, "nra": next_retry_at, "id": msg['id']
+            })
             processed_count += 1
             # Minimal delay between messages in batch
             await asyncio.sleep(0.2)
@@ -1119,11 +1136,13 @@ async def cron_process_endpoint():
         retry_messages = await db.fetch_all("""
             SELECT m.id, m.phone, m.campaign_id, m.message, m.row_data, m.retry_count,
                    c.user_id, c.template_name, c.language_code, c.mappings, 
-                   c.phone_col, c.media_url, c.meta_media_id, c.msg_type
+                   c.phone_col, c.media_url, c.meta_media_id, c.msg_type,
+                   c.retry_enabled, c.retry_max_count, c.retry_interval_hours
             FROM messages m
             JOIN campaigns c ON m.campaign_id = c.id
             WHERE m.status = 'failed' 
-              AND m.retry_count < 3
+              AND c.retry_enabled = 1
+              AND m.retry_count < c.retry_max_count
               AND m.next_retry_at IS NOT NULL
               AND m.next_retry_at <= :now
             LIMIT 50
@@ -1170,15 +1189,17 @@ async def cron_process_endpoint():
                     retry_success += 1
                     print(f"DEBUG RETRY-CRON: {msg['phone']} SUCCESS on retry #{new_retry_count}")
                 else:
-                    if new_retry_count >= 3:
+                    max_retries = msg.get('retry_max_count', 3)
+                    if new_retry_count >= max_retries:
                         # Permanently failed - no more retries
                         await db.execute("""
-                            UPDATE messages SET retry_count=3, next_retry_at=NULL WHERE id=:id
-                        """, {"id": msg['id']})
-                        print(f"DEBUG RETRY-CRON: {msg['phone']} PERMANENTLY FAILED after 3 retries")
+                            UPDATE messages SET retry_count=:rc, next_retry_at=NULL WHERE id=:id
+                        """, {"rc": max_retries, "id": msg['id']})
+                        print(f"DEBUG RETRY-CRON: {msg['phone']} PERMANENTLY FAILED after {max_retries} retries")
                     else:
-                        # Schedule next retry in 8 hours
-                        next_retry = (now_utc + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S')
+                        # Schedule next retry based on campaign setting
+                        interval = msg.get('retry_interval_hours', 8)
+                        next_retry = (now_utc + timedelta(hours=interval)).strftime('%Y-%m-%d %H:%M:%S')
                         await db.execute("""
                             UPDATE messages SET retry_count=:rc, next_retry_at=:nra WHERE id=:id
                         """, {"rc": new_retry_count, "nra": next_retry, "id": msg['id']})
@@ -2002,7 +2023,10 @@ async def upload_file(
     scheduled_at: str = Form(None),
     media_url: str = Form(None),
     meta_media_id: str = Form(None),
-    media_file: UploadFile = File(None)
+    media_file: UploadFile = File(None),
+    retry_enabled: str = Form("false"),
+    retry_max_count: int = Form(0),
+    retry_interval_hours: int = Form(0)
 ):
     session_token = request.cookies.get("session_token")
     username = verify_session_token(session_token)
@@ -2134,12 +2158,14 @@ async def upload_file(
 
     campaign_id = await db.execute("""
         INSERT INTO campaigns (user_id, name, total_numbers, status, timestamp, 
-                              message_template, msg_type, template_name, language_code, mappings, phone_col, scheduled_at, media_url, meta_media_id) 
-        VALUES (:u, :name, :total, :status, :ts, :msg, :mtype, :tname, :lang, :maps, :pcol, :sch, :murl, :mid)
+                              message_template, msg_type, template_name, language_code, mappings, phone_col, scheduled_at, media_url, meta_media_id,
+                              retry_enabled, retry_max_count, retry_interval_hours) 
+        VALUES (:u, :name, :total, :status, :ts, :msg, :mtype, :tname, :lang, :maps, :pcol, :sch, :murl, :mid, :re, :rmc, :rih)
     """, {
         "u": u_id, "name": filename, "total": len(data), "status": status, "ts": now_utc,
         "msg": message, "mtype": msg_type, "tname": template_name, "lang": language_code, 
-        "maps": json.dumps(mappings_dict), "pcol": phone_col, "sch": final_schedule, "murl": final_media_url, "mid": meta_media_id
+        "maps": json.dumps(mappings_dict), "pcol": phone_col, "sch": final_schedule, "murl": final_media_url, "mid": meta_media_id,
+        "re": 1 if retry_enabled == 'true' else 0, "rmc": retry_max_count, "rih": retry_interval_hours
     })
 
     # 2. Handle inserts or background processing
@@ -2716,7 +2742,21 @@ async def webhook_handler(request: Request):
                         
                         if error_msg:
                             if msg:
-                                await db.execute("UPDATE messages SET status = :status, error_message = :err WHERE whatsapp_message_id = :id", {"status": new_status, "err": error_msg, "id": wa_message_id})
+                                next_retry_at = None
+                                camp_settings = await db.fetch_one("SELECT retry_enabled, retry_interval_hours FROM campaigns WHERE id = :id", {"id": msg['campaign_id']})
+                                if camp_settings and camp_settings['retry_enabled']:
+                                    is_permanent_fail = any([
+                                        "131030" in error_msg,
+                                        "Invalid or missing phone number" in error_msg,
+                                        ("invalid" in error_msg.lower() and "phone" in error_msg.lower()),
+                                    ])
+                                    if not is_permanent_fail:
+                                        interval = int(camp_settings.get('retry_interval_hours', 0))
+                                        if interval > 0:
+                                            from datetime import timedelta
+                                            next_retry_at = (get_now_utc() + timedelta(hours=interval)).strftime('%Y-%m-%d %H:%M:%S')
+
+                                await db.execute("UPDATE messages SET status = :status, error_message = :err, next_retry_at = :nra WHERE whatsapp_message_id = :id", {"status": new_status, "err": error_msg, "nra": next_retry_at, "id": wa_message_id})
                             if chat_msg:
                                 await db.execute("UPDATE chat_messages SET status = :status, error_message = :err WHERE wa_message_id = :id", {"status": new_status, "err": error_msg, "id": wa_message_id})
                         else:
