@@ -1181,8 +1181,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                     should_retry = True
                     interval = int(campaign.get('retry_interval_hours', 0))
                     if interval > 0:
-                        from datetime import timedelta
-                        next_retry_at = (get_now_utc() + timedelta(hours=interval)).strftime('%Y-%m-%d %H:%M:%S')
+                        from datetime import timedelta, datetime, timezone
+                        next_retry_at = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30) + timedelta(hours=interval)).strftime('%Y-%m-%d %H:%M:%S')
 
             # Update Message Record
             await db.execute("""
@@ -1773,10 +1773,10 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
             should_retry = not is_permanent_fail
         
         # Schedule first retry 8 hours from now if applicable
-        from datetime import timedelta
+        from datetime import timedelta, datetime, timezone
         next_retry_at = None
         if should_retry:
-            next_retry_at = (get_now_utc() + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S')
+            next_retry_at = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30) + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S')
         
         await db.execute("""
             INSERT INTO messages (user_id, campaign_id, phone, message, status, error_message, whatsapp_message_id, row_data, timestamp, retry_count, next_retry_at)
@@ -2882,8 +2882,8 @@ async def webhook_handler(request: Request):
                                         camp_dict = dict(camp_settings)
                                         interval = int(camp_dict.get('retry_interval_hours', 0))
                                         if interval > 0:
-                                            from datetime import timedelta
-                                            next_retry_at = (get_now_utc() + timedelta(hours=interval)).strftime('%Y-%m-%d %H:%M:%S')
+                                            from datetime import timedelta, datetime, timezone
+                                            next_retry_at = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30) + timedelta(hours=interval)).strftime('%Y-%m-%d %H:%M:%S')
 
                                 await db.execute("UPDATE messages SET status = :status, error_message = :err, next_retry_at = :nra WHERE whatsapp_message_id = :id", {"status": new_status, "err": error_msg, "nra": next_retry_at, "id": wa_message_id})
                             if chat_msg:
