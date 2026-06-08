@@ -2272,18 +2272,28 @@
                     document.querySelectorAll('main > div').forEach(div => div.classList.add('hidden'));
                     content.classList.remove('hidden');
                 }
-
                 if (tab === 'templates') {
                     content.classList.add('block');
                 } else if (tab === 'history') {
                     content.classList.add('block');
                     loadHistory();
                 } else if (tab === 'chat') {
-                    content.classList.remove('hidden');
                     content.classList.add('flex');
                     loadChatContacts();
+                } else if (tab === 'analytics') {
+                    content.classList.add('block');
+                    // Force chart to render correctly if it was hidden
+                    if (trafficChartInstance) {
+                        trafficChartInstance.resize();
+                    } else {
+                        // If it wasn't fetched yet, trigger it
+                        const drp = $('#dashboardDateRange').data('daterangepicker');
+                        if (drp) {
+                            fetchFilteredDashboard(drp.startDate.format('YYYY-MM-DD'), drp.endDate.format('YYYY-MM-DD'));
+                        }
+                    }
                 } else {
-                    content.classList.add('grid');
+                    content.classList.add('block');
                 }
             }
 

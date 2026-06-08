@@ -326,7 +326,7 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
     
     for r in out_records:
         ts = r['timestamp']
-        st = (r['status'] or '').lower() if ('status' in r and r['status']) else ''
+        st = (r['status'] or '').lower() if r['status'] else ''
         
         if not ts:
             continue
