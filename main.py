@@ -245,7 +245,7 @@ async def get_dashboard_stats(user_id: int):
     }
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request, background_tasks: BackgroundTasks):
     # Check for authentication
     session_token = request.cookies.get("session_token")
     username = verify_session_token(session_token)
@@ -343,6 +343,9 @@ async def index(request: Request):
                 try: t["variable_map"] = json.loads(t["variable_map"])
                 except: t["variable_map"] = {}
             templates_list.append(t)
+            
+        # NEW: Trigger background retry processing to act as a fail-safe if cron fails
+        background_tasks.add_task(cron_process_endpoint)
                 
         return templates.TemplateResponse(request=request, name="index.html", context={
             "request": request, 
