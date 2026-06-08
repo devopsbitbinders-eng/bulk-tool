@@ -1483,17 +1483,12 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
                     print(f"DEBUG RETRY: Campaign Message to {phone} SUCCEEDED on attempt {attempt}")
                 break
             
-            # Check if error is NON-RETRYABLE (no point retrying these)
+            # Check if error is NON-RETRYABLE
             err_str = str(response)
             is_non_retryable = any([
-                "131049" in err_str,      # Meta ecosystem engagement block
                 "131030" in err_str,      # Phone number not on WhatsApp
-                "131047" in err_str,      # Message expired
-                "131051" in err_str,      # Unsupported message type
-                "Invalid" in err_str and "phone" in err_str.lower(),  # Invalid phone
-                "401" in err_str,         # Auth error
-                "OAuthException" in err_str,  # Auth error
-                "131026" in err_str,      # Message undeliverable
+                "Invalid or missing phone number" in err_str,  # Invalid phone (pre-check)
+                ("invalid" in err_str.lower() and "phone" in err_str.lower()),  # Invalid phone from Meta
             ])
             
             if is_non_retryable:
