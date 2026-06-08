@@ -1113,9 +1113,10 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 has_body = any(str(c['type']).lower() == 'body' for c in forced_components)
                 if body_var_count > 0 and not has_body:
                      forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
-                message_to_send = json.dumps(forced_components)
-            else:
-                message_to_send = substitute_template(message_template or "", row)
+                
+                row["__forced_components__"] = forced_components
+            
+            message_to_send = substitute_template(message_template or "", row)
 
             # Auto-detect msg_type if it's text but we have a media_url
             final_msg_type = msg_type
@@ -1185,11 +1186,11 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
 
             # Update Message Record
             await db.execute("""
-                UPDATE messages SET status = :s, whatsapp_message_id = :mid, error_message = :err, message = :m, next_retry_at = :nra
+                UPDATE messages SET status = :s, whatsapp_message_id = :mid, error_message = :err, message = :m, next_retry_at = :nra, row_data = :rd
                 WHERE id = :id
             """, {
                 "s": 'sent' if success else 'failed', "mid": wa_message_id, "err": error_msg, 
-                "m": message_to_send, "nra": next_retry_at, "id": msg['id']
+                "m": message_to_send, "nra": next_retry_at, "rd": json.dumps(row), "id": msg['id']
             })
             processed_count += 1
             # Minimal delay between messages in batch
@@ -1280,15 +1281,8 @@ async def cron_process_endpoint():
                 media_url = msg.get('media_url')
                 campaign_media_id = msg.get('meta_media_id')
                 
-                # Parse forced_components from message if it's a template
-                forced_components = None
-                if msg_type == 'template' and msg['message']:
-                    try:
-                        parsed = json.loads(msg['message'])
-                        if isinstance(parsed, list):
-                            forced_components = parsed
-                    except:
-                        pass
+                # Parse forced_components from row_data if it's a template
+                forced_components = row.get("__forced_components__", None)
                 
                 success, response = await send_whatsapp_message(
                     msg['phone'], msg['message'], msg_type, template_name, language_code,
@@ -2885,7 +2879,8 @@ async def webhook_handler(request: Request):
                                         ("invalid" in error_msg.lower() and "phone" in error_msg.lower()),
                                     ])
                                     if not is_permanent_fail:
-                                        interval = int(camp_settings.get('retry_interval_hours', 0))
+                                        camp_dict = dict(camp_settings)
+                                        interval = int(camp_dict.get('retry_interval_hours', 0))
                                         if interval > 0:
                                             from datetime import timedelta
                                             next_retry_at = (get_now_utc() + timedelta(hours=interval)).strftime('%Y-%m-%d %H:%M:%S')
