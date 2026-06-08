@@ -248,14 +248,22 @@ async def get_dashboard_stats(user_id: int):
     out_records = await db.fetch_all("SELECT timestamp FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
     
     for r in inc_records:
-        dt_utc = datetime.datetime.strptime(r['timestamp'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+        ts = r['timestamp']
+        if isinstance(ts, str):
+            dt_utc = datetime.datetime.strptime(ts, '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+        else:
+            dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
         dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
         day_str = dt_ist.strftime('%d %b')
         if day_str in daily_stats:
             daily_stats[day_str]["in"] += 1
             
     for r in out_records:
-        dt_utc = datetime.datetime.strptime(r['timestamp'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+        ts = r['timestamp']
+        if isinstance(ts, str):
+            dt_utc = datetime.datetime.strptime(ts, '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+        else:
+            dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
         dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
         day_str = dt_ist.strftime('%d %b')
         if day_str in daily_stats:
