@@ -335,9 +335,9 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
         day_str = dt_ist.strftime('%d %b')
         if day_str in daily_stats:
             if st == 'sent': daily_stats[day_str]["sent"] += 1
-            elif st == 'delivered': daily_stats[day_str]["delivered"] += 1
+            elif st == 'delivered' or st == 'success': daily_stats[day_str]["delivered"] += 1
             elif st == 'read': daily_stats[day_str]["read"] += 1
-            elif st == 'failed': daily_stats[day_str]["failed"] += 1
+            elif st == 'failed' or st == 'error': daily_stats[day_str]["failed"] += 1
             
     for d in chart_data["labels"]:
         chart_data["sent"].append(daily_stats[d]["sent"])
