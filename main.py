@@ -289,6 +289,74 @@ async def get_dashboard_stats(user_id: int):
         "chart_data": chart_data
     }
 
+@app.get("/api/dashboard/filtered")
+async def get_filtered_dashboard(request: Request, start: str, end: str):
+    session_token = request.cookies.get("session_token")
+    if not session_token: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    db = await get_db()
+    user = await db.fetch_one("SELECT id FROM users WHERE session_token = :t", {"t": session_token})
+    if not user: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    
+    ist_delta = datetime.timedelta(hours=5, minutes=30)
+    try:
+        start_dt_ist = datetime.datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=datetime.timezone(ist_delta))
+        end_dt_ist = datetime.datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=datetime.timezone(ist_delta))
+    except:
+        return JSONResponse(status_code=400, content={"error": "Invalid dates"})
+        
+    start_str_utc = start_dt_ist.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    end_str_utc = end_dt_ist.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    
+    inc = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
+    out = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
+    
+    chart_data = {"labels": [], "incoming": [], "outgoing": []}
+    days_diff = (end_dt_ist.date() - start_dt_ist.date()).days
+    if days_diff > 60:
+        days_diff = 60
+        start_dt_ist = end_dt_ist - datetime.timedelta(days=60)
+        
+    daily_stats = {}
+    for i in range(days_diff + 1):
+        d = (start_dt_ist + datetime.timedelta(days=i)).strftime('%d %b')
+        daily_stats[d] = {"in": 0, "out": 0}
+        chart_data["labels"].append(d)
+        
+    inc_records = await db.fetch_all("SELECT timestamp FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
+    out_records = await db.fetch_all("SELECT timestamp FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
+    
+    for r in inc_records:
+        ts = r['timestamp']
+        if isinstance(ts, str):
+            dt_utc = datetime.datetime.strptime(ts, '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+        else:
+            dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
+        dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
+        day_str = dt_ist.strftime('%d %b')
+        if day_str in daily_stats:
+            daily_stats[day_str]["in"] += 1
+            
+    for r in out_records:
+        ts = r['timestamp']
+        if isinstance(ts, str):
+            dt_utc = datetime.datetime.strptime(ts, '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+        else:
+            dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
+        dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
+        day_str = dt_ist.strftime('%d %b')
+        if day_str in daily_stats:
+            daily_stats[day_str]["out"] += 1
+            
+    for d in chart_data["labels"]:
+        chart_data["incoming"].append(daily_stats[d]["in"])
+        chart_data["outgoing"].append(daily_stats[d]["out"])
+        
+    return {
+        "incoming": inc['count'] if inc else 0,
+        "outgoing": out['count'] if out else 0,
+        "chart_data": chart_data
+    }
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, background_tasks: BackgroundTasks):
     # Check for authentication
