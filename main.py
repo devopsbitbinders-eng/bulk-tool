@@ -229,6 +229,42 @@ async def get_dashboard_stats(user_id: int):
     camp_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": today_str})
     camp_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
     
+    # Chart Data Aggregation (Last 7 Days)
+    chart_data = {
+        "labels": [],
+        "incoming": [],
+        "outgoing": []
+    }
+    
+    # Pre-fill last 7 days
+    daily_stats = {}
+    for i in range(7):
+        d = (today_start_ist - datetime.timedelta(days=6-i)).strftime('%d %b')
+        daily_stats[d] = {"in": 0, "out": 0}
+        chart_data["labels"].append(d)
+        
+    # Fetch all records for last 7 days to aggregate
+    inc_records = await db.fetch_all("SELECT timestamp FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
+    out_records = await db.fetch_all("SELECT timestamp FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
+    
+    for r in inc_records:
+        dt_utc = datetime.datetime.strptime(r['timestamp'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+        dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
+        day_str = dt_ist.strftime('%d %b')
+        if day_str in daily_stats:
+            daily_stats[day_str]["in"] += 1
+            
+    for r in out_records:
+        dt_utc = datetime.datetime.strptime(r['timestamp'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+        dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
+        day_str = dt_ist.strftime('%d %b')
+        if day_str in daily_stats:
+            daily_stats[day_str]["out"] += 1
+            
+    for d in chart_data["labels"]:
+        chart_data["incoming"].append(daily_stats[d]["in"])
+        chart_data["outgoing"].append(daily_stats[d]["out"])
+
     return {
         "templates": {
             "total": total_t['count'] if total_t else 0,
@@ -241,7 +277,8 @@ async def get_dashboard_stats(user_id: int):
         "outgoing": {
             "today": camp_out_today['count'] or 0,
             "last_7_days": camp_out_7d['count'] or 0
-        }
+        },
+        "chart_data": chart_data
     }
 
 @app.get("/", response_class=HTMLResponse)
