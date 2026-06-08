@@ -4619,9 +4619,6 @@
         }
 
         $(document).ready(function() {
-            // Initial render
-            if (initialChartData) renderChart(initialChartData);
-            
             // Set up date range picker
             const start = moment().subtract(6, 'days');
             const end = moment();
@@ -4644,8 +4641,9 @@
                 }
             }, cb);
 
-            // Initial text without triggering fetch since default API loads last 7 days
+            // Initial text and trigger fetch for initial load
             $('#dashboardDateRange').val(start.format('MMM D, YYYY') + ' - ' + end.format('MMM D, YYYY'));
+            fetchFilteredDashboard(start.format('YYYY-MM-DD'), end.format('YYYY-MM-DD'));
         });
     </script>
 </body>
