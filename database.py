@@ -245,6 +245,15 @@ async def init_db():
         ) {table_opts}
     """)
 
+    # Opt Outs Table
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS opt_outs (
+            id INTEGER PRIMARY KEY {auto_inc},
+            phone {text_type} UNIQUE,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) {table_opts}
+    """)
+
     pass # Keep connection pool alive for the actual request
 
 async def get_db():

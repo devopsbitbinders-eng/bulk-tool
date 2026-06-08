@@ -878,6 +878,14 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
             message_to_send = ""
             forced_components = []
 
+            # Check for opt_out
+            is_opted_out = await db.fetch_val("SELECT id FROM opt_outs WHERE phone = :p", {"p": phone})
+            if is_opted_out:
+                await db.execute("UPDATE messages SET status='failed', error_message='User opted out (STOP)' WHERE id=:id", {"id": msg['id']})
+                failed_batch += 1
+                processed_count += 1
+                continue
+
             if msg_type == "template":
                 message_to_send = message_template or f"Template: {template_name}"
                 header_params = []
@@ -1144,6 +1152,15 @@ async def cron_process_endpoint():
                 msg_type = msg.get('msg_type', 'template')
                 media_url = msg.get('media_url')
                 campaign_media_id = msg.get('meta_media_id')
+                
+                # Check for Opt-Out
+                is_opted_out = await db.fetch_val("SELECT id FROM opt_outs WHERE phone = :p", {"p": msg['phone']})
+                if is_opted_out:
+                    await db.execute("""
+                        UPDATE messages SET status='failed', error_message='User opted out (STOP)', retry_count=3, next_retry_at=NULL WHERE id=:id
+                    """, {"id": msg['id']})
+                    print(f"DEBUG RETRY-CRON: Skipped {msg['phone']} - Opted Out")
+                    continue
                 
                 success, response = await send_whatsapp_message(
                     msg['phone'], None, msg_type, template_name, language_code,
@@ -2829,6 +2846,17 @@ async def webhook_handler(request: Request):
                         """, {"u": u_id, "phone": clean_from, "message": body, "id": wa_message_id, "ts": get_now_utc(), "sender_name": sender_name})
                         print(f"DEBUG WEBHOOK: Saved inbound {msg_type} from {clean_from} for user {u_id}")
                         
+                        # NEW: Handle STOP opt-outs
+                        if msg_type == "text" and body and body.strip().lower() == "stop":
+                            try:
+                                await db.execute("INSERT IGNORE INTO opt_outs (phone) VALUES (:phone)", {"phone": clean_from})
+                                print(f"DEBUG WEBHOOK: Added {clean_from} to opt_outs list")
+                            except:
+                                # SQLite fallback for ignore
+                                try: await db.execute("INSERT OR IGNORE INTO opt_outs (phone) VALUES (:phone)", {"phone": clean_from})
+                                except: pass
+                        
+                        
                         # BROADCAST to Live UI (SSE)
                         inbound_event = json.dumps({
                             "type": "new_message",
@@ -2927,6 +2955,7 @@ async def get_chat_contacts(request: Request, page: int = 1, limit: int = 50):
         rows = await db.fetch_all("""
             SELECT t.phone, 
                    MAX(CASE WHEN c.is_read = 0 AND c.direction = 'inbound' THEN 1 ELSE 0 END) as has_unread,
+                   MAX(CASE WHEN o.phone IS NOT NULL THEN 1 ELSE 0 END) as is_opted_out,
                    (SELECT row_data FROM messages WHERE phone = t.phone AND user_id = :u AND row_data IS NOT NULL ORDER BY timestamp DESC LIMIT 1) as row_data,
                    MAX(t.latest_ts) as last_activity
             FROM (
@@ -2935,6 +2964,7 @@ async def get_chat_contacts(request: Request, page: int = 1, limit: int = 50):
                 SELECT phone, MAX(timestamp) as latest_ts FROM chat_messages WHERE user_id = :u GROUP BY phone
             ) t
             LEFT JOIN chat_messages c ON t.phone = c.phone AND c.user_id = :u
+            LEFT JOIN opt_outs o ON t.phone = o.phone
             WHERE t.phone IS NOT NULL AND t.phone != ''
             GROUP BY t.phone
             ORDER BY last_activity DESC, t.phone ASC
@@ -2945,6 +2975,7 @@ async def get_chat_contacts(request: Request, page: int = 1, limit: int = 50):
         for r in rows:
             phone = r['phone']
             has_unread = bool(r['has_unread'])
+            is_opted_out = bool(r['is_opted_out'])
             name = None
             row_data = r['row_data']
             if row_data:
@@ -2966,7 +2997,7 @@ async def get_chat_contacts(request: Request, page: int = 1, limit: int = 50):
                         name = sender_row['sender_name']
                 except: pass
                 
-            contacts.append({"phone": phone, "name": name, "has_unread": has_unread})
+            contacts.append({"phone": phone, "name": name, "has_unread": has_unread, "is_opted_out": is_opted_out})
             
         return contacts
     except Exception as e:
