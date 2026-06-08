@@ -835,21 +835,21 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
         
         if not pending_messages:
             # Check if there are stuck 'processing' messages
-            # processing_count = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'processing'", {"id": campaign_id})
-            # if processing_count > 0:
-            #     print(f"DEBUG: Found {processing_count} stuck messages for Campaign {campaign_id}. Resetting to pending.")
-            #     await db.execute("UPDATE messages SET status = 'pending' WHERE campaign_id = :id AND status = 'processing'", {"id": campaign_id})
-            #     
-            #     # Try fetching them again
-            #     async with db.transaction():
-            #         pending_raw = await db.fetch_all(
-            #             "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit FOR UPDATE SKIP LOCKED",
-            #             {"id": campaign_id, "limit": batch_size}
-            #         )
-            #         if pending_raw:
-            #             pending_messages = [dict(m) for m in pending_raw]
-            #             ids = [m['id'] for m in pending_messages]
-            #             await db.execute(f"UPDATE messages SET status = 'processing' WHERE id IN ({','.join(map(str, ids))})")
+            processing_count = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'processing'", {"id": campaign_id})
+            if processing_count > 0:
+                print(f"DEBUG: Found {processing_count} stuck messages for Campaign {campaign_id}. Resetting to pending.")
+                await db.execute("UPDATE messages SET status = 'pending' WHERE campaign_id = :id AND status = 'processing'", {"id": campaign_id})
+                
+                # Try fetching them again
+                async with db.transaction():
+                    pending_raw = await db.fetch_all(
+                        "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit FOR UPDATE SKIP LOCKED",
+                        {"id": campaign_id, "limit": batch_size}
+                    )
+                    if pending_raw:
+                        pending_messages = [dict(m) for m in pending_raw]
+                        ids = [m['id'] for m in pending_messages]
+                        await db.execute(f"UPDATE messages SET status = 'processing' WHERE id IN ({','.join(map(str, ids))})")
             
             # If still no messages, check for files to process
             if not pending_messages:
@@ -1423,29 +1423,15 @@ async def cron_process_endpoint():
         if campaign['status'] == 'Stopped' or campaign['status'] == 'Paused':
             continue
             
-        # Split into chunks of 20
-        # We will run 5 chunks of 20 parallel calls to process_campaign_batch(batch_size=1)
-        # This achieves the user's throttled parallelism goal!
-        
-        for _ in range(6): # 6 chunks of 15 = 90 messages
-            tasks = []
-            for _ in range(15):
-                tasks.append(process_campaign_batch(campaign_id, batch_size=1))
-                
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Original Sequential Processing (Safe and reliable)
+        for _ in range(3): # Process 3 batches of 30 messages (total 90) sequentially
+            result = await process_campaign_batch(campaign_id, batch_size=30)
+            processed_in_chunk = result.get('processed', 0)
+            total_processed += processed_in_chunk
             
-            processed_in_chunk = 0
-            for result in results:
-                if not isinstance(result, Exception):
-                    processed_in_chunk += result.get('processed', 0)
-                    total_processed += result.get('processed', 0)
-                    
             if processed_in_chunk == 0:
                 # No more messages for this campaign
                 break
-                
-            # Wait 500ms before next chunk (Throttled Parallelism)
-            await asyncio.sleep(0.5)
             
         if total_processed >= max_messages:
             break
