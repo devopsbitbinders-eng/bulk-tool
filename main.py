@@ -835,21 +835,21 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
         
         if not pending_messages:
             # Check if there are stuck 'processing' messages
-            processing_count = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'processing'", {"id": campaign_id})
-            if processing_count > 0:
-                print(f"DEBUG: Found {processing_count} stuck messages for Campaign {campaign_id}. Resetting to pending.")
-                await db.execute("UPDATE messages SET status = 'pending' WHERE campaign_id = :id AND status = 'processing'", {"id": campaign_id})
-                
-                # Try fetching them again
-                async with db.transaction():
-                    pending_raw = await db.fetch_all(
-                        "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit FOR UPDATE SKIP LOCKED",
-                        {"id": campaign_id, "limit": batch_size}
-                    )
-                    if pending_raw:
-                        pending_messages = [dict(m) for m in pending_raw]
-                        ids = [m['id'] for m in pending_messages]
-                        await db.execute(f"UPDATE messages SET status = 'processing' WHERE id IN ({','.join(map(str, ids))})")
+            # processing_count = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'processing'", {"id": campaign_id})
+            # if processing_count > 0:
+            #     print(f"DEBUG: Found {processing_count} stuck messages for Campaign {campaign_id}. Resetting to pending.")
+            #     await db.execute("UPDATE messages SET status = 'pending' WHERE campaign_id = :id AND status = 'processing'", {"id": campaign_id})
+            #     
+            #     # Try fetching them again
+            #     async with db.transaction():
+            #         pending_raw = await db.fetch_all(
+            #             "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit FOR UPDATE SKIP LOCKED",
+            #             {"id": campaign_id, "limit": batch_size}
+            #         )
+            #         if pending_raw:
+            #             pending_messages = [dict(m) for m in pending_raw]
+            #             ids = [m['id'] for m in pending_messages]
+            #             await db.execute(f"UPDATE messages SET status = 'processing' WHERE id IN ({','.join(map(str, ids))})")
             
             # If still no messages, check for files to process
             if not pending_messages:
