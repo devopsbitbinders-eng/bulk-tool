@@ -1113,6 +1113,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 has_body = any(str(c['type']).lower() == 'body' for c in forced_components)
                 if body_var_count > 0 and not has_body:
                      forced_components.append({"type": "body", "parameters": [{"type": "text", "text": " "}]})
+                message_to_send = json.dumps(forced_components)
             else:
                 message_to_send = substitute_template(message_template or "", row)
 
@@ -1279,10 +1280,20 @@ async def cron_process_endpoint():
                 media_url = msg.get('media_url')
                 campaign_media_id = msg.get('meta_media_id')
                 
+                # Parse forced_components from message if it's a template
+                forced_components = None
+                if msg_type == 'template' and msg['message']:
+                    try:
+                        parsed = json.loads(msg['message'])
+                        if isinstance(parsed, list):
+                            forced_components = parsed
+                    except:
+                        pass
+                
                 success, response = await send_whatsapp_message(
-                    msg['phone'], None, msg_type, template_name, language_code,
+                    msg['phone'], msg['message'], msg_type, template_name, language_code,
                     media_url=None, credentials=credentials,
-                    forced_components=None, media_id=campaign_media_id
+                    forced_components=forced_components, media_id=campaign_media_id
                 )
                 
                 new_retry_count = msg['retry_count'] + 1
