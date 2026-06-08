@@ -1461,19 +1461,56 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
         # let send_whatsapp_message try to upload it again.
         actual_media_url = media_url
         if msg_type == "template" and str(actual_media_url).startswith("http"):
-            # Pass None as media_url to send_whatsapp_message so it relies solely on forced_components
             actual_media_url = None
-
-        success, response = await send_whatsapp_message(
-            phone, message_to_send, final_msg_type, template_name, language_code, 
-            media_url=actual_media_url, credentials=credentials, 
-            forced_components=forced_components, media_id=campaign_media_id
-        )
+        
+        # AUTO-RETRY LOGIC: Try up to 3 times for temporary/network failures
+        MAX_RETRIES = 3
+        RETRY_DELAY = 2  # seconds between retries
+        
+        success, response = False, None
+        attempt = 0
+        
+        while attempt < MAX_RETRIES:
+            attempt += 1
+            success, response = await send_whatsapp_message(
+                phone, message_to_send, final_msg_type, template_name, language_code, 
+                media_url=actual_media_url, credentials=credentials, 
+                forced_components=forced_components, media_id=campaign_media_id
+            )
+            
+            if success:
+                if attempt > 1:
+                    print(f"DEBUG RETRY: Campaign Message to {phone} SUCCEEDED on attempt {attempt}")
+                break
+            
+            # Check if error is NON-RETRYABLE (no point retrying these)
+            err_str = str(response)
+            is_non_retryable = any([
+                "131049" in err_str,      # Meta ecosystem engagement block
+                "131030" in err_str,      # Phone number not on WhatsApp
+                "131047" in err_str,      # Message expired
+                "131051" in err_str,      # Unsupported message type
+                "Invalid" in err_str and "phone" in err_str.lower(),  # Invalid phone
+                "401" in err_str,         # Auth error
+                "OAuthException" in err_str,  # Auth error
+                "131026" in err_str,      # Message undeliverable
+            ])
+            
+            if is_non_retryable:
+                print(f"DEBUG RETRY: Non-retryable error for {phone} (attempt {attempt}). Skipping retries. Error: {err_str[:100]}")
+                break
+            
+            if attempt < MAX_RETRIES:
+                print(f"DEBUG RETRY: Campaign Message to {phone} FAILED (attempt {attempt}/{MAX_RETRIES}). Retrying in {RETRY_DELAY}s...")
+                await asyncio.sleep(RETRY_DELAY)
+            else:
+                print(f"DEBUG RETRY: Campaign Message to {phone} FAILED after {MAX_RETRIES} attempts. Marking as failed.")
         
         if not success:
-            print(f"DEBUG ERROR: Campaign Message Failed to {phone}. Response: {response}")
+            print(f"DEBUG ERROR: Campaign Message Failed to {phone} after {attempt} attempt(s). Response: {response}")
             failed_count += 1
         
+
         status = "sent" if success else "failed"
         error = ""
         wa_message_id = None
