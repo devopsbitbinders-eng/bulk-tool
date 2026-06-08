@@ -78,6 +78,19 @@ async def lifespan(app: FastAPI):
         print("DEBUG: Initializing database...")
         await init_db()
         print("DEBUG: Database initialized successfully.")
+        # Migration: Add retry columns if not exist
+        try:
+            db = await get_db()
+            await db.execute("ALTER TABLE messages ADD COLUMN retry_count INT DEFAULT 0")
+            print("DEBUG: Added retry_count column")
+        except Exception:
+            pass  # Column already exists
+        try:
+            db = await get_db()
+            await db.execute("ALTER TABLE messages ADD COLUMN next_retry_at DATETIME NULL DEFAULT NULL")
+            print("DEBUG: Added next_retry_at column")
+        except Exception:
+            pass  # Column already exists
     except Exception as e:
         print(f"DEBUG: Error during database init: {str(e)}")
     
@@ -1096,6 +1109,87 @@ async def cron_process_endpoint():
     """External Cron endpoint to process pending messages across all campaigns."""
     db = await get_db()
     
+    # RETRY PROCESSOR: Retry failed messages scheduled for retry (8h intervals, 3 times)
+    now_utc = get_now_utc()
+    from datetime import timedelta
+    try:
+        retry_messages = await db.fetch_all("""
+            SELECT m.id, m.phone, m.campaign_id, m.message, m.row_data, m.retry_count,
+                   c.user_id, c.template_name, c.language_code, c.mappings, 
+                   c.phone_col, c.media_url, c.meta_media_id, c.msg_type
+            FROM messages m
+            JOIN campaigns c ON m.campaign_id = c.id
+            WHERE m.status = 'failed' 
+              AND m.retry_count < 3
+              AND m.next_retry_at IS NOT NULL
+              AND m.next_retry_at <= :now
+            LIMIT 50
+        """, {"now": now_utc})
+        
+        retry_success = 0
+        retry_failed = 0
+        
+        for msg in retry_messages:
+            try:
+                credentials = await get_active_credentials(msg['user_id'])
+                row = json.loads(msg['row_data']) if msg['row_data'] else {}
+                mappings = json.loads(msg['mappings']) if msg.get('mappings') else {}
+                
+                # Rebuild message for template campaigns
+                template_name = msg.get('template_name')
+                language_code = msg.get('language_code', 'en')
+                msg_type = msg.get('msg_type', 'template')
+                media_url = msg.get('media_url')
+                campaign_media_id = msg.get('meta_media_id')
+                
+                success, response = await send_whatsapp_message(
+                    msg['phone'], None, msg_type, template_name, language_code,
+                    media_url=None, credentials=credentials,
+                    forced_components=None, media_id=campaign_media_id
+                )
+                
+                new_retry_count = msg['retry_count'] + 1
+                
+                if success:
+                    wa_id = None
+                    if isinstance(response, dict) and 'messages' in response:
+                        wa_id = response['messages'][0].get('id')
+                    await db.execute("""
+                        UPDATE messages SET status='sent', next_retry_at=NULL, 
+                        retry_count=:rc, whatsapp_message_id=:wa_id
+                        WHERE id=:id
+                    """, {"rc": new_retry_count, "wa_id": wa_id, "id": msg['id']})
+                    # Update campaign counts
+                    await db.execute("""
+                        UPDATE campaigns SET sent_success=sent_success+1, sent_failed=sent_failed-1 
+                        WHERE id=:cid
+                    """, {"cid": msg['campaign_id']})
+                    retry_success += 1
+                    print(f"DEBUG RETRY-CRON: {msg['phone']} SUCCESS on retry #{new_retry_count}")
+                else:
+                    if new_retry_count >= 3:
+                        # Permanently failed - no more retries
+                        await db.execute("""
+                            UPDATE messages SET retry_count=3, next_retry_at=NULL WHERE id=:id
+                        """, {"id": msg['id']})
+                        print(f"DEBUG RETRY-CRON: {msg['phone']} PERMANENTLY FAILED after 3 retries")
+                    else:
+                        # Schedule next retry in 8 hours
+                        next_retry = (now_utc + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S')
+                        await db.execute("""
+                            UPDATE messages SET retry_count=:rc, next_retry_at=:nra WHERE id=:id
+                        """, {"rc": new_retry_count, "nra": next_retry, "id": msg['id']})
+                        print(f"DEBUG RETRY-CRON: {msg['phone']} failed retry #{new_retry_count}, next at {next_retry}")
+                    retry_failed += 1
+                    
+            except Exception as e:
+                print(f"DEBUG RETRY-CRON ERROR for msg {msg['id']}: {e}")
+        
+        if retry_messages:
+            print(f"DEBUG RETRY-CRON: Processed {len(retry_messages)} retries. Success={retry_success}, Failed={retry_failed}")
+    except Exception as e:
+        print(f"DEBUG RETRY-CRON GLOBAL ERROR: {e}")
+    
     # 0. Handle Scheduled Campaigns (Since Vercel doesn't support background loops)
     now_utc = get_now_utc()
     scheduled_campaigns = await db.fetch_all(
@@ -1463,46 +1557,15 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
         if msg_type == "template" and str(actual_media_url).startswith("http"):
             actual_media_url = None
         
-        # AUTO-RETRY LOGIC: Try up to 3 times for temporary/network failures
-        MAX_RETRIES = 3
-        RETRY_DELAY = 2  # seconds between retries
-        
-        success, response = False, None
-        attempt = 0
-        
-        while attempt < MAX_RETRIES:
-            attempt += 1
-            success, response = await send_whatsapp_message(
-                phone, message_to_send, final_msg_type, template_name, language_code, 
-                media_url=actual_media_url, credentials=credentials, 
-                forced_components=forced_components, media_id=campaign_media_id
-            )
-            
-            if success:
-                if attempt > 1:
-                    print(f"DEBUG RETRY: Campaign Message to {phone} SUCCEEDED on attempt {attempt}")
-                break
-            
-            # Check if error is NON-RETRYABLE
-            err_str = str(response)
-            is_non_retryable = any([
-                "131030" in err_str,      # Phone number not on WhatsApp
-                "Invalid or missing phone number" in err_str,  # Invalid phone (pre-check)
-                ("invalid" in err_str.lower() and "phone" in err_str.lower()),  # Invalid phone from Meta
-            ])
-            
-            if is_non_retryable:
-                print(f"DEBUG RETRY: Non-retryable error for {phone} (attempt {attempt}). Skipping retries. Error: {err_str[:100]}")
-                break
-            
-            if attempt < MAX_RETRIES:
-                print(f"DEBUG RETRY: Campaign Message to {phone} FAILED (attempt {attempt}/{MAX_RETRIES}). Retrying in {RETRY_DELAY}s...")
-                await asyncio.sleep(RETRY_DELAY)
-            else:
-                print(f"DEBUG RETRY: Campaign Message to {phone} FAILED after {MAX_RETRIES} attempts. Marking as failed.")
+        # Single attempt - failures are scheduled for retry via cron (every 8 hours, 3 times)
+        success, response = await send_whatsapp_message(
+            phone, message_to_send, final_msg_type, template_name, language_code, 
+            media_url=actual_media_url, credentials=credentials, 
+            forced_components=forced_components, media_id=campaign_media_id
+        )
         
         if not success:
-            print(f"DEBUG ERROR: Campaign Message Failed to {phone} after {attempt} attempt(s). Response: {response}")
+            print(f"DEBUG ERROR: Campaign Message Failed to {phone}. Response: {response}")
             failed_count += 1
         
 
@@ -1554,13 +1617,31 @@ async def process_campaign_legacy(user_id: int, campaign_id: int, data: list, ph
         else:
             db_message = db_message_text
 
+        # Determine if this failure should be retried (skip invalid/not-on-WA)
+        should_retry = False
+        if not success:
+            err_str = str(response) + str(error)
+            is_permanent_fail = any([
+                "131030" in err_str,   # Not on WhatsApp
+                "Invalid or missing phone number" in err_str,
+                ("invalid" in err_str.lower() and "phone" in err_str.lower()),
+            ])
+            should_retry = not is_permanent_fail
+        
+        # Schedule first retry 8 hours from now if applicable
+        from datetime import timedelta
+        next_retry_at = None
+        if should_retry:
+            next_retry_at = (get_now_utc() + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S')
+        
         await db.execute("""
-            INSERT INTO messages (user_id, campaign_id, phone, message, status, error_message, whatsapp_message_id, row_data, timestamp)
-            VALUES (:u, :campaign_id, :phone, :message, :status, :error_message, :wa_id, :row_data, :timestamp)
+            INSERT INTO messages (user_id, campaign_id, phone, message, status, error_message, whatsapp_message_id, row_data, timestamp, retry_count, next_retry_at)
+            VALUES (:u, :campaign_id, :phone, :message, :status, :error_message, :wa_id, :row_data, :timestamp, :retry_count, :next_retry_at)
         """, {
             "u": user_id, "campaign_id": campaign_id, "phone": phone, "message": db_message, 
             "status": status, "error_message": error, "wa_id": wa_message_id, 
-            "row_data": json.dumps(row), "timestamp": now_utc
+            "row_data": json.dumps(row), "timestamp": now_utc,
+            "retry_count": 0, "next_retry_at": next_retry_at
         })
         
         # Update campaign progress
