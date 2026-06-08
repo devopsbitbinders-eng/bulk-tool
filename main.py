@@ -2197,6 +2197,14 @@ async def upload_file(
     status = 'Scheduled' if scheduled_at else 'Pending'
     # Format scheduled_at to match our DB string format (YYYY-MM-DD HH:MM:SS)
     final_schedule = None
+    
+    # Validate retry settings to prevent abuse
+    if retry_enabled == 'true':
+        retry_max_count = max(1, min(10, retry_max_count))
+        retry_interval_hours = max(1, min(72, retry_interval_hours))
+    else:
+        retry_max_count = 0
+        retry_interval_hours = 0
     if scheduled_at:
         # datetime-local format is YYYY-MM-DDTHH:MM
         final_schedule = scheduled_at.replace('T', ' ') + ":00"
