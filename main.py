@@ -878,14 +878,6 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
             message_to_send = ""
             forced_components = []
 
-            # Check for opt_out
-            is_opted_out = await db.fetch_val("SELECT id FROM opt_outs WHERE phone = :p", {"p": phone})
-            if is_opted_out:
-                await db.execute("UPDATE messages SET status='failed', error_message='User opted out (STOP)' WHERE id=:id", {"id": msg['id']})
-                failed_batch += 1
-                processed_count += 1
-                continue
-
             if msg_type == "template":
                 message_to_send = message_template or f"Template: {template_name}"
                 header_params = []
@@ -1152,15 +1144,6 @@ async def cron_process_endpoint():
                 msg_type = msg.get('msg_type', 'template')
                 media_url = msg.get('media_url')
                 campaign_media_id = msg.get('meta_media_id')
-                
-                # Check for Opt-Out
-                is_opted_out = await db.fetch_val("SELECT id FROM opt_outs WHERE phone = :p", {"p": msg['phone']})
-                if is_opted_out:
-                    await db.execute("""
-                        UPDATE messages SET status='failed', error_message='User opted out (STOP)', retry_count=3, next_retry_at=NULL WHERE id=:id
-                    """, {"id": msg['id']})
-                    print(f"DEBUG RETRY-CRON: Skipped {msg['phone']} - Opted Out")
-                    continue
                 
                 success, response = await send_whatsapp_message(
                     msg['phone'], None, msg_type, template_name, language_code,
