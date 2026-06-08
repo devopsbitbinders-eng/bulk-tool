@@ -326,12 +326,20 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
     
     for r in out_records:
         ts = r['timestamp']
-        st = r['status'].lower()
-        if isinstance(ts, str):
-            dt_utc = datetime.datetime.strptime(ts, '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
-        else:
-            dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
-        dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
+        st = (r['status'] or '').lower() if ('status' in r and r['status']) else ''
+        
+        if not ts:
+            continue
+            
+        try:
+            if isinstance(ts, str):
+                dt_utc = datetime.datetime.strptime(ts[:19], '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+            else:
+                dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
+            dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
+        except Exception:
+            continue
+            
         day_str = dt_ist.strftime('%d %b')
         if day_str in daily_stats:
             if st == 'sent': daily_stats[day_str]["sent"] += 1
