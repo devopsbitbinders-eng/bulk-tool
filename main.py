@@ -1342,59 +1342,8 @@ async def cron_process_endpoint():
     for c in scheduled_campaigns:
         await db.execute("UPDATE campaigns SET status = 'Processing' WHERE id = :id", {"id": c['id']})
         
-    # 0.1 Background CSV Processing (Insert 1000 rows per minute to avoid timeouts)
-    pending_files = await db.fetch_all(
-        "SELECT id, campaign_id, csv_content, processed_rows FROM campaign_files WHERE status = 'pending' LIMIT 1"
-    )
-    for f in pending_files:
-        try:
-            file_id = f['id']
-            campaign_id = f['campaign_id']
-            processed_rows = f['processed_rows']
-            
-            campaign = await db.fetch_one("SELECT user_id, phone_col FROM campaigns WHERE id = :id", {"id": campaign_id})
-            if not campaign:
-                await db.execute("UPDATE campaign_files SET status = 'failed' WHERE id = :id", {"id": file_id})
-                continue
-                
-            u_id = campaign['user_id']
-            phone_col = campaign['phone_col'] or 'phone'
-            
-            data = json.loads(f['csv_content'])
-            chunk = data[processed_rows : processed_rows + 1000]
-            
-            if not chunk:
-                await db.execute("UPDATE campaign_files SET status = 'completed' WHERE id = :id", {"id": file_id})
-                continue
-                
-            values_list = []
-            for row in chunk:
-                raw_phone = str(row.get(phone_col, ""))
-                phone = normalize_phone(raw_phone)
-                values_list.append({
-                    "u": u_id, "c": campaign_id, "p": phone or raw_phone, 
-                    "s": 'pending' if phone else 'failed', "rd": json.dumps(row), 
-                    "err": "" if phone else "Invalid or missing phone number"
-                })
-                
-            if values_list:
-                await db.execute_many("""
-                    INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
-                    VALUES (:u, :c, :p, :s, :rd, :err)
-                """, values_list)
-                
-            new_processed = processed_rows + len(chunk)
-            if new_processed >= len(data):
-                await db.execute("UPDATE campaign_files SET processed_rows = :p, status = 'completed' WHERE id = :id", {"p": new_processed, "id": file_id})
-            else:
-                await db.execute("UPDATE campaign_files SET processed_rows = :p WHERE id = :id", {"p": new_processed, "id": file_id})
-                
-            print(f"DEBUG: Processed {len(chunk)} rows for campaign {campaign_id}")
-            # Return early to prevent Vercel timeout when both processing and sending are done in one request
-            return {"message": f"Processed {len(chunk)} rows for campaign {campaign_id}"}
-        except Exception as e:
-            print(f"ERROR processing campaign file {file_id}: {e}")
-            return {"error": str(e)}
+    # Background CSV processing is handled safely inside process_campaign_batch via UUID locks.
+    # Legacy un-locked processing block has been removed to prevent duplicate insertions.
 
     # Fetch active campaigns
     active_campaigns = await db.fetch_all(
