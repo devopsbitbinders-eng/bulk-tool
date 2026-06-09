@@ -820,18 +820,23 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 campaign_media_url = mappings.get('header').get('value')
                 
         campaign_media_id = campaign.get('meta_media_id')
-        # 2. Fetch pending messages safely (Locking them via Atomic Update)
+        import uuid
+        worker_id = f"worker_{uuid.uuid4().hex[:8]}"
+        
+        # 2. Fetch pending messages safely (Locking them via UUID Ownership)
         pending_messages = []
-        # No transaction needed for atomic updates
         pending_raw = await db.fetch_all(
             "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit",
             {"id": campaign_id, "limit": batch_size}
         )
         if pending_raw:
             for m in pending_raw:
-                # Atomic claim
-                updated = await db.execute("UPDATE messages SET status = 'processing' WHERE id = :id AND status = 'pending'", {"id": m['id']})
-                if updated:
+                # Try to claim with UUID
+                await db.execute("UPDATE messages SET status = :wid WHERE id = :id AND status = 'pending'", {"wid": worker_id, "id": m['id']})
+                # Verify claim
+                check = await db.fetch_val("SELECT id FROM messages WHERE id = :id AND status = :wid", {"id": m['id'], "wid": worker_id})
+                if check:
+                    await db.execute("UPDATE messages SET status = 'processing' WHERE id = :id", {"id": m['id']})
                     msg_dict = dict(m)
                     msg_dict['status'] = 'processing'
                     pending_messages.append(msg_dict)
@@ -862,13 +867,17 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 return {"completed": False, "processed": 0}
             else:
                 file_id = pending_file['id']
-                # ATOMIC CLAIM: Only one worker will succeed in updating this to processing
-                updated = await db.execute("UPDATE campaign_files SET status = 'processing' WHERE id = :id AND status = 'pending'", {"id": file_id})
-                if not updated:
+                # ATOMIC CLAIM via UUID
+                await db.execute("UPDATE campaign_files SET status = :wid WHERE id = :id AND status = 'pending'", {"wid": worker_id, "id": file_id})
+                check = await db.fetch_val("SELECT id FROM campaign_files WHERE id = :id AND status = :wid", {"id": file_id, "wid": worker_id})
+                
+                if not check:
                     # Another worker claimed it first
                     return {"completed": False, "processed": 0}
                     
-                # WE CLAIMED IT! PROCESS THE FILE HERE!
+                # WE CLAIMED IT! Mark as processing and process the chunk
+                await db.execute("UPDATE campaign_files SET status = 'processing' WHERE id = :id", {"id": file_id})
+                
                 processed_rows = pending_file['processed_rows']
                 data = json.loads(pending_file['csv_content'])
                 
