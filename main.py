@@ -1409,26 +1409,15 @@ async def cron_process_endpoint():
         if campaign['status'] == 'Stopped' or campaign['status'] == 'Paused':
             continue
             
-        # Safe Throttled Parallelism (No Duplicates because reset logic is removed)
-        for _ in range(6): # 6 chunks of 15 = 90 messages
-            tasks = []
-            for _ in range(15):
-                tasks.append(process_campaign_batch(campaign_id, batch_size=1))
-                
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Original Sequential Processing (Safe and reliable)
+        for _ in range(3): # Process 3 batches of 30 messages (total 90) sequentially
+            result = await process_campaign_batch(campaign_id, batch_size=30)
+            processed_in_chunk = result.get('processed', 0)
+            total_processed += processed_in_chunk
             
-            processed_in_chunk = 0
-            for result in results:
-                if not isinstance(result, Exception):
-                    processed_in_chunk += result.get('processed', 0)
-                    total_processed += result.get('processed', 0)
-                    
             if processed_in_chunk == 0:
                 # No more messages for this campaign
                 break
-                
-            # Wait 500ms before next chunk
-            await asyncio.sleep(0.5)
             
         if total_processed >= max_messages:
             break
