@@ -2242,7 +2242,7 @@ async def upload_file(
             })
         if values_list:
             await db.execute_many("""
-                INSERT INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
+                INSERT IGNORE INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
                 VALUES (:u, :c, :p, :s, :rd, :err)
             """, values_list)
     else:

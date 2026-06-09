@@ -247,6 +247,16 @@ async def init_db():
     try: await db.execute("CREATE INDEX IF NOT EXISTS idx_chat_phone_user ON chat_messages (phone(20), user_id)")
     except: pass
 
+    # Ultimate Database-Level Duplicate Prevention
+    try: 
+        if is_mysql:
+            await db.execute("CREATE UNIQUE INDEX idx_uniq_campaign_phone ON messages (campaign_id, phone(50))")
+        else:
+            await db.execute("CREATE UNIQUE INDEX idx_uniq_campaign_phone ON messages (campaign_id, phone)")
+    except Exception as e:
+        if "Duplicate key name" not in str(e):
+            print(f"MIGRATION ERROR (unique_idx): {e}")
+
     # Webhook Logs for debugging
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS webhook_logs (
