@@ -820,60 +820,64 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 campaign_media_url = mappings.get('header').get('value')
                 
         campaign_media_id = campaign.get('meta_media_id')
-        # 2. Fetch pending messages safely (Locking them)
+        # 2. Fetch pending messages safely (Locking them via Atomic Update)
         pending_messages = []
-        async with db.transaction():
-            pending_raw = await db.fetch_all(
-                "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit FOR UPDATE SKIP LOCKED",
-                {"id": campaign_id, "limit": batch_size}
-            )
-            if pending_raw:
-                pending_messages = [dict(m) for m in pending_raw]
-                ids = [m['id'] for m in pending_messages]
-                # Mark them as 'processing' immediately so other requests skip them
-                await db.execute(f"UPDATE messages SET status = 'processing' WHERE id IN ({','.join(map(str, ids))})")
+        # No transaction needed for atomic updates
+        pending_raw = await db.fetch_all(
+            "SELECT * FROM messages WHERE campaign_id = :id AND status = 'pending' LIMIT :limit",
+            {"id": campaign_id, "limit": batch_size}
+        )
+        if pending_raw:
+            for m in pending_raw:
+                # Atomic claim
+                updated = await db.execute("UPDATE messages SET status = 'processing' WHERE id = :id AND status = 'pending'", {"id": m['id']})
+                if updated:
+                    msg_dict = dict(m)
+                    msg_dict['status'] = 'processing'
+                    pending_messages.append(msg_dict)
         
         if not pending_messages:
             # If still no messages, check for files to process
-            if not pending_messages:
-                async with db.transaction():
-                    # Atomic fetch with SKIP LOCKED so only ONE worker gets the file
-                    pending_file = await db.fetch_one(
-                        "SELECT id, processed_rows, csv_content FROM campaign_files WHERE campaign_id = :id AND status = 'pending' LIMIT 1 FOR UPDATE SKIP LOCKED", 
-                        {"id": campaign_id}
-                    )
-                    
-                    if not pending_file:
-                        # Check if it was already completed (we don't need a lock for this check)
-                        comp_file = await db.fetch_one("SELECT id FROM campaign_files WHERE campaign_id = :id AND status = 'completed' LIMIT 1", {"id": campaign_id})
-                        if comp_file:
-                            # SELF-HEALING: If file is completed but 0 messages were created, reset it!
-                            total_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id", {"id": campaign_id})
-                            if total_msgs == 0:
-                                print(f"DEBUG: Campaign {campaign_id} has completed file but 0 messages. Resetting file to pending.")
-                                await db.execute("UPDATE campaign_files SET status = 'pending', processed_rows = 0 WHERE campaign_id = :id", {"id": campaign_id})
-                                return {"completed": False, "processed": 0}
-                                
-                            # Check if messages are all processed
-                            pending_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'pending'", {"id": campaign_id})
-                            if pending_msgs == 0:
-                                await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
-                                return {"completed": True, "processed": 0}
+            pending_file = await db.fetch_one(
+                "SELECT id, processed_rows, csv_content FROM campaign_files WHERE campaign_id = :id AND status = 'pending' LIMIT 1", 
+                {"id": campaign_id}
+            )
+            
+            if not pending_file:
+                # Check if it was already completed
+                comp_file = await db.fetch_one("SELECT id FROM campaign_files WHERE campaign_id = :id AND status = 'completed' LIMIT 1", {"id": campaign_id})
+                if comp_file:
+                    # SELF-HEALING: If file is completed but 0 messages were created, reset it!
+                    total_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id", {"id": campaign_id})
+                    if total_msgs == 0:
+                        print(f"DEBUG: Campaign {campaign_id} has completed file but 0 messages. Resetting file to pending.")
+                        await db.execute("UPDATE campaign_files SET status = 'pending', processed_rows = 0 WHERE campaign_id = :id", {"id": campaign_id})
                         return {"completed": False, "processed": 0}
-                    else:
-                        # PROCESS THE FILE HERE!
-                        file_id = pending_file['id']
-                        # Immediately mark as processing
-                        await db.execute("UPDATE campaign_files SET status = 'processing' WHERE id = :id", {"id": file_id})
-                        processed_rows = pending_file['processed_rows']
-                        data = json.loads(pending_file['csv_content'])
                         
-                        # Take a chunk of 500 rows
-                        chunk = data[processed_rows : processed_rows + 500]
-                        
-                        if not chunk:
-                            await db.execute("UPDATE campaign_files SET status = 'completed' WHERE id = :id", {"id": file_id})
-                            return {"completed": False, "processed": 0}
+                    # Check if messages are all processed
+                    pending_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'pending'", {"id": campaign_id})
+                    if pending_msgs == 0:
+                        await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
+                        return {"completed": True, "processed": 0}
+                return {"completed": False, "processed": 0}
+            else:
+                file_id = pending_file['id']
+                # ATOMIC CLAIM: Only one worker will succeed in updating this to processing
+                updated = await db.execute("UPDATE campaign_files SET status = 'processing' WHERE id = :id AND status = 'pending'", {"id": file_id})
+                if not updated:
+                    # Another worker claimed it first
+                    return {"completed": False, "processed": 0}
+                    
+                # WE CLAIMED IT! PROCESS THE FILE HERE!
+                processed_rows = pending_file['processed_rows']
+                data = json.loads(pending_file['csv_content'])
+                
+                # Take a chunk of 500 rows
+                chunk = data[processed_rows : processed_rows + 500]
+                
+                if not chunk:
+                    await db.execute("UPDATE campaign_files SET status = 'completed' WHERE id = :id", {"id": file_id})
+                    return {"completed": False, "processed": 0}
                             
                         values_list = []
                         for row in chunk:
