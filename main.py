@@ -837,13 +837,14 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
             # If still no messages, check for files to process
             if not pending_messages:
                 async with db.transaction():
-                    # Atomic update to mark file as processing
-                    await db.execute("UPDATE campaign_files SET status = 'processing' WHERE campaign_id = :id AND status = 'pending'", {"id": campaign_id})
-                    
-                    pending_file = await db.fetch_one("SELECT id, processed_rows, csv_content FROM campaign_files WHERE campaign_id = :id AND status = 'processing' LIMIT 1", {"id": campaign_id})
+                    # Atomic fetch with SKIP LOCKED so only ONE worker gets the file
+                    pending_file = await db.fetch_one(
+                        "SELECT id, processed_rows, csv_content FROM campaign_files WHERE campaign_id = :id AND status = 'pending' LIMIT 1 FOR UPDATE SKIP LOCKED", 
+                        {"id": campaign_id}
+                    )
                     
                     if not pending_file:
-                        # Check if it was already completed
+                        # Check if it was already completed (we don't need a lock for this check)
                         comp_file = await db.fetch_one("SELECT id FROM campaign_files WHERE campaign_id = :id AND status = 'completed' LIMIT 1", {"id": campaign_id})
                         if comp_file:
                             # SELF-HEALING: If file is completed but 0 messages were created, reset it!
@@ -862,6 +863,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                     else:
                         # PROCESS THE FILE HERE!
                         file_id = pending_file['id']
+                        # Immediately mark as processing
+                        await db.execute("UPDATE campaign_files SET status = 'processing' WHERE id = :id", {"id": file_id})
                         processed_rows = pending_file['processed_rows']
                         data = json.loads(pending_file['csv_content'])
                         
