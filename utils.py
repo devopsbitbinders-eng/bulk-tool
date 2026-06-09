@@ -85,9 +85,22 @@ def extract_phone_numbers(file_content, filename):
     else:
         print(f"DEBUG: Identified phone column: {phone_col}")
 
-    # Keep all rows (even empty ones) so that the report matches the uploaded file count
-    data = df.to_dict(orient='records')
-    print(f"DEBUG: Extracted {len(data)} valid rows.")
+    # Filter out rows that are completely empty or have no phone number
+    filtered_data = []
+    for row in df.to_dict(orient='records'):
+        # Check if the row has any non-null values
+        if not any(pd.notna(v) and str(v).strip() != '' for v in row.values()):
+            continue
+            
+        # Check if the phone column is totally missing/empty
+        phone_val = row.get(phone_col)
+        if pd.isna(phone_val) or str(phone_val).strip() == '':
+            continue
+            
+        filtered_data.append(row)
+        
+    data = filtered_data
+    print(f"DEBUG: Extracted {len(data)} valid rows after filtering empty ones.")
     return data, phone_col
 
 def substitute_template(template, data_row):
