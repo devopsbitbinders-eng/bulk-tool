@@ -99,8 +99,17 @@ def extract_phone_numbers(file_content, filename):
             
         filtered_data.append(row)
         
-    data = filtered_data
-    print(f"DEBUG: Extracted {len(data)} valid rows after filtering empty ones.")
+    # Deduplicate based on phone number to strictly prevent duplicates
+    seen_phones = set()
+    deduped_data = []
+    for row in filtered_data:
+        p_val = normalize_phone(str(row.get(phone_col, "")))
+        if p_val and p_val not in seen_phones:
+            seen_phones.add(p_val)
+            deduped_data.append(row)
+            
+    data = deduped_data
+    print(f"DEBUG: Extracted {len(data)} valid UNIQUE rows after deduplication.")
     return data, phone_col
 
 def substitute_template(template, data_row):
