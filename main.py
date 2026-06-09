@@ -2246,12 +2246,11 @@ async def upload_file(
                 VALUES (:u, :c, :p, :s, :rd, :err)
             """, values_list)
     else:
-        # Use legacy, bulletproof sequential processing
-        background_tasks.add_task(
-            process_campaign_legacy, 
-            u_id, campaign_id, data, phone_col, message, msg_type, 
-            template_name, language_code, report_email, mappings_dict
-        )
+        # Save parsed data for background processing instead of immediate insert
+        await db.execute("""
+            INSERT INTO campaign_files (campaign_id, csv_content, status) 
+            VALUES (:c, :content, 'pending')
+        """, {"c": campaign_id, "content": json.dumps(data)})
         
     # Update campaign failed count for invalid numbers
     if failed_initial_count > 0:
