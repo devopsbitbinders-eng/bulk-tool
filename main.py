@@ -888,29 +888,29 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                     await db.execute("UPDATE campaign_files SET status = 'completed' WHERE id = :id", {"id": file_id})
                     return {"completed": False, "processed": 0}
                             
-                        values_list = []
-                        for row in chunk:
-                            raw_phone = str(row.get(phone_col, ""))
-                            phone = normalize_phone(raw_phone)
-                            values_list.append({
-                                "u": user_id, "c": campaign_id, "p": phone or raw_phone, 
-                                "s": 'pending' if phone else 'failed', "rd": json.dumps(row), 
-                                "err": "" if phone else "Invalid or missing phone number"
-                            })
-                            
-                        if values_list:
-                            await db.execute_many("""
-                                INSERT IGNORE INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
-                                VALUES (:u, :c, :p, :s, :rd, :err)
-                            """, values_list)
-                            
-                        new_processed = processed_rows + len(chunk)
-                        if new_processed >= len(data):
-                            await db.execute("UPDATE campaign_files SET processed_rows = :p, status = 'completed' WHERE id = :id", {"p": new_processed, "id": file_id})
-                        else:
-                            await db.execute("UPDATE campaign_files SET processed_rows = :p, status = 'pending' WHERE id = :id", {"p": new_processed, "id": file_id})
-                            
-                        return {"completed": False, "processed": len(chunk)}
+                values_list = []
+                for row in chunk:
+                    raw_phone = str(row.get(phone_col, ""))
+                    phone = normalize_phone(raw_phone)
+                    values_list.append({
+                        "u": user_id, "c": campaign_id, "p": phone or raw_phone, 
+                        "s": 'pending' if phone else 'failed', "rd": json.dumps(row), 
+                        "err": "" if phone else "Invalid or missing phone number"
+                    })
+                    
+                if values_list:
+                    await db.execute_many("""
+                        INSERT IGNORE INTO messages (user_id, campaign_id, phone, status, row_data, error_message) 
+                        VALUES (:u, :c, :p, :s, :rd, :err)
+                    """, values_list)
+                    
+                new_processed = processed_rows + len(chunk)
+                if new_processed >= len(data):
+                    await db.execute("UPDATE campaign_files SET processed_rows = :p, status = 'completed' WHERE id = :id", {"p": new_processed, "id": file_id})
+                else:
+                    await db.execute("UPDATE campaign_files SET processed_rows = :p, status = 'pending' WHERE id = :id", {"p": new_processed, "id": file_id})
+                    
+                return {"completed": False, "processed": len(chunk)}
 
         # 3. Pre-fetch template for Smart Distribution
         template_def = None
