@@ -230,48 +230,40 @@ async def get_dashboard_stats(user_id: int):
     camp_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
     
     # Chart Data Aggregation (Last 7 Days)
-    chart_data = {
-        "labels": [],
-        "incoming": [],
-        "outgoing": []
-    }
+    chart_data = {"labels": [], "sent": [], "delivered": [], "read": [], "failed": []}
     
-    # Pre-fill last 7 days
     daily_stats = {}
     for i in range(7):
         d = (today_start_ist - datetime.timedelta(days=6-i)).strftime('%d %b')
-        daily_stats[d] = {"in": 0, "out": 0}
+        daily_stats[d] = {"sent": 0, "delivered": 0, "read": 0, "failed": 0}
         chart_data["labels"].append(d)
         
-    # Fetch all records for last 7 days to aggregate
-    inc_records = await db.fetch_all("SELECT timestamp FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
-    out_records = await db.fetch_all("SELECT timestamp FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
+    # Fetch records for last 7 days to aggregate
+    out_records = await db.fetch_all("SELECT timestamp, status FROM messages WHERE user_id = :u AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
     
-    for r in inc_records:
-        ts = r['timestamp']
-        if isinstance(ts, str):
-            dt_utc = datetime.datetime.strptime(ts, '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
-        else:
-            dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
-        dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
-        day_str = dt_ist.strftime('%d %b')
-        if day_str in daily_stats:
-            daily_stats[day_str]["in"] += 1
-            
     for r in out_records:
         ts = r['timestamp']
+        st = (r['status'] or '').lower() if r['status'] else ''
+        if not ts: continue
+        
         if isinstance(ts, str):
-            dt_utc = datetime.datetime.strptime(ts, '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+            dt_utc = datetime.datetime.strptime(ts[:19], '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
         else:
             dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
         dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
         day_str = dt_ist.strftime('%d %b')
+        
         if day_str in daily_stats:
-            daily_stats[day_str]["out"] += 1
+            if st == 'sent': daily_stats[day_str]["sent"] += 1
+            elif st == 'delivered' or st == 'success': daily_stats[day_str]["delivered"] += 1
+            elif st == 'read': daily_stats[day_str]["read"] += 1
+            elif st == 'failed' or st == 'error': daily_stats[day_str]["failed"] += 1
             
     for d in chart_data["labels"]:
-        chart_data["incoming"].append(daily_stats[d]["in"])
-        chart_data["outgoing"].append(daily_stats[d]["out"])
+        chart_data["sent"].append(daily_stats[d]["sent"])
+        chart_data["delivered"].append(daily_stats[d]["delivered"])
+        chart_data["read"].append(daily_stats[d]["read"])
+        chart_data["failed"].append(daily_stats[d]["failed"])
 
     return {
         "templates": {
