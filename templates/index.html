@@ -2102,27 +2102,27 @@
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="px-8 pb-4 flex justify-end items-center gap-3 bg-slate-50/30">
-                    <button class="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded shadow-sm hover:bg-indigo-600 transition-colors" onclick="alert('Assign Tag feature coming soon!')">Assign Tag</button>
-                    <button class="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded shadow-sm hover:bg-amber-600 transition-colors" onclick="selectAllMessages()">Select All</button>
-                    <button class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded shadow-sm hover:bg-blue-700 transition-colors" onclick="resendSelected()">Multi Resend</button>
+                <div class="px-8 pb-4 flex justify-end items-center gap-3 bg-white pt-4">
+                    <button class="px-5 py-2 bg-[#7c5cdb] text-white text-sm font-medium rounded shadow-sm hover:opacity-90 transition-opacity" onclick="alert('Assign Tag feature coming soon!')">Assign Tag</button>
+                    <button class="px-5 py-2 bg-[#f5a623] text-white text-sm font-medium rounded shadow-sm hover:opacity-90 transition-opacity" onclick="selectAllMessages()">Select All</button>
+                    <button class="px-5 py-2 bg-[#4169E1] text-white text-sm font-medium rounded shadow-sm hover:opacity-90 transition-opacity" onclick="resendSelected()">Multi Resend</button>
                 </div>
 
                 <!-- Message Log Table -->
-                <div class="flex-grow overflow-y-auto px-8 pb-8">
-                    <div class="rounded-2xl border border-slate-100 overflow-hidden">
-                        <table class="w-full text-left">
-                            <thead class="bg-[#4267B2] text-white sticky top-0">
+                <div class="flex-grow overflow-y-auto px-8 pb-8 bg-white">
+                    <div class="border border-slate-200">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-[#4169E1] text-white sticky top-0 z-10">
                                 <tr>
-                                    <th class="px-4 py-4 w-[5%]"><input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)" class="rounded border-slate-300"></th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider w-[15%]">Number</th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider w-[15%]">SentVia</th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider w-[40%]">Status</th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider w-[15%]">Date</th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-right w-[15%]">Action</th>
+                                    <th class="px-4 py-3 font-medium border-x border-[#4169E1] w-[5%]"><input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)" class="rounded border-slate-300"></th>
+                                    <th class="px-4 py-3 font-medium border-x border-[#4169E1] w-[15%]">Number</th>
+                                    <th class="px-4 py-3 font-medium border-x border-[#4169E1] w-[15%]">SentVia</th>
+                                    <th class="px-4 py-3 font-medium border-x border-[#4169E1] w-[40%]">Status</th>
+                                    <th class="px-4 py-3 font-medium border-x border-[#4169E1] w-[15%]">Date</th>
+                                    <th class="px-4 py-3 font-medium border-x border-[#4169E1] w-[10%]">Action</th>
                                 </tr>
                             </thead>
-                            <tbody id="detailTableBody" class="divide-y divide-slate-50 text-sm">
+                            <tbody id="detailTableBody" class="divide-y divide-slate-100 text-sm text-[#4e5154]">
                                 <!-- Loaded via JS -->
                             </tbody>
                         </table>
@@ -2391,20 +2391,20 @@
                             if (m.status === 'read') statusColor = 'text-emerald-600';
                             if (m.status === 'failed') statusColor = 'text-rose-600';
 
-                            let errorMsg = m.error_message ? `<span class="text-[10px] text-slate-500 font-normal block mt-1 leading-relaxed whitespace-normal max-w-sm">ERROR(${m.error_message})</span>` : '';
+                            let errorMsg = m.error_message ? `<span class="text-[11px] text-slate-500 font-normal block mt-1 leading-relaxed line-clamp-2" title="${m.error_message.replace(/"/g, '&quot;')}">ERROR(${m.error_message})</span>` : '';
                             
                             return `
-                            <tr class="hover:bg-slate-50 transition-colors border-b border-slate-50 message-row" data-phone="${m.phone}" data-id="${m.id}">
-                                <td class="px-4 py-4"><input type="checkbox" class="msg-checkbox rounded border-slate-300" value="${m.id}"></td>
-                                <td class="px-6 py-4 text-slate-600 font-medium">${m.phone}</td>
-                                <td class="px-6 py-4 text-slate-500">${window.wabaPhone || '-'}</td>
-                                <td class="px-6 py-4 font-bold ${statusColor}">
+                            <tr class="hover:bg-slate-50 transition-colors border-b border-slate-200 message-row" data-phone="${m.phone}" data-id="${m.id}">
+                                <td class="px-4 py-3 border-x border-slate-200"><input type="checkbox" class="msg-checkbox rounded border-slate-300" value="${m.id}"></td>
+                                <td class="px-4 py-3 border-x border-slate-200">${m.phone}</td>
+                                <td class="px-4 py-3 border-x border-slate-200">${window.wabaPhone || '-'}</td>
+                                <td class="px-4 py-3 border-x border-slate-200 font-medium ${statusColor}">
                                     ${m.status.toUpperCase()}
                                     ${errorMsg}
                                 </td>
-                                <td class="px-6 py-4 text-slate-500 text-xs sync-time">${m.timestamp}</td>
-                                <td class="px-6 py-4 text-right">
-                                    <button onclick="resendSingle('${m.phone}', ${m.id})" class="px-4 py-1.5 bg-[#20c997] text-white text-xs font-bold rounded shadow-sm hover:bg-emerald-500 transition-colors">Resend</button>
+                                <td class="px-4 py-3 border-x border-slate-200 text-xs sync-time">${m.timestamp}</td>
+                                <td class="px-4 py-3 border-x border-slate-200">
+                                    <button onclick="resendSingle('${m.phone}', ${m.id})" class="px-3 py-1.5 bg-[#20c997] shadow-lg shadow-emerald-500/20 text-white text-xs font-medium rounded hover:bg-emerald-500 transition-colors">Resend</button>
                                 </td>
                             </tr>
                         `;
