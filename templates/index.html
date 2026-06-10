@@ -2103,7 +2103,7 @@
 
                 <!-- Action Buttons -->
                 <div class="px-8 pb-4 flex justify-end items-center gap-3 bg-slate-50/30">
-                    <button class="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded shadow-sm hover:bg-indigo-600 transition-colors" onclick="showToast('Assign Tag feature coming soon!', 'info')">Assign Tag</button>
+                    <button class="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded shadow-sm hover:bg-indigo-600 transition-colors" onclick="assignTagSelected()">Assign Tag</button>
                     <button class="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded shadow-sm hover:bg-amber-600 transition-colors" onclick="selectAllMessages()">Select All</button>
                     <button class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded shadow-sm hover:bg-blue-700 transition-colors" onclick="resendSelected()">Multi Resend</button>
                 </div>
@@ -2408,11 +2408,12 @@
                             if (m.status === 'failed') statusColor = 'text-rose-600';
 
                             let errorMsg = m.error_message ? `<span class="text-[11px] text-slate-500 font-normal block mt-1 leading-relaxed line-clamp-2" title="${m.error_message.replace(/"/g, '&quot;')}">ERROR(${m.error_message})</span>` : '';
+                            let tagHtml = m.tag ? `<span class="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] rounded-full font-bold uppercase">${m.tag}</span>` : '';
                             
                             return `
                             <tr class="hover:bg-slate-50 transition-colors message-row" data-phone="${m.phone}" data-id="${m.id}">
                                 <td class="px-4 py-4"><input type="checkbox" class="msg-checkbox rounded border-slate-300" value="${m.id}"></td>
-                                <td class="px-6 py-4 text-slate-600 font-medium">${m.phone}</td>
+                                <td class="px-6 py-4 text-slate-600 font-medium">${m.phone}${tagHtml}</td>
                                 <td class="px-6 py-4 text-slate-500">${window.wabaPhone || '-'}</td>
                                 <td class="px-6 py-4 font-bold ${statusColor}">
                                     ${m.status.toUpperCase()}
@@ -2494,6 +2495,36 @@
                 checkboxes.forEach(cb => { cb.checked = !allChecked; });
                 const mainCb = document.getElementById('selectAllCheckbox');
                 if (mainCb) mainCb.checked = !allChecked;
+            }
+
+            async function assignTagSelected() {
+                const checkboxes = document.querySelectorAll('.msg-checkbox:checked');
+                const messageIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+                
+                if (messageIds.length === 0) {
+                    showToast('Please select at least one message to tag.', 'info');
+                    return;
+                }
+                
+                // Use a simple prompt for the tag name
+                const tag = prompt("Enter tag name (e.g., 'vip', 'follow-up'):");
+                if (!tag || !tag.trim()) return;
+
+                try {
+                    const res = await fetch(`/api/messages/tag`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message_ids: messageIds, tag: tag.trim() })
+                    });
+                    if(res.ok) {
+                        showToast(`Successfully assigned tag to ${messageIds.length} messages!`, 'success');
+                        setTimeout(() => viewCampaignDetails(currentHistoryCampaignId, document.getElementById('detailCampaignName').innerText, document.getElementById('detailCampaignDate').innerText), 1000);
+                    } else {
+                        showToast('Failed to assign tag', 'error');
+                    }
+                } catch(e) {
+                    showToast('Network error', 'error');
+                }
             }
 
             function toggleAllCheckboxes(source) {

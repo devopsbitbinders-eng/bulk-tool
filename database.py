@@ -231,6 +231,10 @@ async def init_db():
     try: await db.execute("ALTER TABLE templates ADD COLUMN variable_map TEXT")
     except: pass
     
+    # Migration: tag in messages
+    try: await db.execute("ALTER TABLE messages ADD COLUMN tag TEXT")
+    except: pass
+    
     # Migration: chat_messages status and error_message
     try: await db.execute("ALTER TABLE chat_messages ADD COLUMN status TEXT DEFAULT 'sent'")
     except: pass

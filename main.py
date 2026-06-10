@@ -2660,7 +2660,7 @@ async def get_campaign_details(request: Request, campaign_id: int):
     
     # Message list
     messages = await db.fetch_all("""
-        SELECT id, phone, status, error_message, timestamp 
+        SELECT id, phone, status, error_message, timestamp, tag 
         FROM messages 
         WHERE campaign_id = :id AND user_id = :u
         ORDER BY timestamp ASC
@@ -2690,6 +2690,25 @@ async def resend_messages(request: Request, body: ResendRequest):
             await db.execute("UPDATE messages SET status = 'pending', error_message = NULL WHERE id = :id", {"id": mid})
     
     return safe_json_response({"status": "queued"})
+
+class TagRequest(BaseModel):
+    message_ids: list[int]
+    tag: str
+
+@app.post("/api/messages/tag")
+async def tag_messages(request: Request, body: TagRequest):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    
+    for mid in body.message_ids:
+        msg = await db.fetch_one("SELECT * FROM messages WHERE id = :id AND user_id = :u", {"id": mid, "u": u_id})
+        if msg:
+            await db.execute("UPDATE messages SET tag = :tag WHERE id = :id", {"id": mid, "tag": body.tag})
+    
+    return safe_json_response({"status": "tagged"})
 
 # --- Meta Webhook Handlers ---
 
