@@ -2621,7 +2621,7 @@ async def get_history(request: Request):
     db = await get_db()
     # Calculate all stats dynamically from the messages table to reflect real-time Webhook updates
     rows = await db.fetch_all("""
-        SELECT c.id, c.name, c.timestamp, 
+        SELECT c.id, c.name, c.timestamp, c.template_name, c.media_url,
                COALESCE(NULLIF(c.total_numbers, 0), (SELECT COUNT(DISTINCT phone) FROM messages WHERE campaign_id = c.id)) as total_numbers, 
                c.status as campaign_status,
                COALESCE(c.message_template, (SELECT content FROM templates WHERE name = c.template_name LIMIT 1)) as message_template, c.msg_type,
