@@ -2659,7 +2659,7 @@ async def get_campaign_details(request: Request, campaign_id: int):
     
     # Message list
     messages = await db.fetch_all("""
-        SELECT phone, status, error_message, timestamp 
+        SELECT id, phone, status, error_message, timestamp 
         FROM messages 
         WHERE campaign_id = :id AND user_id = :u
         ORDER BY timestamp ASC
@@ -2668,6 +2668,27 @@ async def get_campaign_details(request: Request, campaign_id: int):
         "stats": dict(stats),
         "messages": [dict(m) for m in messages]
     })
+
+class ResendRequest(BaseModel):
+    message_ids: list[int]
+
+@app.post("/api/messages/resend")
+async def resend_messages(request: Request, body: ResendRequest):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    
+    # We will mark them as pending to let cron pick them up again.
+    # Alternatively we can insert into send_queue. Let's just update to pending.
+    for mid in body.message_ids:
+        # verify ownership
+        msg = await db.fetch_one("SELECT * FROM messages WHERE id = :id AND user_id = :u", {"id": mid, "u": u_id})
+        if msg:
+            await db.execute("UPDATE messages SET status = 'pending', error_message = NULL WHERE id = :id", {"id": mid})
+    
+    return safe_json_response({"status": "queued"})
 
 # --- Meta Webhook Handlers ---
 
