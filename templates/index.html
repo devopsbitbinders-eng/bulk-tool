@@ -4035,25 +4035,6 @@
                 modal.classList.remove('flex');
             }
 
-            async function syncTemplates() {
-                const btn = document.getElementById('syncBtn');
-                btn.innerHTML = `<span class="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></span> Syncing...`;
-                btn.disabled = true;
-                try {
-                    const response = await fetch('/templates/sync', { method: 'POST' });
-                    const result = await response.json();
-                    if (response.ok) {
-                        showToast(result.message, 'success');
-                        setTimeout(() => location.reload(), 1500);
-                    } else {
-                        showToast('Sync failed', 'error');
-                    }
-                } catch (err) { showToast('Network error during sync', 'error'); }
-                finally {
-                    btn.disabled = false;
-                    btn.innerHTML = `Sync Meta`;
-                }
-            }
 
             // ───── OTP Template Modal ─────
             function openOtpModal() {
@@ -4348,8 +4329,26 @@
                     if (!lastSync || (now - lastSync > 300000)) {
                         localStorage.setItem('lastAutoSync', now);
                         setTimeout(() => {
-                            console.log("Auto-Syncing Meta Templates...");
-                            syncTemplates();
+                            fetch('/api/templates/sync', {method: 'POST'})
+                            .then(async r => { 
+                                if(r.ok) {
+                                    try {
+                                        const tempRes = await fetch('/api/templates');
+                                        if (tempRes.ok) {
+                                            const newTemplates = await tempRes.json();
+                                            templatesList.length = 0;
+                                            templatesList.push(...newTemplates);
+                                            const select = document.getElementById('templateName');
+                                            if (select) {
+                                                const currentVal = select.value;
+                                                select.innerHTML = '<option value="">-- Choose Template --</option>' + 
+                                                    templatesList.map(t => `<option value="${t.name}">${t.name} (${t.language})</option>`).join('');
+                                                select.value = currentVal;
+                                            }
+                                        }
+                                    } catch(e) {}
+                                } 
+                            });
                         }, 2000);
                     }
                 }
