@@ -2637,14 +2637,14 @@ async def get_history(request: Request):
     # Optimized query using LEFT JOIN and GROUP BY for 100x faster execution
     rows = await db.fetch_all("""
         SELECT c.id, c.name, c.timestamp, c.template_name, c.media_url,
-               COALESCE(NULLIF(c.total_numbers, 0), COUNT(DISTINCT m.phone)) as total_numbers, 
+               COALESCE(NULLIF(c.total_numbers, 0), COUNT(m.id)) as total_numbers, 
                c.status as campaign_status,
                COALESCE(c.message_template, (SELECT content FROM templates WHERE name = c.template_name LIMIT 1)) as message_template, 
                c.msg_type,
-               COUNT(DISTINCT CASE WHEN m.status = 'sent' THEN m.phone END) as sent_success,
-               COUNT(DISTINCT CASE WHEN m.status = 'delivered' THEN m.phone END) as delivered,
-               COUNT(DISTINCT CASE WHEN m.status = 'read' THEN m.phone END) as `read`,
-               COUNT(DISTINCT CASE WHEN m.status = 'failed' THEN m.phone END) as failed
+               SUM(CASE WHEN m.status = 'sent' THEN 1 ELSE 0 END) as sent_success,
+               SUM(CASE WHEN m.status = 'delivered' THEN 1 ELSE 0 END) as delivered,
+               SUM(CASE WHEN m.status = 'read' THEN 1 ELSE 0 END) as `read`,
+               SUM(CASE WHEN m.status = 'failed' THEN 1 ELSE 0 END) as failed
         FROM campaigns c 
         LEFT JOIN messages m ON m.campaign_id = c.id
         WHERE c.user_id = :u
