@@ -2586,7 +2586,7 @@
                                         <div class="flex-grow bg-[#e5ddd5] p-3 overflow-y-auto custom-scrollbar relative" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-size: cover; background-blend-mode: multiply;">
                                             <div class="bg-white rounded-lg p-2.5 text-[13px] text-slate-800 shadow-sm mb-2 max-w-[85%] relative whitespace-pre-wrap leading-relaxed">
                                                 ${finalMediaHtml}
-                                                <div class="mt-1">${formatWA(c.message_template || 'Message content preview')}</div>
+                                                <div class="mt-1">${c.message_template || 'Message content preview'}</div>
                                                 ${footerHtml}
                                                 <div class="text-[9px] text-slate-400 text-right mt-1">12:34 PM</div>
                                                 ${!c.template_components ? '<div class="text-[9px] text-red-400 mt-1 italic">No components found in DB</div>' : ''}
