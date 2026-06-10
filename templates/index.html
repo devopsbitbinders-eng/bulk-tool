@@ -2595,8 +2595,9 @@
                             datalabels: {
                                 formatter: (value, ctx) => {
                                     if (value === 0) return '';
-                                    let perc = total > 0 ? ((value / total) * 100).toFixed(2) : 0;
-                                    return `${perc}% (${ctx.chart.data.labels[ctx.dataIndex]}- ${value})`;
+                                    let perc = total > 0 ? ((value / total) * 100) : 0;
+                                    if (perc < 5) return ''; // Hide labels on thin slices to prevent overlap
+                                    return `${perc.toFixed(2)}% (${ctx.chart.data.labels[ctx.dataIndex]}- ${value})`;
                                 },
                                 color: '#000',
                                 font: {
