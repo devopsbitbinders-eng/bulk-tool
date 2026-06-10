@@ -1,13 +1,13 @@
+from dotenv import load_dotenv
+load_dotenv()
 import asyncio
-import os
-from database import get_db
+import database
 
-async def check_campaigns():
-    db = await get_db()
-    rows = await db.fetch_all("SELECT id, name, status, timestamp FROM campaigns ORDER BY timestamp DESC LIMIT 5")
-    print("LAST 5 CAMPAIGNS:")
-    for r in rows:
+async def check():
+    await database.db.connect()
+    res = await database.db.fetch_all("SELECT id, name, template_name FROM campaigns ORDER BY timestamp DESC LIMIT 5")
+    for r in res:
         print(dict(r))
 
-if __name__ == "__main__":
-    asyncio.run(check_campaigns())
+if __name__ == '__main__':
+    asyncio.run(check())

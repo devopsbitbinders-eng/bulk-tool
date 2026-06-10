@@ -1,8 +1,13 @@
 import json
 from datetime import datetime, timedelta, timezone
 from database import get_db
-from whatsapp_service import send_whatsapp_message, get_active_credentials
+from whatsapp_service import send_whatsapp_message
 import asyncio
+
+async def get_active_credentials(user_id: int):
+    db = await get_db()
+    return await db.fetch_one("SELECT whatsapp_token, phone_number_id, waba_id, phone_number FROM user_credentials WHERE is_active = 1 AND user_id = :u LIMIT 1", {"u": user_id})
+
 
 async def process_chatbot_message(user_id: int, phone: str, body: str, msg_type: str):
     """

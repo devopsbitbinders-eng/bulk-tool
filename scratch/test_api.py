@@ -1,24 +1,34 @@
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from dotenv import load_dotenv
+load_dotenv()
 import asyncio
-from main import get_filtered_dashboard, get_db
+import database
+import json
 
-class MockRequest:
-    def __init__(self):
-        self.cookies = {}
+async def check():
+    await database.db.connect()
+    # Mock the exact query
+    rows = await database.db.fetch_all("""
+        SELECT c.id, c.name, c.timestamp, c.template_name, c.media_url,
+               COALESCE(c.message_template, (SELECT content FROM templates WHERE name = c.template_name LIMIT 1)) as message_template, 
+               (SELECT components FROM templates WHERE name = c.template_name LIMIT 1) as template_components
+        FROM campaigns c
+        WHERE c.name LIKE 'Imp Member - Sheet43%'
+        LIMIT 1
+    """)
+    if not rows:
+        print("No campaigns found")
+        return
+        
+    for r in rows:
+        d = dict(r)
+        print("Template Components (Raw Type):", type(d['template_components']))
+        print("Template Components (Raw):", d['template_components'])
+        
+        if d['template_components']:
+            parsed = json.loads(d['template_components'])
+            print("Parsed:", type(parsed))
+            btns = [c for c in parsed if c['type'] == 'BUTTONS']
+            print("Buttons found:", bool(btns))
 
-async def main():
-    try:
-        db = await get_db()
-        user = await db.fetch_one("SELECT * FROM users LIMIT 1")
-        if user:
-            r = MockRequest()
-            r.cookies['session_token'] = user['session_token']
-            res = await get_filtered_dashboard(r, '2026-05-10', '2026-06-08')
-            print(res)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(check())
