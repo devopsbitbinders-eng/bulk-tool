@@ -1097,15 +1097,16 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="bg-slate-50 border-b border-slate-100">
-                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Campaign Name</th>
-                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase">Date</th>
-                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-center">Sent</th>
-                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-center text-rose-500">
-                                Failed</th>
-                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-center">Delivered</th>
-                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-center">Read</th>
-                            <th class="px-8 py-4 text-xs font-bold text-slate-500 uppercase text-right">Details</th>
+                        <tr class="bg-emerald-500 text-white">
+                            <th class="px-6 py-4 text-xs font-bold uppercase">Type</th>
+                            <th class="px-6 py-4 text-xs font-bold uppercase">Total</th>
+                            <th class="px-6 py-4 text-xs font-bold uppercase max-w-[200px]">Message</th>
+                            <th class="px-6 py-4 text-xs font-bold uppercase">Submit Date</th>
+                            <th class="px-6 py-4 text-xs font-bold uppercase text-center">READ</th>
+                            <th class="px-6 py-4 text-xs font-bold uppercase text-center">DLVD</th>
+                            <th class="px-6 py-4 text-xs font-bold uppercase text-center">FAILED</th>
+                            <th class="px-6 py-4 text-xs font-bold uppercase text-center">SENT</th>
+                            <th class="px-6 py-4 text-xs font-bold uppercase text-right">Details</th>
                         </tr>
                     </thead>
                     <tbody id="historyTableBody" class="divide-y divide-slate-100">
@@ -2313,21 +2314,21 @@
 
                     tbody.innerHTML = campaigns.map(c => `
                     <tr class="hover:bg-slate-50/80 transition-colors">
-                        <td class="px-8 py-5 text-sm font-bold text-slate-800">${c.name}</td>
-                        <td class="px-8 py-5 text-xs text-slate-500 capitalize">${formatDateTime(c.timestamp)}</td>
-                        <td class="px-8 py-5 text-center text-sm font-medium text-slate-600">${c.sent_success}</td>
-                        <td class="px-8 py-5 text-center text-sm font-medium text-rose-600">${c.failed || 0}</td>
-                        <td class="px-8 py-5 text-center text-sm font-medium text-blue-600">${c.delivered_count || 0}</td>
-                        <td class="px-8 py-5 text-center text-sm font-medium text-emerald-600">${c.read_count || 0}</td>
-                        <td class="px-8 py-5 text-right">
-                            <div class="flex items-center justify-end gap-3">
-                                <button onclick="window.location.href='/api/campaigns/${c.id}/export'" class="text-emerald-600 hover:text-emerald-800 text-[10px] font-bold flex items-center gap-1">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                    Export
+                        <td class="px-6 py-5 text-sm text-slate-600 truncate max-w-[150px]" title="${c.name}">${c.name}</td>
+                        <td class="px-6 py-5 text-sm text-slate-800">${c.total_numbers || 0}</td>
+                        <td class="px-6 py-5 text-xs text-slate-500 truncate max-w-[200px]" title="${(c.message_template || '').replace(/"/g, '&quot;')}">${c.message_template || '-'}</td>
+                        <td class="px-6 py-5 text-xs text-slate-500 capitalize">${formatDateTime(c.timestamp)}</td>
+                        <td class="px-6 py-5 text-center text-sm font-medium text-emerald-600">${c.read_count || c.read || 0}</td>
+                        <td class="px-6 py-5 text-center text-sm font-medium text-blue-600">${c.delivered_count || c.delivered || 0}</td>
+                        <td class="px-6 py-5 text-center text-sm font-medium text-rose-600">${c.failed || 0}</td>
+                        <td class="px-6 py-5 text-center text-sm font-medium text-slate-600">${c.sent_success || 0}</td>
+                        <td class="px-6 py-5 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <button onclick="window.location.href='/api/campaigns/${c.id}/export'" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors" title="Download">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                 </button>
-                                <button onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}')" class="text-indigo-600 hover:text-indigo-800 text-[10px] font-bold flex items-center gap-1">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                                    Details
+                                <button onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}')" class="px-3 py-1.5 bg-amber-500 text-white rounded text-xs font-bold hover:bg-amber-600 transition-colors">
+                                    View
                                 </button>
                             </div>
                         </td>

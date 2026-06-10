@@ -2643,6 +2643,7 @@ async def get_history(request: Request):
     # Calculate all stats dynamically from the messages table to reflect real-time Webhook updates
     rows = await db.fetch_all("""
         SELECT c.id, c.name, c.timestamp, c.total_numbers, c.status as campaign_status,
+               c.message_template, c.msg_type,
                (SELECT COUNT(DISTINCT phone) FROM messages WHERE campaign_id = c.id AND (status = 'sent' OR status = 'delivered' OR status = 'read')) as sent_success,
                (SELECT COUNT(DISTINCT phone) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered,
                (SELECT COUNT(DISTINCT phone) FROM messages WHERE campaign_id = c.id AND status = 'read') as `read`,
