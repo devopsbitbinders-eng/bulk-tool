@@ -26,7 +26,7 @@
         .drawflow .connection .main-path:hover { stroke: #10b981; }
         .drawflow .drawflow-node .input, .drawflow .drawflow-node .output { width: 14px; height: 14px; background: #fff; border: 2px solid #cbd5e1; border-radius: 50%; }
         .drawflow .drawflow-node .input:hover, .drawflow .drawflow-node .output:hover { border-color: #10b981; background: #ecfdf5; }
-        #drawflow { width: 100%; height: calc(100vh - 200px); background: #f8fafc; background-image: radial-gradient(#e2e8f0 1px, transparent 1px); background-size: 20px 20px; }
+        #drawflow { width: 100%; height: 100%; min-height: calc(100vh - 160px); background: #f8fafc; background-image: radial-gradient(#e2e8f0 1px, transparent 1px); background-size: 20px 20px; }
         .drag-node { cursor: grab; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: #475569; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
         .drag-node:hover { border-color: #10b981; color: #10b981; transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
         .drag-node:active { cursor: grabbing; }
@@ -5440,13 +5440,13 @@
         <div id="content-chatbot" class="hidden">
             <div class="flex gap-4">
                 <!-- Node Palette (Sidebar) -->
-                <div class="w-64 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 h-[calc(100vh-200px)] flex flex-col">
-                    <div class="mb-6">
+                <div class="w-64 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 h-[calc(100vh-160px)] flex flex-col flex-shrink-0">
+                    <div class="mb-4 flex-shrink-0">
                         <h3 class="font-bold text-slate-800 text-lg">Nodes</h3>
                         <p class="text-xs text-slate-500 mt-1">Drag and drop to canvas</p>
                     </div>
                     
-                    <div class="flex-1 overflow-y-auto pr-2">
+                    <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0 space-y-2 pb-4">
                         <div class="drag-node" draggable="true" ondragstart="drag(event)" data-node="start">
                             <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
                             Start Flow
