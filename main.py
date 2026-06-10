@@ -284,10 +284,11 @@ async def get_dashboard_stats(user_id: int):
 @app.get("/api/dashboard/filtered")
 async def get_filtered_dashboard(request: Request, start: str, end: str):
     session_token = request.cookies.get("session_token")
-    if not session_token: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     try:
         db = await get_db()
-        user = await db.fetch_one("SELECT id FROM users WHERE session_token = :t", {"t": session_token})
+        user = await db.fetch_one("SELECT id FROM users WHERE username = :u", {"u": username})
         if not user: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
         ist_delta = datetime.timedelta(hours=5, minutes=30)
         
