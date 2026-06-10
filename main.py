@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 load_dotenv()
 from typing import Optional, List
+from pydantic import BaseModel
 import re
 import os
 import pandas as pd
