@@ -2654,15 +2654,30 @@ async def get_templates_api():
     return safe_json_response([dict(r) for r in rows])
 
 @app.get("/api/history")
-async def get_history(request: Request):
+async def get_history(request: Request, start_date: str = None, end_date: str = None, limit: int = 10):
     session_token = request.cookies.get("session_token")
     username = verify_session_token(session_token)
     if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     u_id = await get_user_id(username)
     
     db = await get_db()
-    # Optimized query using LEFT JOIN and GROUP BY for 100x faster execution
-    rows = await db.fetch_all("""
+    
+    # Base query for inner select
+    inner_query = "SELECT * FROM campaigns WHERE user_id = :u"
+    params = {"u": u_id}
+    
+    if start_date and end_date:
+        inner_query += " AND timestamp >= :sd AND timestamp <= :ed"
+        params["sd"] = start_date
+        # Add 23:59:59 to end_date to include the full day
+        params["ed"] = end_date + " 23:59:59"
+        # When date range is selected, limit to 500 to show all results for that range
+        inner_query += " ORDER BY timestamp DESC LIMIT 500"
+    else:
+        # Default behavior: limit to 10 most recent
+        inner_query += f" ORDER BY timestamp DESC LIMIT {limit}"
+        
+    rows = await db.fetch_all(f"""
         SELECT c.id, c.name, c.timestamp, c.template_name, c.media_url,
                COALESCE(NULLIF(c.total_numbers, 0), COUNT(m.id)) as total_numbers, 
                c.status as campaign_status,
@@ -2674,11 +2689,11 @@ async def get_history(request: Request):
                SUM(CASE WHEN m.status = 'delivered' THEN 1 ELSE 0 END) as delivered,
                SUM(CASE WHEN m.status = 'read' THEN 1 ELSE 0 END) as `read`,
                SUM(CASE WHEN m.status = 'failed' THEN 1 ELSE 0 END) as failed
-        FROM (SELECT * FROM campaigns WHERE user_id = :u ORDER BY timestamp DESC LIMIT 100) c 
+        FROM ({inner_query}) c 
         LEFT JOIN messages m ON m.campaign_id = c.id
         GROUP BY c.id
         ORDER BY c.timestamp DESC
-    """, {"u": u_id})
+    """, params)
     return safe_json_response([dict(r) for r in rows])
 
 @app.get("/api/campaign/{campaign_id}/details")
