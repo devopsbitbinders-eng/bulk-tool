@@ -2366,17 +2366,17 @@
                         <td class="px-4 py-5 text-sm text-slate-800 text-center">${c.total_numbers || 0}</td>
                         <td class="px-4 py-5 text-xs text-slate-500 truncate max-w-[200px]" title="${(c.message_template || '').replace(/"/g, '&quot;')}">${c.message_template || '-'}</td>
                         <td class="px-4 py-5 text-xs text-slate-500">${formatDateTime(c.timestamp)}</td>
-                        <td class="px-4 py-5 text-center text-sm font-medium text-slate-600">${c.read_count || c.read || 0}</td>
-                        <td class="px-4 py-5 text-center text-sm font-medium text-slate-600">${c.delivered_count || c.delivered || 0}</td>
-                        <td class="px-4 py-5 text-center text-sm font-medium text-slate-600">${c.failed || 0}</td>
+                        <td class="px-4 py-5 text-center text-sm font-medium text-emerald-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'read')">${c.read_count || c.read || 0}</td>
+                        <td class="px-4 py-5 text-center text-sm font-medium text-blue-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'delivered')">${c.delivered_count || c.delivered || 0}</td>
+                        <td class="px-4 py-5 text-center text-sm font-medium text-rose-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'failed')">${c.failed || 0}</td>
                         <td class="px-4 py-5 text-center text-sm">
-                            <div class="inline-flex items-center gap-1 bg-[#20c997] text-white px-2 py-1 rounded text-[10px] font-bold">
+                            <div class="inline-flex items-center gap-1 bg-[#20c997] text-white px-2 py-1 rounded text-[10px] font-bold cursor-pointer hover:bg-opacity-80 transition-colors" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'sent')">
                                 <span>SENT</span> <span class="bg-rose-500 px-1.5 rounded-sm">${c.sent_success || 0}</span>
                             </div>
                         </td>
                         <td class="px-4 py-5 text-center">
                             <div class="flex items-center justify-center gap-2">
-                                <button class="w-8 h-8 rounded-full text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-colors" title="Chart">
+                                <button onclick="switchTab('analytics')" class="w-8 h-8 rounded-full text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-colors" title="Chart">
                                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
                                 </button>
                                 <button onclick="window.location.href='/api/campaigns/${c.id}/export'" class="w-8 h-8 rounded-full text-cyan-500 hover:bg-cyan-50 flex items-center justify-center transition-colors" title="Download">
@@ -2388,7 +2388,7 @@
                         <td class="px-4 py-5 text-center">
                             <div class="flex items-center justify-center gap-[1px]">
                                 <button onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'failed')" class="px-3 py-1.5 bg-[#20c997] text-white rounded-l text-xs font-bold hover:bg-opacity-90 transition-colors shadow-sm">Resend</button>
-                                <button class="px-3 py-1.5 bg-[#f5a623] text-white rounded-r text-xs font-bold hover:bg-opacity-90 transition-colors shadow-sm" onclick="showToast('Responses view coming soon!', 'info')">Responses</button>
+                                <button class="px-3 py-1.5 bg-[#f5a623] text-white rounded-r text-xs font-bold hover:bg-opacity-90 transition-colors shadow-sm" onclick="switchTab('chat')">Responses</button>
                             </div>
                         </td>
                     </tr>
@@ -2415,15 +2415,18 @@
                                         </tbody>
                                     </table>
                                     
-                                    <div class="mt-4 flex rounded shadow-sm overflow-hidden w-max text-white text-xs font-medium">
-                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide">READ</div>
-                                        <div class="bg-[#20c997] px-4 py-2 font-bold">${c.read_count || c.read || 0}</div>
-                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide border-l border-indigo-400">DELIVERED</div>
-                                        <div class="bg-[#20c997] px-4 py-2 font-bold">${c.delivered_count || c.delivered || 0}</div>
-                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide border-l border-indigo-400">ERROR</div>
-                                        <div class="bg-[#20c997] px-4 py-2 font-bold">${c.failed || 0}</div>
-                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide border-l border-indigo-400">SENT</div>
-                                        <div class="bg-[#20c997] px-4 py-2 font-bold">${c.sent_success || 0}</div>
+                                    <div class="mt-4 flex rounded shadow-sm overflow-hidden w-max text-white text-xs font-medium cursor-pointer hover:opacity-95 transition-opacity">
+                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide hover:bg-indigo-600 transition-colors" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'read')">READ</div>
+                                        <div class="bg-[#20c997] px-4 py-2 font-bold hover:bg-[#1bb88a] transition-colors" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'read')">${c.read_count || c.read || 0}</div>
+                                        
+                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide border-l border-indigo-400 hover:bg-indigo-600 transition-colors" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'delivered')">DELIVERED</div>
+                                        <div class="bg-[#20c997] px-4 py-2 font-bold hover:bg-[#1bb88a] transition-colors" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'delivered')">${c.delivered_count || c.delivered || 0}</div>
+                                        
+                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide border-l border-indigo-400 hover:bg-indigo-600 transition-colors" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'failed')">ERROR</div>
+                                        <div class="bg-[#20c997] px-4 py-2 font-bold hover:bg-[#1bb88a] transition-colors" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'failed')">${c.failed || 0}</div>
+                                        
+                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide border-l border-indigo-400 hover:bg-indigo-600 transition-colors" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'sent')">SENT</div>
+                                        <div class="bg-[#20c997] px-4 py-2 font-bold hover:bg-[#1bb88a] transition-colors" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'sent')">${c.sent_success || 0}</div>
                                     </div>
                                 </div>
                                 
