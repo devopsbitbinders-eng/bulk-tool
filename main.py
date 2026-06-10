@@ -2624,7 +2624,7 @@ async def get_history(request: Request):
                COALESCE(NULLIF(c.total_numbers, 0), (SELECT COUNT(DISTINCT phone) FROM messages WHERE campaign_id = c.id)) as total_numbers, 
                c.status as campaign_status,
                COALESCE(c.message_template, (SELECT content FROM templates WHERE name = c.template_name LIMIT 1)) as message_template, c.msg_type,
-               (SELECT COUNT(DISTINCT phone) FROM messages WHERE campaign_id = c.id AND (status = 'sent' OR status = 'delivered' OR status = 'read')) as sent_success,
+               (SELECT COUNT(DISTINCT phone) FROM messages WHERE campaign_id = c.id AND status = 'sent') as sent_success,
                (SELECT COUNT(DISTINCT phone) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered,
                (SELECT COUNT(DISTINCT phone) FROM messages WHERE campaign_id = c.id AND status = 'read') as `read`,
                (SELECT COUNT(DISTINCT phone) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed
