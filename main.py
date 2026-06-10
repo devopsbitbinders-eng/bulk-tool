@@ -2679,19 +2679,17 @@ async def get_history(request: Request, start_date: str = None, end_date: str = 
         
     rows = await db.fetch_all(f"""
         SELECT c.id, c.name, c.timestamp, c.template_name, c.media_url,
-               COALESCE(NULLIF(c.total_numbers, 0), COUNT(m.id)) as total_numbers, 
+               COALESCE(NULLIF(c.total_numbers, 0), (SELECT COUNT(id) FROM messages WHERE campaign_id = c.id)) as total_numbers, 
                c.status as campaign_status,
                COALESCE(c.message_template, (SELECT content FROM templates WHERE name = c.template_name LIMIT 1)) as message_template, 
                (SELECT components FROM templates WHERE name = c.template_name LIMIT 1) as template_components,
                (SELECT media_url FROM templates WHERE name = c.template_name LIMIT 1) as t_media_url,
                c.msg_type,
-               SUM(CASE WHEN m.status = 'sent' THEN 1 ELSE 0 END) as sent_success,
-               SUM(CASE WHEN m.status = 'delivered' THEN 1 ELSE 0 END) as delivered,
-               SUM(CASE WHEN m.status = 'read' THEN 1 ELSE 0 END) as `read`,
-               SUM(CASE WHEN m.status = 'failed' THEN 1 ELSE 0 END) as failed
+               (SELECT COUNT(id) FROM messages WHERE campaign_id = c.id AND status = 'sent') as sent_success,
+               (SELECT COUNT(id) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered,
+               (SELECT COUNT(id) FROM messages WHERE campaign_id = c.id AND status = 'read') as `read`,
+               (SELECT COUNT(id) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed
         FROM ({inner_query}) c 
-        LEFT JOIN messages m ON m.campaign_id = c.id
-        GROUP BY c.id
         ORDER BY c.timestamp DESC
     """, params)
     return safe_json_response([dict(r) for r in rows])
