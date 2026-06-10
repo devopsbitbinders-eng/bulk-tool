@@ -2670,6 +2670,55 @@ async def get_campaign_details(request: Request, campaign_id: int):
         "messages": [dict(m) for m in messages]
     })
 
+@app.get("/api/campaign/{campaign_id}/responses")
+async def get_campaign_responses(request: Request, campaign_id: int):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    db = await get_db()
+    # Verify ownership
+    camp = await db.fetch_one("SELECT id FROM campaigns WHERE id = :id AND user_id = :u", {"id": campaign_id, "u": u_id})
+    if not camp: return JSONResponse(status_code=403, content={"error": "Forbidden"})
+
+    # Fetch inbound chat messages from phones in this campaign, grouped by phone
+    # We select messages where timestamp is greater than or equal to the campaign message timestamp
+    rows = await db.fetch_all("""
+        SELECT cm.id, cm.phone, cm.sender_name, cm.message, cm.timestamp
+        FROM chat_messages cm
+        JOIN messages m ON cm.phone = m.phone AND m.campaign_id = :id
+        WHERE cm.user_id = :u AND cm.direction = 'inbound' AND cm.timestamp >= m.timestamp
+        ORDER BY cm.phone, cm.timestamp ASC
+    """, {"id": campaign_id, "u": u_id})
+    
+    # Group by phone
+    responses_by_phone = {}
+    for r in rows:
+        phone = r['phone']
+        if phone not in responses_by_phone:
+            name = r['sender_name'] or ""
+            responses_by_phone[phone] = {
+                "name": name,
+                "phone": phone,
+                "messages": []
+            }
+        
+        msg_text = r['message']
+        try:
+            parsed = json.loads(msg_text)
+            if parsed.get('is_media'):
+                msg_text = f"[{parsed.get('media_type').upper()}] {parsed.get('caption', '')}"
+        except:
+            pass
+
+        responses_by_phone[phone]["messages"].append({
+            "text": msg_text,
+            "timestamp": r['timestamp']
+        })
+        
+    return safe_json_response(list(responses_by_phone.values()))
+
 class ResendRequest(BaseModel):
     message_ids: list[int]
 

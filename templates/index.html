@@ -2158,6 +2158,41 @@
             </div>
         </div>
 
+        <!-- Response Reports Modal -->
+        <div id="responseModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-[80] hidden items-center justify-center p-4">
+            <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in duration-200">
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="text-xl font-medium text-slate-700">Response Reports</h3>
+                    <div class="flex items-center gap-4">
+                        <button class="bg-[#20c997] text-white px-4 py-2 rounded font-medium hover:bg-opacity-90 transition-colors shadow-sm text-sm" onclick="showToast('Download coming soon!', 'info')">Download Reply</button>
+                        <button onclick="document.getElementById('responseModal').classList.replace('flex', 'hidden')" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+                    </div>
+                </div>
+                <div class="p-6 flex-grow overflow-y-auto bg-white custom-scrollbar">
+                    <div class="mb-4 flex items-center gap-2 text-sm text-slate-600">
+                        <span>Show</span>
+                        <select class="border border-slate-200 rounded px-2 py-1 outline-none focus:border-[#20c997]">
+                            <option>10</option>
+                            <option>25</option>
+                            <option>50</option>
+                        </select>
+                        <span>entries</span>
+                    </div>
+                    
+                    <div class="border border-slate-200 rounded-t overflow-hidden">
+                        <div class="bg-indigo-500 text-white px-4 py-3 font-bold flex justify-between items-center">
+                            <span>Responses</span>
+                            <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                        </div>
+                        <div id="responseTableBody" class="divide-y divide-slate-100">
+                            <!-- Populated via JS -->
+                            <div class="p-8 text-center text-slate-400">Loading responses...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Custom Confirm Modal -->
         <div id="customConfirmModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] hidden items-center justify-center p-4">
             <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -2405,7 +2440,7 @@
                         <td class="px-4 py-5 text-center">
                             <div class="flex items-center justify-center gap-[1px]">
                                 <button onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'failed')" class="px-3 py-1.5 bg-[#20c997] text-white rounded-l text-xs font-bold hover:bg-opacity-90 transition-colors shadow-sm">Resend</button>
-                                <button class="px-3 py-1.5 bg-[#f5a623] text-white rounded-r text-xs font-bold hover:bg-opacity-90 transition-colors shadow-sm" onclick="switchTab('chat')">Responses</button>
+                                <button class="px-3 py-1.5 bg-[#f5a623] text-white rounded-r text-xs font-bold hover:bg-opacity-90 transition-colors shadow-sm" onclick="viewCampaignResponses(${c.id})">Responses</button>
                             </div>
                         </td>
                     </tr>
@@ -2579,6 +2614,38 @@
             }
 
             window.currentHistoryCampaignId = null;
+            async function viewCampaignResponses(id) {
+                const modal = document.getElementById('responseModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                
+                const tbody = document.getElementById('responseTableBody');
+                tbody.innerHTML = `<div class="p-8 text-center text-slate-400">Loading responses...</div>`;
+                
+                try {
+                    const response = await fetch(`/api/campaign/${id}/responses`);
+                    const data = await response.json();
+                    
+                    if (!data || data.length === 0) {
+                        tbody.innerHTML = `<div class="p-8 text-center text-slate-500 italic">No responses received for this campaign yet.</div>`;
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.map(contact => {
+                        let headerHtml = `<div class="px-4 py-3 bg-slate-50 text-slate-700 font-medium border-b border-slate-100">.(${contact.phone}) ${contact.name ? '- ' + contact.name : ''}</div>`;
+                        let messagesHtml = contact.messages.map(msg => `
+                            <div class="px-4 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
+                                <p class="text-slate-600 text-sm whitespace-pre-wrap">${msg.text}</p>
+                                <p class="text-[10px] text-slate-400 mt-1">${formatDateTime(msg.timestamp)}</p>
+                            </div>
+                        `).join('');
+                        return `<div>${headerHtml}${messagesHtml}</div>`;
+                    }).join('');
+                } catch (err) {
+                    tbody.innerHTML = `<div class="p-8 text-center text-rose-500">Failed to load responses.</div>`;
+                }
+            }
+
             async function viewCampaignDetails(id, name, date, filterStatus = null) {
                 currentHistoryCampaignId = id;
                 const modal = document.getElementById('historyDetailModal');
