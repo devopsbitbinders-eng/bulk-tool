@@ -243,26 +243,47 @@ async def get_dashboard_stats(user_id: int):
         daily_stats[d] = {"sent": 0, "delivered": 0, "read": 0, "failed": 0}
         chart_data["labels"].append(d)
         
-    # Fetch records for last 7 days to aggregate
-    out_records = await db.fetch_all("SELECT timestamp, status FROM messages WHERE user_id = :u AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
+    import os
+    from database import DATABASE_URL
+    is_mysql = DATABASE_URL.startswith("mysql")
     
-    for r in out_records:
-        ts = r['timestamp']
-        st = (r['status'] or '').lower() if r['status'] else ''
-        if not ts: continue
-        
-        if isinstance(ts, str):
-            dt_utc = datetime.datetime.strptime(ts[:19], '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
-        else:
-            dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
-        dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
-        day_str = dt_ist.strftime('%d %b')
-        
-        if day_str in daily_stats:
-            if st == 'sent': daily_stats[day_str]["sent"] += 1
-            elif st == 'delivered' or st == 'success': daily_stats[day_str]["delivered"] += 1
-            elif st == 'read': daily_stats[day_str]["read"] += 1
-            elif st == 'failed' or st == 'error': daily_stats[day_str]["failed"] += 1
+    if is_mysql:
+        query = """
+            SELECT DATE_FORMAT(DATE_ADD(timestamp, INTERVAL '5:30' HOUR_MINUTE), '%d %b') as day_str,
+                   status, COUNT(*) as cnt
+            FROM messages
+            WHERE user_id = :u AND timestamp >= :ts
+            GROUP BY day_str, status
+        """
+        agg_records = await db.fetch_all(query, {"u": user_id, "ts": seven_days_str})
+        for r in agg_records:
+            day_str = r['day_str']
+            st = (r['status'] or '').lower() if r['status'] else ''
+            cnt = r['cnt']
+            if day_str in daily_stats:
+                if st == 'sent': daily_stats[day_str]["sent"] += cnt
+                elif st in ('delivered', 'success'): daily_stats[day_str]["delivered"] += cnt
+                elif st == 'read': daily_stats[day_str]["read"] += cnt
+                elif st in ('failed', 'error'): daily_stats[day_str]["failed"] += cnt
+    else:
+        out_records = await db.fetch_all("SELECT timestamp, status FROM messages WHERE user_id = :u AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
+        for r in out_records:
+            ts = r['timestamp']
+            st = (r['status'] or '').lower() if r['status'] else ''
+            if not ts: continue
+            
+            if isinstance(ts, str):
+                dt_utc = datetime.datetime.strptime(ts[:19], '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+            else:
+                dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
+            dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
+            day_str = dt_ist.strftime('%d %b')
+            
+            if day_str in daily_stats:
+                if st == 'sent': daily_stats[day_str]["sent"] += 1
+                elif st == 'delivered' or st == 'success': daily_stats[day_str]["delivered"] += 1
+                elif st == 'read': daily_stats[day_str]["read"] += 1
+                elif st == 'failed' or st == 'error': daily_stats[day_str]["failed"] += 1
             
     for d in chart_data["labels"]:
         chart_data["sent"].append(daily_stats[d]["sent"])
