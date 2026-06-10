@@ -285,11 +285,10 @@ async def get_dashboard_stats(user_id: int):
 async def get_filtered_dashboard(request: Request, start: str, end: str):
     session_token = request.cookies.get("session_token")
     if not session_token: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-    db = await get_db()
-    user = await db.fetch_one("SELECT id FROM users WHERE session_token = :t", {"t": session_token})
-    if not user: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-    
     try:
+        db = await get_db()
+        user = await db.fetch_one("SELECT id FROM users WHERE session_token = :t", {"t": session_token})
+        if not user: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
         ist_delta = datetime.timedelta(hours=5, minutes=30)
         
         start_dt_ist = datetime.datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=datetime.timezone(ist_delta))
@@ -351,7 +350,7 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
         }
     except Exception as e:
         import traceback
-        return JSONResponse({"error": str(e), "traceback": traceback.format_exc()}, status_code=500)
+        return JSONResponse({"error": str(e), "traceback": traceback.format_exc()})
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, background_tasks: BackgroundTasks):
