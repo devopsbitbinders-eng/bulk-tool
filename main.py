@@ -443,12 +443,15 @@ async def index(request: Request, background_tasks: BackgroundTasks):
 
         campaigns_raw = await db.fetch_all("""
             SELECT c.*,
-                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status IN ('failed', 'sent', 'delivered', 'read')) as sent_success_combined,
-                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered_count,
-                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read_count,
-                (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed_count
+                SUM(CASE WHEN m.status IN ('failed', 'sent', 'delivered', 'read') THEN 1 ELSE 0 END) as sent_success_combined,
+                SUM(CASE WHEN m.status = 'delivered' THEN 1 ELSE 0 END) as delivered_count,
+                SUM(CASE WHEN m.status = 'read' THEN 1 ELSE 0 END) as read_count,
+                SUM(CASE WHEN m.status = 'failed' THEN 1 ELSE 0 END) as failed_count
             FROM campaigns c
-            WHERE c.user_id = :u ORDER BY c.timestamp DESC LIMIT 50
+            LEFT JOIN messages m ON m.campaign_id = c.id
+            WHERE c.user_id = :u 
+            GROUP BY c.id
+            ORDER BY c.timestamp DESC LIMIT 50
         """, {"u": u_id})
         # Use combined sent+delivered+read for dashboard card display
         campaigns = []

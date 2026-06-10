@@ -2244,7 +2244,24 @@
                     const data = await res.json();
                     if (res.ok) {
                         showToast(`Successfully synced ${data.count || 0} templates!`, 'success');
-                        setTimeout(() => location.reload(), 1500);
+                        
+                        try {
+                            // Dynamically fetch and update the template list without reloading the page!
+                            const tempRes = await fetch('/api/templates');
+                            if (tempRes.ok) {
+                                const newTemplates = await tempRes.json();
+                                templatesList.length = 0;
+                                templatesList.push(...newTemplates);
+                                
+                                const select = document.getElementById('templateName');
+                                if (select) {
+                                    const currentVal = select.value;
+                                    select.innerHTML = '<option value="">-- Choose Template --</option>' + 
+                                        templatesList.map(t => `<option value="${t.name}">${t.name} (${t.language})</option>`).join('');
+                                    select.value = currentVal;
+                                }
+                            }
+                        } catch(e) { console.error('Failed to update dropdown', e); }
                     } else {
                         showToast(data.error || 'Sync failed', 'error');
                     }
