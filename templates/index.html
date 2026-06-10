@@ -186,14 +186,15 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="bg-white border-b border-slate-200 py-4 px-8 mb-4">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div class="flex items-center">
-                <img src="/static/logo.png" alt="BulkPulse Logo" class="h-12">
-            </div>
+    <nav class="bg-white border-b border-slate-200 pt-4 mb-4 flex flex-col gap-4">
+        <!-- Top Tier: Logo, Auth, Status, Profile -->
+        <div class="max-w-7xl mx-auto flex justify-between items-center w-full px-8">
             <div class="flex items-center gap-6">
-                <!-- Facebook Login Button -->
-                <div class="flex items-center gap-2">
+                <!-- Logo -->
+                <img src="/static/logo.png" alt="BulkPulse Logo" class="h-10">
+                
+                <!-- Facebook Login Button Group -->
+                <div class="flex items-center gap-2 border-l border-slate-200 pl-6">
                     <button id="fbLinkBtn" onclick="launchFBLogin()"
                         class="flex items-center gap-2 {% if linked_phone %}bg-emerald-500{% else %}bg-[#1877F2]{% endif %} hover:opacity-90 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md"
                         {% if linked_phone %}disabled{% endif %}>
@@ -226,33 +227,10 @@
                     </div>
                     {% endif %}
                 </div>
-                <div class="flex gap-4 border-b border-slate-100">
-                    <button onclick="switchTab('campaigns')" id="tab-campaigns"
-                        class="tab-btn active px-4 py-2 font-medium text-sm transition-all">Campaigns</button>
-                    <button onclick="switchTab('analytics')" id="tab-analytics"
-                        class="tab-btn px-4 py-2 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all">Analytics</button>
-                    <button onclick="switchTab('templates')" id="tab-templates"
-                        class="tab-btn px-4 py-2 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all">Templates</button>
-                    <button onclick="switchTab('history')" id="tab-history"
-                        class="tab-btn px-4 py-2 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all">Sending
-                        History</button>
-                    <button onclick="switchTab('chat')" id="tab-chat"
-                        class="tab-btn px-4 py-2 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
-                        Chat
-                        <span id="unreadBadge" class="hidden w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
-                    </button>
-                    {% if is_admin %}
-                    <button onclick="switchTab('admin')" id="tab-admin"
-                        class="tab-btn px-4 py-2 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
-                            </path>
-                        </svg>
-                        Admin
-                    </button>
-                    {% endif %}
-                </div>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <!-- Status -->
                 <div class="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100">
                     <span id="apiStatusDot"
                         class="w-2 h-2 {% if linked_phone %}bg-green-500{% else %}bg-slate-300{% endif %} rounded-full {% if linked_phone %}animate-pulse{% endif %}"></span>
@@ -267,7 +245,7 @@
                 </div>
 
                 <!-- Profile Dropdown -->
-                <div class="relative ml-2" id="profile-container">
+                <div class="relative" id="profile-container">
                     <button onclick="toggleProfileMenu(event)"
                         class="flex items-center gap-2 p-1 pr-3 bg-white hover:bg-slate-50 rounded-full border border-slate-200 transition-all shadow-sm group">
                         <div
@@ -310,6 +288,34 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Bottom Tier: Tabs -->
+        <div class="max-w-7xl mx-auto flex gap-6 w-full px-8 mt-2">
+            <button onclick="switchTab('campaigns')" id="tab-campaigns"
+                class="tab-btn active pb-3 pt-1 font-medium text-sm transition-all text-slate-500 hover:text-slate-800">Campaigns</button>
+            <button onclick="switchTab('analytics')" id="tab-analytics"
+                class="tab-btn pb-3 pt-1 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all">Analytics</button>
+            <button onclick="switchTab('templates')" id="tab-templates"
+                class="tab-btn pb-3 pt-1 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all">Templates</button>
+            <button onclick="switchTab('history')" id="tab-history"
+                class="tab-btn pb-3 pt-1 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all">Sending History</button>
+            <button onclick="switchTab('chat')" id="tab-chat"
+                class="tab-btn pb-3 pt-1 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                Chat
+                <span id="unreadBadge" class="hidden w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+            </button>
+            {% if is_admin %}
+            <button onclick="switchTab('admin')" id="tab-admin"
+                class="tab-btn pb-3 pt-1 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
+                    </path>
+                </svg>
+                Admin
+            </button>
+            {% endif %}
         </div>
     </nav>
     <script>
