@@ -556,20 +556,25 @@
     <!-- Preview Sample Form Modal -->
     <div id="previewSampleModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200005] hidden items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
-            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-[#0b141a]">
-                <h3 class="text-white font-bold">Form Preview</h3>
-                <button onclick="closePreviewSampleModal()" class="text-slate-400 hover:text-white transition-colors">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white z-10 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    <h3 class="text-slate-800 font-bold">Form Preview</h3>
+                </div>
+                <button onclick="closePreviewSampleModal()" class="text-slate-400 hover:text-rose-500 transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
-            <div class="p-6 bg-[#efeae2] h-[400px] overflow-y-auto">
-                <div class="bg-white rounded-lg shadow-sm p-4 text-sm text-slate-800 space-y-4">
-                    <h4 class="font-bold text-lg" id="previewFormTitle">Your Form</h4>
-                    <p class="text-slate-500">Please fill out the following questions:</p>
-                    <div id="previewQuestionsContainer" class="space-y-4 pt-2">
+            <div class="p-6 bg-slate-50 h-[400px] overflow-y-auto">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 text-sm text-slate-800 space-y-6">
+                    <div>
+                        <h4 class="font-bold text-lg text-slate-900" id="previewFormTitle">Your Form</h4>
+                        <p class="text-slate-500 mt-1">Please fill out the following questions:</p>
+                    </div>
+                    <div id="previewQuestionsContainer" class="space-y-5">
                         <!-- Filled by JS -->
                     </div>
-                    <button class="w-full bg-[#00a884] text-white rounded-full py-2 font-bold mt-4">Submit</button>
+                    <button class="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-2.5 font-bold mt-4 shadow-sm transition-colors">Submit Form</button>
                 </div>
             </div>
         </div>
@@ -2764,7 +2769,7 @@
                     <select df-form_id class="w-full text-base border border-slate-300 rounded p-2 bg-white outline-none text-slate-800">
                         <option value="">Select Formname</option>
                     </select>
-                    <button onclick="openWappFormManager()" class="w-full bg-white hover:bg-slate-50 border border-slate-100 text-transparent py-4 rounded shadow-sm transition-colors cursor-pointer"></button>
+                    <button onclick="openWappFormManager()" class="w-full bg-[#b8860b] hover:bg-[#a07409] text-white font-bold py-2.5 px-4 rounded shadow-sm transition-colors text-sm">Manage WAPP Form</button>
                 </div>
                 `;
                 editor.addNode('wapp_form', 1, 1, pos_x, pos_y, 'wapp_form', { "action": "wapp_form", "form_id": "" }, html);
