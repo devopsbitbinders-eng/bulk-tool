@@ -2640,6 +2640,8 @@ async def get_history(request: Request):
                COALESCE(NULLIF(c.total_numbers, 0), COUNT(m.id)) as total_numbers, 
                c.status as campaign_status,
                COALESCE(c.message_template, (SELECT content FROM templates WHERE name = c.template_name LIMIT 1)) as message_template, 
+               (SELECT components FROM templates WHERE name = c.template_name LIMIT 1) as template_components,
+               (SELECT media_url FROM templates WHERE name = c.template_name LIMIT 1) as t_media_url,
                c.msg_type,
                SUM(CASE WHEN m.status = 'sent' THEN 1 ELSE 0 END) as sent_success,
                SUM(CASE WHEN m.status = 'delivered' THEN 1 ELSE 0 END) as delivered,

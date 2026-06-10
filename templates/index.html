@@ -2407,7 +2407,45 @@
                         return;
                     }
 
-                    tbody.innerHTML = campaigns.map(c => `
+                    tbody.innerHTML = campaigns.map(c => {
+                        // Parse Media from Campaign or Template
+                        let finalMediaHtml = '';
+                        let headerUrl = c.media_url || c.t_media_url || "";
+                        let headerType = "NONE";
+                        
+                        if (c.template_components) {
+                            try {
+                                const comps = JSON.parse(c.template_components);
+                                const header = comps.find(comp => comp.type === 'HEADER');
+                                if (header) {
+                                    headerType = header.format || "NONE";
+                                    if (!headerUrl && header.example) {
+                                        headerUrl = (header.example.header_handle && header.example.header_handle[0]) || 
+                                                    (header.example.header_text && header.example.header_text[0]) || "";
+                                    }
+                                }
+                            } catch(e) {}
+                        }
+                        
+                        // Fallback to extension check if headerType is unknown but we have a URL
+                        if (headerUrl && headerType === "NONE") {
+                            const lowUrl = headerUrl.toLowerCase();
+                            if (lowUrl.endsWith('.mp4') || lowUrl.endsWith('.mov')) headerType = "VIDEO";
+                            else if (lowUrl.endsWith('.pdf') || lowUrl.endsWith('.doc')) headerType = "DOCUMENT";
+                            else headerType = "IMAGE";
+                        }
+
+                        if (headerUrl && headerType !== "NONE" && headerType !== "TEXT") {
+                            if (headerType === "VIDEO") {
+                                finalMediaHtml = `<video src="${headerUrl}" class="w-full rounded mb-2 object-cover max-h-40 bg-slate-900" controls></video>`;
+                            } else if (headerType === "DOCUMENT") {
+                                finalMediaHtml = `<div class="w-full rounded mb-2 bg-rose-50 border border-rose-100 p-3 flex items-center gap-2 text-rose-600"><svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg><span class="text-xs font-bold truncate">Document</span></div>`;
+                            } else {
+                                finalMediaHtml = `<img src="${headerUrl}" class="w-full rounded mb-2 object-cover max-h-40 border border-slate-100" onerror="this.style.display='none'" />`;
+                            }
+                        }
+                        
+                        return `
                     <tr class="hover:bg-slate-50/80 transition-colors border-b border-slate-100">
                         <td class="px-4 py-5 text-center">
                             <button onclick="toggleCampaignDetails(${c.id})" class="w-6 h-6 rounded-full border border-emerald-500 text-emerald-500 flex items-center justify-center hover:bg-emerald-50 transition-colors mx-auto shadow-sm">
@@ -2499,13 +2537,7 @@
                                         <!-- Chat Bg -->
                                         <div class="flex-grow bg-[#e5ddd5] p-3 overflow-y-auto custom-scrollbar relative" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-size: cover; background-blend-mode: multiply;">
                                             <div class="bg-white rounded-lg p-2.5 text-[13px] text-slate-800 shadow-sm mb-2 max-w-[85%] relative whitespace-pre-wrap leading-relaxed">
-                                                ${c.media_url ? (
-                                                    c.media_url.toLowerCase().endsWith('.mp4') ? 
-                                                    `<video src="${c.media_url}" class="w-full rounded mb-2 object-cover max-h-40" controls></video>` :
-                                                    c.media_url.toLowerCase().endsWith('.pdf') ?
-                                                    `<div class="w-full rounded mb-2 bg-rose-50 border border-rose-100 p-3 flex items-center gap-2 text-rose-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg><span class="text-xs font-bold truncate">Document</span></div>` :
-                                                    `<img src="${c.media_url}" class="w-full rounded mb-2 object-cover max-h-40 border border-slate-100" />`
-                                                ) : ''}
+                                                ${finalMediaHtml}
                                                 <div class="mt-1">${c.message_template || 'Message content preview'}</div>
                                                 <div class="text-[9px] text-slate-400 text-right mt-1">12:32 PM</div>
                                             </div>
@@ -2515,7 +2547,8 @@
                             </div>
                         </td>
                     </tr>
-                    `).join('');
+                    `;
+                    }).join('');
                     formatAllSyncTimes();
                 } catch (err) {
                     tbody.innerHTML = `<tr><td colspan="11" class="px-8 py-12 text-center text-rose-500 italic text-sm">Failed to load history.</td></tr>`;
