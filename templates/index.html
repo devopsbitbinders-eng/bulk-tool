@@ -2314,7 +2314,7 @@
 
                     tbody.innerHTML = campaigns.map(c => `
                     <tr class="hover:bg-slate-50/80 transition-colors">
-                        <td class="px-6 py-5 text-sm text-slate-600 truncate max-w-[150px]" title="${c.name}">${c.name}</td>
+                        <td class="px-6 py-5 text-sm text-slate-600 font-medium break-words max-w-[250px]">${c.name}</td>
                         <td class="px-6 py-5 text-sm text-slate-800">${c.total_numbers || 0}</td>
                         <td class="px-6 py-5 text-xs text-slate-500 truncate max-w-[200px]" title="${(c.message_template || '').replace(/"/g, '&quot;')}">${c.message_template || '-'}</td>
                         <td class="px-6 py-5 text-xs text-slate-500 capitalize">${formatDateTime(c.timestamp)}</td>
