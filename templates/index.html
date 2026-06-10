@@ -547,7 +547,7 @@
 
             <!-- Footer Buttons -->
             <div class="px-8 py-5 border-t border-slate-100 bg-white flex gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <button onclick="closeWappFormManager()" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded text-sm font-bold shadow-sm transition-colors">Save WhatsApp Form</button>
+                <button onclick="saveWappFormManager()" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded text-sm font-bold shadow-sm transition-colors">Save WhatsApp Form</button>
                 <button class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2.5 rounded text-sm font-bold shadow-sm transition-colors">View Saved Forms</button>
                 <button class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2.5 rounded text-sm font-bold shadow-sm transition-colors">Advanced Options</button>
             </div>
@@ -2767,13 +2767,14 @@
                 html = `
                 <div class="title-box" style="background: white; border-bottom: 1px solid #e2e8f0; border-radius: 12px 12px 0 0;"><div class="flex items-center gap-2"><div class="w-6 h-6 rounded bg-red-50 text-red-500 flex items-center justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div> <span class="text-blue-900 font-bold text-base">WAPP Form</span></div> <svg class="w-4 h-4 text-slate-400" onclick="editor.removeNodeId('node-'+this.parentElement.parentElement.id.slice(5))" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>
                 <div class="box space-y-3 bg-white" style="border-radius: 0 0 12px 12px;">
-                    <select df-form_id class="w-full text-base border border-slate-300 rounded p-2 bg-white outline-none text-slate-800">
+                    <select df-form_id class="w-full text-base border border-slate-300 rounded p-2 bg-white outline-none text-slate-800" onclick="updateWappFormDropdowns()">
                         <option value="">Select Formname</option>
                     </select>
                     <button onclick="openWappFormManager()" class="w-full text-white font-bold py-2.5 px-4 rounded shadow-sm transition-colors text-sm" style="background-color: #b8860b;">Manage WAPP Form</button>
                 </div>
                 `;
                 editor.addNode('wapp_form', 1, 1, pos_x, pos_y, 'wapp_form', { "action": "wapp_form", "form_id": "" }, html);
+                setTimeout(updateWappFormDropdowns, 100);
                 
                 // Add green border to the newly created node
                 setTimeout(() => {
@@ -5553,10 +5554,47 @@
             document.getElementById('wappFormModal').classList.add('flex');
         }
 
-        function closeWappFormManager() {
+        window.savedWappForms = JSON.parse(localStorage.getItem('savedWappForms') || '[]');
+
+        function updateWappFormDropdowns() {
+            const dropdowns = document.querySelectorAll('.drawflow-node.wapp_form select[df-form_id]');
+            dropdowns.forEach(dropdown => {
+                const currentVal = dropdown.value;
+                dropdown.innerHTML = '<option value="">Select Formname</option>';
+                window.savedWappForms.forEach(form => {
+                    const opt = document.createElement('option');
+                    opt.value = form.id;
+                    opt.textContent = form.name;
+                    dropdown.appendChild(opt);
+                });
+                dropdown.value = currentVal;
+            });
+        }
+        setTimeout(updateWappFormDropdowns, 500);
+
+        function saveWappFormManager() {
+            const formNameInput = document.getElementById('wappFormName');
+            const formName = formNameInput.value.trim();
+            if(!formName) {
+                showToast("Please enter a Form Name", "error");
+                return;
+            }
+            window.savedWappForms.push({
+                id: 'form_' + Date.now(),
+                name: formName
+            });
+            localStorage.setItem('savedWappForms', JSON.stringify(window.savedWappForms));
+            updateWappFormDropdowns();
+            formNameInput.value = '';
+            
             document.getElementById('wappFormModal').classList.add('hidden');
             document.getElementById('wappFormModal').classList.remove('flex');
             showToast("WAPP Form Saved!", "success");
+        }
+
+        function closeWappFormManager() {
+            document.getElementById('wappFormModal').classList.add('hidden');
+            document.getElementById('wappFormModal').classList.remove('flex');
         }
 
         function addWappQuestion() {
