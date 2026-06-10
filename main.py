@@ -473,29 +473,7 @@ async def index(request: Request, background_tasks: BackgroundTasks):
         print(f"DASHBOARD ERROR: {e}")
         return HTMLResponse(content=f"Dashboard Error: {str(e)}", status_code=500)
 
-@app.get("/api/history")
-async def get_history(request: Request):
-    session_token = request.cookies.get("session_token")
-    username = verify_session_token(session_token)
-    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-    u_id = await get_user_id(username)
-    db = await get_db()
-    
-    # Smarter query to get real-time stats from messages table
-    query = """
-        SELECT 
-            c.id, c.name, c.status, c.timestamp,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'sent') as sent_success,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered_count,
-            (SELECT COUNT(*) FROM messages WHERE campaign_id = c.id AND status = 'read') as read_count
-        FROM campaigns c 
-        WHERE c.user_id = :u 
-        ORDER BY c.timestamp DESC 
-        LIMIT 50
-    """
-    campaigns = await db.fetch_all(query, {"u": u_id})
-    return [dict(c) for c in campaigns]
+
 
 @app.get("/api/campaigns/{campaign_id}/export")
 async def export_campaign_route(request: Request, campaign_id: int):
