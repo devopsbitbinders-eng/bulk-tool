@@ -8,6 +8,7 @@
     <title>WhatsApp Bulk Sender</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
@@ -2141,6 +2142,22 @@
         <!-- Notification Container -->
         <div id="toastContainer" class="fixed bottom-8 right-8 z-[100] flex flex-col gap-3"></div>
 
+        <!-- Chart Modal -->
+        <div id="chartModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-[70] hidden items-center justify-center p-4">
+            <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in duration-200">
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="text-xl font-medium text-slate-700">Chart of Message Status:</h3>
+                    <button onclick="document.getElementById('chartModal').classList.replace('flex', 'hidden')" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+                </div>
+                <div class="p-6 flex justify-center w-full">
+                    <canvas id="campaignPieChart" width="300" height="300"></canvas>
+                </div>
+                <div class="px-6 py-4 border-t border-slate-100 flex justify-end">
+                    <button onclick="document.getElementById('chartModal').classList.replace('flex', 'hidden')" class="px-6 py-2 bg-[#8c7aef] text-white rounded font-medium hover:bg-opacity-90 transition-colors">Close</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Custom Confirm Modal -->
         <div id="customConfirmModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] hidden items-center justify-center p-4">
             <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -2376,7 +2393,7 @@
                         </td>
                         <td class="px-4 py-5 text-center">
                             <div class="flex items-center justify-center gap-2">
-                                <button onclick="switchTab('analytics')" class="w-8 h-8 rounded-full text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-colors" title="Chart">
+                                <button onclick="showCampaignChart(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', ${c.read_count || c.read || 0}, ${c.delivered_count || c.delivered || 0}, ${c.failed || 0}, ${c.sent_success || 0})" class="w-8 h-8 rounded-full text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-colors" title="Chart">
                                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
                                 </button>
                                 <button onclick="window.location.href='/api/campaigns/${c.id}/export'" class="w-8 h-8 rounded-full text-cyan-500 hover:bg-cyan-50 flex items-center justify-center transition-colors" title="Download">
@@ -2487,6 +2504,78 @@
                     icon.parentElement.classList.replace('border-rose-500', 'border-emerald-500');
                     icon.parentElement.classList.replace('hover:bg-rose-50', 'hover:bg-emerald-50');
                 }
+            }
+
+            let campaignPieChartInstance = null;
+            function showCampaignChart(id, name, read, delivered, failed, sent) {
+                const modal = document.getElementById('chartModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                
+                const ctx = document.getElementById('campaignPieChart').getContext('2d');
+                if (campaignPieChartInstance) {
+                    campaignPieChartInstance.destroy();
+                }
+                
+                Chart.register(ChartDataLabels);
+
+                const data = [read, delivered, failed, sent];
+                const labels = ['READ', 'DELIVERED', 'ERROR', 'SENT'];
+                const colors = ['#007bff', '#00e676', '#ffb300', '#ff4081'];
+                
+                const total = read + delivered + failed + sent;
+                
+                campaignPieChartInstance = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: colors,
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 20,
+                                    font: { size: 14 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let val = context.raw;
+                                        let perc = total > 0 ? ((val / total) * 100).toFixed(2) : 0;
+                                        return `${perc}% (${context.label}- ${val})`;
+                                    }
+                                }
+                            },
+                            datalabels: {
+                                formatter: (value, ctx) => {
+                                    if (value === 0) return '';
+                                    let perc = total > 0 ? ((value / total) * 100).toFixed(2) : 0;
+                                    return `${perc}% (${ctx.chart.data.labels[ctx.dataIndex]}- ${value})`;
+                                },
+                                color: '#000',
+                                font: {
+                                    size: 11,
+                                    weight: 'bold'
+                                },
+                                textStrokeColor: 'rgba(255,255,255,0.8)',
+                                textStrokeWidth: 3,
+                                align: 'center',
+                                anchor: 'center'
+                            }
+                        }
+                    }
+                });
             }
 
             window.currentHistoryCampaignId = null;
