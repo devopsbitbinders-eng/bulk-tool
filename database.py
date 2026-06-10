@@ -256,6 +256,12 @@ async def init_db():
     except: pass
     try: await db.execute("CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp)")
     except: pass
+    try: await db.execute("CREATE INDEX IF NOT EXISTS idx_msg_usr_ts ON messages (user_id, timestamp)")
+    except: pass
+    try: await db.execute("CREATE INDEX IF NOT EXISTS idx_msg_usr_st_ts ON messages (user_id, status, timestamp)")
+    except: pass
+    try: await db.execute("CREATE INDEX IF NOT EXISTS idx_chat_usr_dir_ts ON chat_messages (user_id, direction, timestamp)")
+    except: pass
 
     # Ultimate Database-Level Duplicate Prevention
     try: 
