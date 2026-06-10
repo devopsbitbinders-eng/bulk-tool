@@ -28,6 +28,9 @@ import string
 import secrets
 import uuid
 import time
+import shutil
+import base64
+from chatbot_engine import process_chatbot_message
 
 # Settings
 USE_REAL_API = True # Set to False for local testing without sending real messages
@@ -3066,6 +3069,14 @@ async def webhook_handler(request: Request):
                                 try: await db.execute("INSERT OR IGNORE INTO opt_outs (phone) VALUES (:phone)", {"phone": clean_from})
                                 except: pass
                         
+                        # CHATBOT INTEGRATION
+                        if u_id is not None:
+                            asyncio.create_task(process_chatbot_message(
+                                user_id=u_id,
+                                phone=clean_from,
+                                body=body,
+                                msg_type=msg_type
+                            ))
                         
                         # BROADCAST to Live UI (SSE)
                         inbound_event = json.dumps({

@@ -195,6 +195,44 @@ async def init_db():
         ) {table_opts}
     """)
 
+    # 9. Chatbot Flows Table
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS flows (
+            id INTEGER PRIMARY KEY {auto_inc},
+            user_id INTEGER,
+            name {text_type},
+            flow_json {long_text_type},
+            status TEXT DEFAULT 'draft',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) {table_opts}
+    """)
+
+    # 10. Chatbot Triggers Table
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS triggers (
+            id INTEGER PRIMARY KEY {auto_inc},
+            user_id INTEGER,
+            keyword {text_type},
+            flow_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) {table_opts}
+    """)
+
+    # 11. User Sessions Table (Database Fallback / Primary if Redis is not used)
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY {auto_inc},
+            user_id INTEGER,
+            phone_number {text_type},
+            flow_id INTEGER,
+            current_node_id {text_type},
+            state_data {long_text_type},
+            last_interaction_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, phone_number)
+        ) {table_opts}
+    """)
+
     # Migrations for existing SQLite/MySQL
     if is_mysql:
         # For MySQL, ensure existing tables are converted
