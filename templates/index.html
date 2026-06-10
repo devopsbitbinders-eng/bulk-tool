@@ -1097,16 +1097,18 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="bg-emerald-500 text-white">
-                            <th class="px-6 py-4 text-xs font-bold uppercase">Type</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase">Total</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase max-w-[200px]">Message</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase">Submit Date</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase text-center">READ</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase text-center">DLVD</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase text-center">FAILED</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase text-center">SENT</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase text-right">Details</th>
+                        <tr class="bg-[#20c997] text-white">
+                            <th class="px-4 py-4 text-xs font-bold w-[40px] text-center cursor-pointer" title="Expand All">+</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase">Type</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase text-center">Total</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase max-w-[200px]">Message</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase">Submit Date</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase text-center">READ</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase text-center">DLVD</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase text-center">FAILED</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase text-center">Other</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase text-center">Download</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase text-center">Resend</th>
                         </tr>
                     </thead>
                     <tbody id="historyTableBody" class="divide-y divide-slate-100">
@@ -2354,30 +2356,125 @@
                     }
 
                     tbody.innerHTML = campaigns.map(c => `
-                    <tr class="hover:bg-slate-50/80 transition-colors">
-                        <td class="px-6 py-5 text-sm text-slate-600 font-medium break-words max-w-[250px]">${c.name}</td>
-                        <td class="px-6 py-5 text-sm text-slate-800">${c.total_numbers || 0}</td>
-                        <td class="px-6 py-5 text-xs text-slate-500 truncate max-w-[200px]" title="${(c.message_template || '').replace(/"/g, '&quot;')}">${c.message_template || '-'}</td>
-                        <td class="px-6 py-5 text-xs text-slate-500 capitalize">${formatDateTime(c.timestamp)}</td>
-                        <td class="px-6 py-5 text-center text-sm font-medium text-emerald-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'read')">${c.read_count || c.read || 0}</td>
-                        <td class="px-6 py-5 text-center text-sm font-medium text-blue-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'delivered')">${c.delivered_count || c.delivered || 0}</td>
-                        <td class="px-6 py-5 text-center text-sm font-medium text-rose-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'failed')">${c.failed || 0}</td>
-                        <td class="px-6 py-5 text-center text-sm font-medium text-slate-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'sent')">${c.sent_success || 0}</td>
-                        <td class="px-6 py-5 text-right">
-                            <div class="flex items-center justify-end gap-2">
-                                <button onclick="window.location.href='/api/campaigns/${c.id}/export'" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors" title="Download">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <tr class="hover:bg-slate-50/80 transition-colors border-b border-slate-100">
+                        <td class="px-4 py-5 text-center">
+                            <button onclick="toggleCampaignDetails(${c.id})" class="w-6 h-6 rounded-full border border-emerald-500 text-emerald-500 flex items-center justify-center hover:bg-emerald-50 transition-colors mx-auto shadow-sm">
+                                <svg id="icon-expand-${c.id}" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 6v12M6 12h12"></path></svg>
+                            </button>
+                        </td>
+                        <td class="px-4 py-5 text-sm text-slate-600 font-medium break-words max-w-[250px]">${c.name}</td>
+                        <td class="px-4 py-5 text-sm text-slate-800 text-center">${c.total_numbers || 0}</td>
+                        <td class="px-4 py-5 text-xs text-slate-500 truncate max-w-[200px]" title="${(c.message_template || '').replace(/"/g, '&quot;')}">${c.message_template || '-'}</td>
+                        <td class="px-4 py-5 text-xs text-slate-500">${formatDateTime(c.timestamp)}</td>
+                        <td class="px-4 py-5 text-center text-sm font-medium text-slate-600">${c.read_count || c.read || 0}</td>
+                        <td class="px-4 py-5 text-center text-sm font-medium text-slate-600">${c.delivered_count || c.delivered || 0}</td>
+                        <td class="px-4 py-5 text-center text-sm font-medium text-slate-600">${c.failed || 0}</td>
+                        <td class="px-4 py-5 text-center text-sm">
+                            <div class="inline-flex items-center gap-1 bg-[#20c997] text-white px-2 py-1 rounded text-[10px] font-bold">
+                                <span>SENT</span> <span class="bg-rose-500 px-1.5 rounded-sm">${c.sent_success || 0}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-5 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button class="w-8 h-8 rounded-full text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-colors" title="Chart">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
                                 </button>
-                                <button onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}')" class="px-3 py-1.5 bg-amber-500 text-white rounded text-xs font-bold hover:bg-amber-600 transition-colors">
-                                    View
+                                <button onclick="window.location.href='/api/campaigns/${c.id}/export'" class="w-8 h-8 rounded-full text-cyan-500 hover:bg-cyan-50 flex items-center justify-center transition-colors" title="Download">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                 </button>
+                                <button onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}')" class="px-4 py-1.5 bg-[#f5a623] text-white rounded text-xs font-bold hover:bg-opacity-90 transition-colors shadow-sm">View</button>
+                            </div>
+                        </td>
+                        <td class="px-4 py-5 text-center">
+                            <div class="flex items-center justify-center gap-[1px]">
+                                <button onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'failed')" class="px-3 py-1.5 bg-[#20c997] text-white rounded-l text-xs font-bold hover:bg-opacity-90 transition-colors shadow-sm">Resend</button>
+                                <button class="px-3 py-1.5 bg-[#f5a623] text-white rounded-r text-xs font-bold hover:bg-opacity-90 transition-colors shadow-sm" onclick="showToast('Responses view coming soon!', 'info')">Responses</button>
                             </div>
                         </td>
                     </tr>
-                `).join('');
+                    <!-- Hidden details row -->
+                    <tr id="camp-details-${c.id}" class="hidden bg-slate-50/50 border-b border-slate-200">
+                        <td colspan="11" class="p-6">
+                            <div class="flex gap-8">
+                                <!-- Left: Details Grid -->
+                                <div class="flex-grow max-w-[60%]">
+                                    <table class="w-full border border-[#d1e9e9] bg-white">
+                                        <tbody class="divide-y divide-[#d1e9e9] text-sm">
+                                            <tr>
+                                                <td class="px-4 py-3 bg-[#a5dede] text-slate-800 font-bold w-1/4">Agent Name:</td>
+                                                <td class="px-4 py-3 text-slate-600">null</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="px-4 py-3 bg-[#a5dede] text-slate-800 font-bold">Template name:</td>
+                                                <td class="px-4 py-3 text-slate-600">${c.template_name || 'N/A'}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="px-4 py-3 bg-[#a5dede] text-slate-800 font-bold align-top">Message:</td>
+                                                <td class="px-4 py-3 text-slate-600 whitespace-pre-wrap">${c.message_template || '-'}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    
+                                    <div class="mt-4 flex rounded shadow-sm overflow-hidden w-max text-white text-xs font-medium">
+                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide">READ</div>
+                                        <div class="bg-[#20c997] px-4 py-2 font-bold">${c.read_count || c.read || 0}</div>
+                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide border-l border-indigo-400">DELIVERED</div>
+                                        <div class="bg-[#20c997] px-4 py-2 font-bold">${c.delivered_count || c.delivered || 0}</div>
+                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide border-l border-indigo-400">ERROR</div>
+                                        <div class="bg-[#20c997] px-4 py-2 font-bold">${c.failed || 0}</div>
+                                        <div class="bg-indigo-500 px-4 py-2 uppercase tracking-wide border-l border-indigo-400">SENT</div>
+                                        <div class="bg-[#20c997] px-4 py-2 font-bold">${c.sent_success || 0}</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Right: Phone Mockup -->
+                                <div class="w-[300px] flex-shrink-0 flex justify-center pb-2">
+                                    <div class="relative w-[260px] h-[480px] bg-slate-100 rounded-[35px] border-[8px] border-slate-800 shadow-xl overflow-hidden flex flex-col">
+                                        <!-- Notch -->
+                                        <div class="absolute top-0 inset-x-0 h-5 bg-slate-800 rounded-b-xl w-32 mx-auto z-20"></div>
+                                        
+                                        <!-- Header -->
+                                        <div class="bg-[#075e54] text-white px-4 pt-7 pb-2 flex items-center gap-3 z-10 shadow-md">
+                                            <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                            </div>
+                                            <span class="font-bold text-sm tracking-wide">Demo</span>
+                                        </div>
+                                        
+                                        <!-- Chat Bg -->
+                                        <div class="flex-grow bg-[#e5ddd5] p-3 overflow-y-auto custom-scrollbar relative" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-size: cover; background-blend-mode: multiply;">
+                                            <div class="bg-white rounded-lg p-2.5 text-[13px] text-slate-800 shadow-sm mb-2 max-w-[85%] relative whitespace-pre-wrap leading-relaxed">${c.message_template || 'Message content preview'}
+                                                <div class="text-[9px] text-slate-400 text-right mt-1">12:32 PM</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    `).join('');
                     formatAllSyncTimes();
                 } catch (err) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="px-8 py-12 text-center text-rose-500 italic text-sm">Failed to load history.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="11" class="px-8 py-12 text-center text-rose-500 italic text-sm">Failed to load history.</td></tr>`;
+                }
+            }
+
+            function toggleCampaignDetails(id) {
+                const row = document.getElementById(`camp-details-${id}`);
+                const icon = document.getElementById(`icon-expand-${id}`);
+                
+                if (row.classList.contains('hidden')) {
+                    row.classList.remove('hidden');
+                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M20 12H4"></path>`;
+                    icon.parentElement.classList.replace('text-emerald-500', 'text-rose-500');
+                    icon.parentElement.classList.replace('border-emerald-500', 'border-rose-500');
+                    icon.parentElement.classList.replace('hover:bg-emerald-50', 'hover:bg-rose-50');
+                } else {
+                    row.classList.add('hidden');
+                    icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 6v12M6 12h12"></path>`;
+                    icon.parentElement.classList.replace('text-rose-500', 'text-emerald-500');
+                    icon.parentElement.classList.replace('border-rose-500', 'border-emerald-500');
+                    icon.parentElement.classList.replace('hover:bg-rose-50', 'hover:bg-emerald-50');
                 }
             }
 
