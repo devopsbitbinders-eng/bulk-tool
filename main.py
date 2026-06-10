@@ -289,67 +289,69 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
     user = await db.fetch_one("SELECT id FROM users WHERE session_token = :t", {"t": session_token})
     if not user: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     
-    ist_delta = datetime.timedelta(hours=5, minutes=30)
     try:
+        ist_delta = datetime.timedelta(hours=5, minutes=30)
+        
         start_dt_ist = datetime.datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=datetime.timezone(ist_delta))
         end_dt_ist = datetime.datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=datetime.timezone(ist_delta))
-    except:
-        return JSONResponse(status_code=400, content={"error": "Invalid dates"})
         
-    start_str_utc = start_dt_ist.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
-    end_str_utc = end_dt_ist.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
-    
-    inc = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
-    out = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
-    
-    chart_data = {"labels": [], "sent": [], "delivered": [], "read": [], "failed": []}
-    days_diff = (end_dt_ist.date() - start_dt_ist.date()).days
-    if days_diff > 60:
-        days_diff = 60
-        start_dt_ist = end_dt_ist - datetime.timedelta(days=60)
+        start_str_utc = start_dt_ist.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        end_str_utc = end_dt_ist.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
         
-    daily_stats = {}
-    for i in range(days_diff + 1):
-        d = (start_dt_ist + datetime.timedelta(days=i)).strftime('%d %b')
-        daily_stats[d] = {"sent": 0, "delivered": 0, "read": 0, "failed": 0}
-        chart_data["labels"].append(d)
+        inc = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
+        out = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
         
-    out_records = await db.fetch_all("SELECT timestamp, status FROM messages WHERE user_id = :u AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
-    
-    for r in out_records:
-        ts = r['timestamp']
-        st = (r['status'] or '').lower() if r['status'] else ''
-        
-        if not ts:
-            continue
+        chart_data = {"labels": [], "sent": [], "delivered": [], "read": [], "failed": []}
+        days_diff = (end_dt_ist.date() - start_dt_ist.date()).days
+        if days_diff > 60:
+            days_diff = 60
+            start_dt_ist = end_dt_ist - datetime.timedelta(days=60)
             
-        try:
-            if isinstance(ts, str):
-                dt_utc = datetime.datetime.strptime(ts[:19], '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
-            else:
-                dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
-            dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
-        except Exception:
-            continue
+        daily_stats = {}
+        for i in range(days_diff + 1):
+            d = (start_dt_ist + datetime.timedelta(days=i)).strftime('%d %b')
+            daily_stats[d] = {"sent": 0, "delivered": 0, "read": 0, "failed": 0}
+            chart_data["labels"].append(d)
             
-        day_str = dt_ist.strftime('%d %b')
-        if day_str in daily_stats:
-            if st == 'sent': daily_stats[day_str]["sent"] += 1
-            elif st == 'delivered' or st == 'success': daily_stats[day_str]["delivered"] += 1
-            elif st == 'read': daily_stats[day_str]["read"] += 1
-            elif st == 'failed' or st == 'error': daily_stats[day_str]["failed"] += 1
-            
-    for d in chart_data["labels"]:
-        chart_data["sent"].append(daily_stats[d]["sent"])
-        chart_data["delivered"].append(daily_stats[d]["delivered"])
-        chart_data["read"].append(daily_stats[d]["read"])
-        chart_data["failed"].append(daily_stats[d]["failed"])
+        out_records = await db.fetch_all("SELECT timestamp, status FROM messages WHERE user_id = :u AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
         
-    return {
-        "incoming": inc['count'] if inc else 0,
-        "outgoing": out['count'] if out else 0,
-        "chart_data": chart_data
-    }
+        for r in out_records:
+            ts = r['timestamp']
+            st = (r['status'] or '').lower() if r['status'] else ''
+            
+            if not ts:
+                continue
+                
+            try:
+                if isinstance(ts, str):
+                    dt_utc = datetime.datetime.strptime(ts[:19], '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+                else:
+                    dt_utc = ts.replace(tzinfo=datetime.timezone.utc)
+                dt_ist = dt_utc.astimezone(datetime.timezone(ist_delta))
+            except Exception:
+                continue
+                
+            day_str = dt_ist.strftime('%d %b')
+            if day_str in daily_stats:
+                if st == 'sent': daily_stats[day_str]["sent"] += 1
+                elif st == 'delivered' or st == 'success': daily_stats[day_str]["delivered"] += 1
+                elif st == 'read': daily_stats[day_str]["read"] += 1
+                elif st == 'failed' or st == 'error': daily_stats[day_str]["failed"] += 1
+                
+        for d in chart_data["labels"]:
+            chart_data["sent"].append(daily_stats[d]["sent"])
+            chart_data["delivered"].append(daily_stats[d]["delivered"])
+            chart_data["read"].append(daily_stats[d]["read"])
+            chart_data["failed"].append(daily_stats[d]["failed"])
+            
+        return {
+            "incoming": inc['count'] if inc else 0,
+            "outgoing": out['count'] if out else 0,
+            "chart_data": chart_data
+        }
+    except Exception as e:
+        import traceback
+        return JSONResponse({"error": str(e), "traceback": traceback.format_exc()}, status_code=500)
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, background_tasks: BackgroundTasks):
