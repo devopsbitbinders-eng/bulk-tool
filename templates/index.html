@@ -2103,8 +2103,8 @@
 
                 <!-- Action Buttons -->
                 <div class="px-8 pb-4 flex justify-end items-center gap-3 bg-slate-50/30">
-                    <button class="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded shadow-sm hover:bg-indigo-600 transition-colors">Assign Tag</button>
-                    <button class="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded shadow-sm hover:bg-amber-600 transition-colors">Select All</button>
+                    <button class="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded shadow-sm hover:bg-indigo-600 transition-colors" onclick="alert('Assign Tag feature coming soon!')">Assign Tag</button>
+                    <button class="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded shadow-sm hover:bg-amber-600 transition-colors" onclick="selectAllMessages()">Select All</button>
                     <button class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded shadow-sm hover:bg-blue-700 transition-colors" onclick="resendSelected()">Multi Resend</button>
                 </div>
 
@@ -2114,6 +2114,7 @@
                         <table class="w-full text-left">
                             <thead class="bg-[#4267B2] text-white sticky top-0">
                                 <tr>
+                                    <th class="px-4 py-4 w-[5%]"><input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)" class="rounded border-slate-300"></th>
                                     <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider w-[15%]">Number</th>
                                     <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider w-[15%]">SentVia</th>
                                     <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider w-[40%]">Status</th>
@@ -2394,6 +2395,7 @@
                             
                             return `
                             <tr class="hover:bg-slate-50 transition-colors border-b border-slate-50 message-row" data-phone="${m.phone}" data-id="${m.id}">
+                                <td class="px-4 py-4"><input type="checkbox" class="msg-checkbox rounded border-slate-300" value="${m.id}"></td>
                                 <td class="px-6 py-4 text-slate-600 font-medium">${m.phone}</td>
                                 <td class="px-6 py-4 text-slate-500">${window.wabaPhone || '-'}</td>
                                 <td class="px-6 py-4 font-bold ${statusColor}">
@@ -2440,16 +2442,20 @@
             }
 
             async function resendSelected() {
-                const rows = document.querySelectorAll('.message-row');
-                const messageIds = Array.from(rows).map(row => parseInt(row.getAttribute('data-id')));
+                const checkboxes = document.querySelectorAll('.msg-checkbox:checked');
+                const messageIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
                 
                 if (messageIds.length === 0) {
-                    showToast('No messages to resend.', 'info');
+                    showToast('Please select at least one message to resend.', 'info');
                     return;
                 }
                 if (!confirm(`Are you sure you want to resend ${messageIds.length} messages?`)) return;
 
                 try {
+                    const btn = document.querySelector('button[onclick="resendSelected()"]');
+                    const oldText = btn.innerText;
+                    btn.innerText = 'Sending...';
+                    
                     const res = await fetch(`/api/messages/resend`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -2460,10 +2466,27 @@
                         setTimeout(() => viewCampaignDetails(currentHistoryCampaignId, document.getElementById('detailCampaignName').innerText, document.getElementById('detailCampaignDate').innerText), 1000);
                     } else {
                         showToast('Failed to resend multiple messages', 'error');
+                        btn.innerText = oldText;
                     }
                 } catch(e) {
                     showToast('Network error', 'error');
                 }
+            }
+
+            function selectAllMessages() {
+                const checkboxes = document.querySelectorAll('.msg-checkbox');
+                let allChecked = true;
+                checkboxes.forEach(cb => { if (!cb.checked) allChecked = false; });
+                
+                // Toggle state
+                checkboxes.forEach(cb => { cb.checked = !allChecked; });
+                const mainCb = document.getElementById('selectAllCheckbox');
+                if (mainCb) mainCb.checked = !allChecked;
+            }
+
+            function toggleAllCheckboxes(source) {
+                const checkboxes = document.querySelectorAll('.msg-checkbox');
+                checkboxes.forEach(cb => { cb.checked = source.checked; });
             }
 
             function closeHistoryModal() {
