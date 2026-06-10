@@ -103,6 +103,10 @@ async def lifespan(app: FastAPI):
     scheduler_task.cancel()
 
 app = FastAPI(lifespan=lifespan)
+import os
+static_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+os.makedirs(static_path, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 @app.post("/api/index")
 @app.post("/api/whatsapp-link")
@@ -447,11 +451,10 @@ async def index(request: Request, background_tasks: BackgroundTasks):
                 SUM(CASE WHEN m.status = 'delivered' THEN 1 ELSE 0 END) as delivered_count,
                 SUM(CASE WHEN m.status = 'read' THEN 1 ELSE 0 END) as read_count,
                 SUM(CASE WHEN m.status = 'failed' THEN 1 ELSE 0 END) as failed_count
-            FROM campaigns c
+            FROM (SELECT * FROM campaigns WHERE user_id = :u ORDER BY timestamp DESC LIMIT 50) c
             LEFT JOIN messages m ON m.campaign_id = c.id
-            WHERE c.user_id = :u 
             GROUP BY c.id
-            ORDER BY c.timestamp DESC LIMIT 50
+            ORDER BY c.timestamp DESC
         """, {"u": u_id})
         # Use combined sent+delivered+read for dashboard card display
         campaigns = []
@@ -2650,9 +2653,8 @@ async def get_history(request: Request):
                SUM(CASE WHEN m.status = 'delivered' THEN 1 ELSE 0 END) as delivered,
                SUM(CASE WHEN m.status = 'read' THEN 1 ELSE 0 END) as `read`,
                SUM(CASE WHEN m.status = 'failed' THEN 1 ELSE 0 END) as failed
-        FROM campaigns c 
+        FROM (SELECT * FROM campaigns WHERE user_id = :u ORDER BY timestamp DESC LIMIT 100) c 
         LEFT JOIN messages m ON m.campaign_id = c.id
-        WHERE c.user_id = :u
         GROUP BY c.id
         ORDER BY c.timestamp DESC
     """, {"u": u_id})
