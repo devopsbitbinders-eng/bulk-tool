@@ -2656,6 +2656,25 @@ async def get_templates_api():
     rows = await db.fetch_all("SELECT * FROM templates ORDER BY last_synced DESC")
     return safe_json_response([dict(r) for r in rows])
 
+@app.get("/api/flow-responses")
+async def get_flow_responses(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    db = await get_db()
+    # Fetch all inbound chat messages for the user
+    query = """
+        SELECT phone, sender_name, message as response, timestamp
+        FROM chat_messages
+        WHERE user_id = :u AND direction = 'inbound'
+        ORDER BY timestamp DESC
+        LIMIT 500
+    """
+    rows = await db.fetch_all(query, {"u": u_id})
+    return [dict(r) for r in rows]
+
 @app.get("/api/history")
 async def get_history(request: Request, start_date: str = None, end_date: str = None, limit: int = 10):
     session_token = request.cookies.get("session_token")
