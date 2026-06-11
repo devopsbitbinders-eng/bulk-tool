@@ -3779,15 +3779,9 @@ async def save_flow(request: Request):
                 WHERE id = :id AND user_id = :u
             """, {"j": flow_json, "id": flow_id, "u": u_id})
     else:
-        await db.execute("""
+        flow_id = await db.execute("""
             INSERT INTO flows (user_id, name, flow_json) VALUES (:u, :n, :j)
         """, {"u": u_id, "n": name, "j": flow_json})
-        # get last insert id
-        try:
-            res = await db.fetch_one("SELECT last_insert_rowid() as id")
-        except:
-            res = await db.fetch_one("SELECT LAST_INSERT_ID() as id")
-        flow_id = res['id'] if res else None
         
     if flow_id:
         await db.execute("DELETE FROM triggers WHERE flow_id = :id AND user_id = :u", {"id": flow_id, "u": u_id})
