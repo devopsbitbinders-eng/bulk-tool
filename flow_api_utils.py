@@ -38,7 +38,7 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
                 "required": True
             })
             
-    payload = {"form_submitted": True}
+    payload = {"form_submitted": "true"}
     for idx, q in enumerate(questions):
         payload[f"q_{idx}"] = f"${{form.q_{idx}}}"
         
@@ -54,7 +54,7 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
     flow_json = {
       "version": "3.1",
       "routing_model": {
-        "START": ["SCREEN_1"]
+        "START": "SCREEN_1"
       },
       "screens": [
         {
@@ -73,13 +73,16 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
         "Authorization": f"Bearer {access_token}"
     }
     
+    import re
+    safe_name = re.sub(r'[^a-zA-Z0-9_]', '', flow_name.replace(" ", "_"))[:20].lower()
+    
     # 1. Create Flow
     async with httpx.AsyncClient() as client:
         res = await client.post(
             f"https://graph.facebook.com/v18.0/{waba_id}/flows",
             headers=headers,
             data={
-                "name": flow_name.replace(" ", "_")[:20],
+                "name": safe_name,
                 "categories": "[\"LEAD_GENERATION\"]"
             }
         )
