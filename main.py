@@ -3744,9 +3744,9 @@ async def save_flow(request: Request):
             INSERT INTO flows (user_id, name, flow_json) VALUES (:u, :n, :j)
         """, {"u": u_id, "n": name, "j": flow_json})
         # get last insert id
-        res = await db.fetch_one("SELECT last_insert_rowid() as id")
-        # For mysql
-        if not res:
+        try:
+            res = await db.fetch_one("SELECT last_insert_rowid() as id")
+        except:
             res = await db.fetch_one("SELECT LAST_INSERT_ID() as id")
         flow_id = res['id'] if res else None
         
