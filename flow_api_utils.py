@@ -38,20 +38,21 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
                 "required": True
             })
             
+    payload = {"form_submitted": True}
+    for idx, q in enumerate(questions):
+        payload[f"q_{idx}"] = f"${{form.q_{idx}}}"
+        
     children.append({
         "type": "Footer",
         "label": "Submit",
         "on-click-action": {
             "name": "complete",
-            "payload": {
-                "form_submitted": True
-            }
+            "payload": payload
         }
     })
     
     flow_json = {
       "version": "3.1",
-      "data_api_version": "3.0",
       "routing_model": {
         "START": ["SCREEN_1"]
       },

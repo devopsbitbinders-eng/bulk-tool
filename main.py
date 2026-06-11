@@ -3070,7 +3070,6 @@ async def webhook_handler(request: Request):
                             body = inter.get("list_reply", {}).get("title", "[List Item Selected]")
                         elif inter.get("type") == "nfm_reply":
                             try:
-                                import json
                                 nfm = inter.get("nfm_reply", {})
                                 raw_res = nfm.get("response_json", "{}")
                                 res_data = json.loads(raw_res)
