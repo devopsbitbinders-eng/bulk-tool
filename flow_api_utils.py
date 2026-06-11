@@ -133,6 +133,8 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
             headers=headers
         )
         if res3.status_code != 200:
-            raise Exception(f"Failed to publish flow: {res3.text}")
+            url_err = f"https://graph.facebook.com/v21.0/{flow_id}?fields=validation_errors"
+            res_err = await client.get(url_err, headers=headers)
+            raise Exception(f"Failed to publish flow: {res3.text}. Validation Errors: {res_err.text}")
             
         return str(flow_id)
