@@ -290,6 +290,29 @@ async def execute_single_node(user_id, phone, node_data):
             print(f"DEBUG CHATBOT ERROR: Failed to send request_location to {phone}: {res}")
         return True
         
+    elif action == 'url_button':
+        btn_label = node_data.get('btn_label', 'Click Here')
+        url = node_data.get('url', '')
+        if url:
+            interactive_obj = {
+                "type": "cta_url",
+                "body": {"text": "Please click the link below to proceed:"},
+                "action": {
+                    "name": "cta_url",
+                    "parameters": {
+                        "display_text": str(btn_label)[:20],
+                        "url": str(url)
+                    }
+                }
+            }
+            success, res = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
+            if success:
+                wamid = res.get('messages', [{}])[0].get('id', '')
+                await log_bot_reply(user_id, phone, f"[URL Button sent: {btn_label} -> {url}]", wamid)
+            else:
+                print(f"DEBUG CHATBOT ERROR: Failed to send url_button to {phone}: {res}")
+        return False
+        
     elif action == 'create_ticket':
         dept = node_data.get('department', 'General')
         print(f"DEBUG: TICKET CREATED FOR {phone} in {dept}")
