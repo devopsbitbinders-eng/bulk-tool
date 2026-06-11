@@ -174,8 +174,9 @@ async def execute_single_node(user_id, phone, node_data):
     Returns False if execution should flow immediately to the next node.
     """
     action = node_data.get('action')
-    credentials = await get_active_credentials(user_id)
-    if not credentials: return False
+    credentials_record = await get_active_credentials(user_id)
+    if not credentials_record: return False
+    credentials = dict(credentials_record)
     
     if action == 'text_reply':
         text = node_data.get('text', '')
