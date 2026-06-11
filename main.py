@@ -3103,13 +3103,13 @@ async def webhook_handler(request: Request):
                         
                         # CHATBOT INTEGRATION
                         if u_id is not None:
-                            asyncio.create_task(process_chatbot_message(
+                            await process_chatbot_message(
                                 user_id=u_id,
                                 phone=clean_from,
                                 body=body,
                                 msg_type=msg_type,
                                 raw_payload=msg_data
-                            ))
+                            )
                         
                         # BROADCAST to Live UI (SSE)
                         inbound_event = json.dumps({

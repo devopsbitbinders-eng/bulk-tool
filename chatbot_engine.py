@@ -173,7 +173,8 @@ async def execute_single_node(user_id, phone, node_data):
     if action == 'text_reply':
         text = node_data.get('text', '')
         if text:
-            asyncio.create_task(send_whatsapp_message(phone=phone, message=text, msg_type="text", credentials=credentials))
+            success, err = await send_whatsapp_message(phone=phone, message=text, msg_type="text", credentials=credentials)
+            if not success: print(f"DEBUG CHATBOT ERROR: Failed to send text_reply to {phone}: {err}")
         return False
         
     elif action == 'text_button':
@@ -192,7 +193,8 @@ async def execute_single_node(user_id, phone, node_data):
                 "body": {"text": text},
                 "action": {"buttons": buttons[:3]} # Max 3 buttons
             }
-            asyncio.create_task(send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials))
+            success, err = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
+            if not success: print(f"DEBUG CHATBOT ERROR: Failed to send text_button to {phone}: {err}")
         return True # Expects button click
         
     elif action == 'media_button':
@@ -213,7 +215,8 @@ async def execute_single_node(user_id, phone, node_data):
                 "body": {"text": "Please select an option:"},
                 "action": {"buttons": buttons[:3]}
             }
-            asyncio.create_task(send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials))
+            success, err = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
+            if not success: print(f"DEBUG CHATBOT ERROR: Failed to send media_button to {phone}: {err}")
         return True
         
     elif action == 'text_list':
@@ -233,7 +236,8 @@ async def execute_single_node(user_id, phone, node_data):
                     "sections": [{"title": "Options", "rows": rows[:10]}]
                 }
             }
-            asyncio.create_task(send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials))
+            success, err = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
+            if not success: print(f"DEBUG CHATBOT ERROR: Failed to send text_list to {phone}: {err}")
         return True
         
     elif action == 'request_location':
@@ -243,7 +247,8 @@ async def execute_single_node(user_id, phone, node_data):
             "body": {"text": text},
             "action": {"name": "send_location"}
         }
-        asyncio.create_task(send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials))
+        success, err = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
+        if not success: print(f"DEBUG CHATBOT ERROR: Failed to send request_location to {phone}: {err}")
         return True
         
     elif action == 'create_ticket':
