@@ -2768,7 +2768,8 @@
                     <textarea df-text class="w-full text-sm border border-slate-200 rounded p-2 focus:ring-red-500 focus:border-red-500" rows="2" placeholder="Message text..."></textarea>
                     <input df-btn1 type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="Button 1 text">
                     <input df-btn2 type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="Button 2 text (optional)">
-                    <div class="flex justify-between mt-2 text-xs text-slate-400 font-medium px-1"><span>Btn 1</span> <span>Btn 2</span></div>
+                    <div class="flex justify-between mt-2 text-xs text-slate-400 font-medium px-1 labels-row"><span>Btn 1</span> <span>Btn 2</span></div>
+                    <div class="flex justify-center pt-1"><button onclick="addDrawflowField(this, 'btn')" class="text-xs text-indigo-500 font-bold hover:text-indigo-600">+ Add Button</button></div>
                 </div>
                 `;
                 editor.addNode('text_button', 1, 2, pos_x, pos_y, 'text_button', { "action": "text_button", "text": "", "btn1": "", "btn2": "" }, html);
@@ -2788,7 +2789,8 @@
                         <div class="text-[10px] text-indigo-600 font-medium hidden"></div>
                     </div>
                     <input df-btn1 type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="Button 1 text">
-                    <div class="flex justify-between mt-2 text-xs text-slate-400 font-medium px-1"><span>Btn 1</span></div>
+                    <div class="flex justify-between mt-2 text-xs text-slate-400 font-medium px-1 labels-row"><span>Btn 1</span></div>
+                    <div class="flex justify-center pt-1"><button onclick="addDrawflowField(this, 'btn')" class="text-xs text-indigo-500 font-bold hover:text-indigo-600">+ Add Button</button></div>
                 </div>
                 `;
                 editor.addNode('media_button', 1, 1, pos_x, pos_y, 'media_button', { "action": "media_button", "media_url": "", "btn1": "" }, html);
@@ -2801,7 +2803,8 @@
                     <input df-list_title type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="List Menu Title">
                     <input df-opt1 type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="Option 1">
                     <input df-opt2 type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="Option 2">
-                    <div class="flex justify-between mt-2 text-xs text-slate-400 font-medium px-1"><span>Opt 1</span> <span>Opt 2</span></div>
+                    <div class="flex justify-between mt-2 text-xs text-slate-400 font-medium px-1 labels-row"><span>Opt 1</span> <span>Opt 2</span></div>
+                    <div class="flex justify-center pt-1"><button onclick="addDrawflowField(this, 'opt')" class="text-xs text-indigo-500 font-bold hover:text-indigo-600">+ Add Option</button></div>
                 </div>
                 `;
                 editor.addNode('text_list', 1, 2, pos_x, pos_y, 'text_list', { "action": "text_list", "text": "", "list_title": "", "opt1": "", "opt2": "" }, html);
@@ -4015,6 +4018,50 @@
                     showToast('Upload error', 'error');
                 }
             }
+
+            window.addDrawflowField = function(btn, type) {
+                const nodeEl = btn.closest('.drawflow-node');
+                const nodeId = nodeEl.id.slice(5);
+                const node = editor.getNodeFromId(nodeId);
+                const container = btn.parentElement.parentElement;
+                
+                const currentCount = container.querySelectorAll(`input[df-${type}^="${type}"]`).length;
+                let max = type === 'btn' ? 3 : 10;
+                
+                if (currentCount >= max) {
+                    showToast(`Maximum ${max} allowed for WhatsApp`, 'error');
+                    return;
+                }
+                
+                const newIndex = currentCount + 1;
+                const newKey = type + newIndex;
+                
+                const input = document.createElement('input');
+                input.setAttribute(`df-${newKey}`, '');
+                input.type = 'text';
+                input.className = 'w-full text-sm border border-slate-200 rounded p-2';
+                input.placeholder = `${type === 'btn' ? 'Button' : 'Option'} ${newIndex}`;
+                
+                btn.parentElement.previousElementSibling.before(input);
+                
+                node.data[newKey] = '';
+                editor.updateNodeDataFromId(nodeId, node.data);
+                
+                editor.addNodeOutput(nodeId);
+                
+                const labelsDiv = container.querySelector('.labels-row');
+                if (labelsDiv) {
+                    const span = document.createElement('span');
+                    span.textContent = `${type === 'btn' ? 'Btn' : 'Opt'} ${newIndex}`;
+                    labelsDiv.appendChild(span);
+                }
+                
+                input.addEventListener('input', function(e) {
+                    const n = editor.getNodeFromId(nodeId);
+                    n.data[newKey] = e.target.value;
+                    editor.updateNodeDataFromId(nodeId, n.data);
+                });
+            };
 
             async function uploadDrawflowMedia(input) {
                 if (!input.files || !input.files[0]) return;
