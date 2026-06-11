@@ -3,156 +3,257 @@ from datetime import datetime, timedelta, timezone
 from database import get_db
 from whatsapp_service import send_whatsapp_message
 import asyncio
+import httpx
 
 async def get_active_credentials(user_id: int):
     db = await get_db()
     return await db.fetch_one("SELECT whatsapp_token, phone_number_id, waba_id, phone_number FROM user_credentials WHERE is_active = 1 AND user_id = :u LIMIT 1", {"u": user_id})
 
+def get_node_outputs(node):
+    # Returns a list of next node IDs
+    outputs = []
+    outs = node.get('outputs', {})
+    for out_key, out_val in outs.items():
+        conns = out_val.get('connections', [])
+        for conn in conns:
+            outputs.append({
+                'output_key': out_key,
+                'target_node': str(conn.get('node'))
+            })
+    return outputs
 
-async def process_chatbot_message(user_id: int, phone: str, body: str, msg_type: str):
-    """
-    State machine logic for processing incoming WhatsApp messages.
-    """
+async def process_chatbot_message(user_id: int, phone: str, body: str, msg_type: str, raw_payload: dict = None):
     db = await get_db()
     
-    # Extract raw text if it's text, otherwise it's media or button response
-    # We will handle interactive buttons (list replies, button replies) later
-    # For now, if it's text, we check for triggers.
+    # 1. Parse Input
     text_input = ""
     interactive_id = None
     
-    # Meta Interactive message payload parsing
     if msg_type == "text":
         text_input = str(body).strip().lower()
-    elif msg_type == "interactive":
+    elif msg_type == "interactive" and raw_payload:
+        # Extract button or list replies
         try:
-            # interactive payload was saved as JSON in `body` or just passed directly.
-            # Usually, interactive is not handled by the current webhook correctly (it stores as "[Received interactive]").
-            # Let's assume for now we use text.
+            inter = raw_payload.get('interactive', {})
+            inter_type = inter.get('type')
+            if inter_type == 'button_reply':
+                interactive_id = inter.get('button_reply', {}).get('id')
+                text_input = str(inter.get('button_reply', {}).get('title', '')).strip().lower()
+            elif inter_type == 'list_reply':
+                interactive_id = inter.get('list_reply', {}).get('id')
+                text_input = str(inter.get('list_reply', {}).get('title', '')).strip().lower()
+        except:
             pass
-        except: pass
+    elif msg_type == "location":
+        text_input = "location" # Special keyword we can use
 
-    # 1. Check for Active Session
-    session = await db.fetch_one("""
-        SELECT * FROM user_sessions 
-        WHERE user_id = :uid AND phone_number = :phone 
-        LIMIT 1
-    """, {"uid": user_id, "phone": phone})
+    # 2. Check Session
+    session = await db.fetch_one("SELECT * FROM user_sessions WHERE user_id = :uid AND phone_number = :phone LIMIT 1", {"uid": user_id, "phone": phone})
     
     now_utc = datetime.now(timezone.utc)
-    
     if session:
-        # Check 24-hour rule
         last_interaction = session['last_interaction_at']
-        # Convert naive to aware if needed (assuming DB returns naive UTC)
         if last_interaction.tzinfo is None:
             last_interaction = last_interaction.replace(tzinfo=timezone.utc)
             
         if (now_utc - last_interaction).total_seconds() > 24 * 3600:
-            print(f"DEBUG CHATBOT: Session for {phone} expired (24h rule).")
-            # We could delete the session or reset it.
             await db.execute("DELETE FROM user_sessions WHERE id = :id", {"id": session['id']})
             session = None
 
     if session:
-        # We have an active session, let's process the state
         flow_id = session['flow_id']
-        current_node_id = session['current_node_id']
+        current_node_id = str(session['current_node_id'])
         
         flow = await db.fetch_one("SELECT flow_json FROM flows WHERE id = :fid", {"fid": flow_id})
-        if not flow:
-            return # Flow deleted
+        if not flow: return
             
         try:
             flow_data = json.loads(flow['flow_json'])
-        except:
-            return
-            
-        nodes = flow_data.get('nodes', [])
-        edges = flow_data.get('edges', [])
+            nodes_dict = flow_data.get('drawflow', {}).get('Home', {}).get('data', {})
+        except: return
         
-        # Determine the next node based on edges from current_node_id
-        # Simple transition logic: if edge label matches text_input
-        # OR if there is a default/fallback edge.
-        # For Milestone 2/3, let's build a simple logic:
-        # Find edges originating from current_node_id
-        possible_edges = [e for e in edges if e.get('source') == current_node_id]
+        current_node = nodes_dict.get(current_node_id)
+        if not current_node: return
+        
+        outputs = get_node_outputs(current_node)
+        action = current_node.get('data', {}).get('action')
         
         next_node_id = None
-        fallback_node_id = None
         
-        for edge in possible_edges:
-            edge_label = str(edge.get('label', '')).lower().strip()
-            if edge_label == text_input:
-                next_node_id = edge.get('target')
-                break
-            if edge_label == '*' or edge_label == 'fallback':
-                fallback_node_id = edge.get('target')
-        
-        if not next_node_id and fallback_node_id:
-            next_node_id = fallback_node_id
+        # Determine next node based on action and input
+        if action in ['text_button', 'media_button', 'text_list']:
+            node_data = current_node.get('data', {})
+            matched_output_key = None
             
-        if next_node_id:
-            await execute_node(user_id, phone, next_node_id, nodes)
-            # Update session
-            await db.execute("""
-                UPDATE user_sessions 
-                SET current_node_id = :node, last_interaction_at = CURRENT_TIMESTAMP
-                WHERE id = :id
-            """, {"node": next_node_id, "id": session['id']})
+            # Button/Option matching logic
+            for key, val in node_data.items():
+                if (key.startswith('btn') or key.startswith('opt')) and str(val).strip().lower() == text_input:
+                    idx = key.replace('btn', '').replace('opt', '')
+                    matched_output_key = f"output_{idx}"
+                    break
+            
+            if matched_output_key:
+                for out in outputs:
+                    if out['output_key'] == matched_output_key:
+                        next_node_id = out['target_node']
+                        break
+            elif len(outputs) == 1:
+                # If they sent something else but there's only 1 fallback line
+                next_node_id = outputs[0]['target_node']
+                
         else:
-            print(f"DEBUG CHATBOT: No transition found from {current_node_id} for input {text_input}")
-            
+            # Fallback or simple text matching
+            if len(outputs) == 1:
+                next_node_id = outputs[0]['target_node']
+                
+        if next_node_id:
+            await process_node_execution(user_id, phone, next_node_id, nodes_dict, session['id'])
     else:
-        # No active session, check for Triggers
+        # No session, check triggers
         if text_input:
-            trigger = await db.fetch_one("""
-                SELECT flow_id FROM triggers 
-                WHERE user_id = :uid AND LOWER(keyword) = :kw 
-                LIMIT 1
-            """, {"uid": user_id, "kw": text_input})
-            
+            trigger = await db.fetch_one("SELECT flow_id FROM triggers WHERE user_id = :uid AND LOWER(keyword) = :kw LIMIT 1", {"uid": user_id, "kw": text_input})
             if trigger:
                 flow_id = trigger['flow_id']
                 flow = await db.fetch_one("SELECT flow_json FROM flows WHERE id = :fid", {"fid": flow_id})
                 if flow:
                     try:
                         flow_data = json.loads(flow['flow_json'])
-                        nodes = flow_data.get('nodes', [])
+                        nodes_dict = flow_data.get('drawflow', {}).get('Home', {}).get('data', {})
                         
-                        # Find the start node (usually type='start' or the first node)
-                        start_node = next((n for n in nodes if n.get('type') == 'start'), None)
-                        if not start_node and nodes:
-                            start_node = nodes[0] # fallback
-                            
+                        start_node = next((n for n in nodes_dict.values() if n.get('data', {}).get('action') == 'start'), None)
                         if start_node:
-                            # Create session
-                            await db.execute("""
-                                INSERT INTO user_sessions (user_id, phone_number, flow_id, current_node_id, state_data)
-                                VALUES (:uid, :phone, :fid, :node, '{}')
-                            """, {
-                                "uid": user_id, "phone": phone, "fid": flow_id, "node": start_node['id']
-                            })
-                            # Execute the start node (which might just transition to the next or send a message)
-                            await execute_node(user_id, phone, start_node['id'], nodes)
-                    except Exception as e:
-                        print(f"DEBUG CHATBOT ERROR: {e}")
+                            # Insert session
+                            await db.execute("INSERT INTO user_sessions (user_id, phone_number, flow_id, current_node_id, state_data) VALUES (:uid, :phone, :fid, :node, '{}')", {"uid": user_id, "phone": phone, "fid": flow_id, "node": start_node['id']})
+                            session_res = await db.fetch_one("SELECT id FROM user_sessions WHERE phone_number = :p ORDER BY id DESC LIMIT 1", {"p": phone})
+                            session_id = session_res['id']
+                            
+                            # Start node automatically transitions to its first output
+                            outputs = get_node_outputs(start_node)
+                            if outputs:
+                                await process_node_execution(user_id, phone, outputs[0]['target_node'], nodes_dict, session_id)
+                    except: pass
 
-async def execute_node(user_id: int, phone: str, node_id: str, nodes: list):
-    node = next((n for n in nodes if n.get('id') == node_id), None)
-    if not node: return
+
+async def process_node_execution(user_id, phone, node_id, nodes_dict, session_id):
+    db = await get_db()
+    current_id = str(node_id)
     
-    node_data = node.get('data', {})
-    action = node_data.get('action') # 'send_message', 'send_template', etc.
+    while current_id in nodes_dict:
+        node = nodes_dict[current_id]
+        data = node.get('data', {})
+        action = data.get('action')
+        
+        expects_input = await execute_single_node(user_id, phone, data)
+        
+        # Update session to currently paused node
+        await db.execute("UPDATE user_sessions SET current_node_id = :n, last_interaction_at = CURRENT_TIMESTAMP WHERE id = :id", {"n": current_id, "id": session_id})
+        
+        if expects_input:
+            break
+            
+        outputs = get_node_outputs(node)
+        if not outputs:
+            # End of flow
+            await db.execute("DELETE FROM user_sessions WHERE id = :id", {"id": session_id})
+            break
+            
+        # Automatically move to next node if it doesn't expect input
+        current_id = outputs[0]['target_node']
+
+
+async def execute_single_node(user_id, phone, node_data):
+    """
+    Executes the action and returns True if the node expects user input to continue.
+    Returns False if execution should flow immediately to the next node.
+    """
+    action = node_data.get('action')
+    credentials = await get_active_credentials(user_id)
+    if not credentials: return False
     
-    if action == 'send_message':
-        message_text = node_data.get('text', '')
-        if message_text:
-            credentials = await get_active_credentials(user_id)
-            # Async run to not block processing
-            asyncio.create_task(send_whatsapp_message(
-                phone=phone,
-                message=message_text,
-                msg_type="text",
-                credentials=credentials
-            ))
+    if action == 'text_reply':
+        text = node_data.get('text', '')
+        if text:
+            asyncio.create_task(send_whatsapp_message(phone=phone, message=text, msg_type="text", credentials=credentials))
+        return False
+        
+    elif action == 'text_button':
+        text = node_data.get('text', '')
+        buttons = []
+        for i in range(1, 10):
+            btn_text = node_data.get(f'btn{i}')
+            if btn_text:
+                buttons.append({
+                    "type": "reply",
+                    "reply": {"id": f"btn_{i}", "title": str(btn_text)[:20]}
+                })
+        if text and buttons:
+            interactive_obj = {
+                "type": "button",
+                "body": {"text": text},
+                "action": {"buttons": buttons[:3]} # Max 3 buttons
+            }
+            asyncio.create_task(send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials))
+        return True # Expects button click
+        
+    elif action == 'media_button':
+        media_url = node_data.get('media_url', '')
+        buttons = []
+        for i in range(1, 10):
+            btn_text = node_data.get(f'btn{i}')
+            if btn_text:
+                buttons.append({"type": "reply", "reply": {"id": f"btn_{i}", "title": str(btn_text)[:20]}})
+        if media_url and buttons:
+            fmt = "image"
+            if str(media_url).lower().endswith(('.mp4', '.mov')): fmt = "video"
+            elif str(media_url).lower().endswith(('.pdf', '.doc', '.docx')): fmt = "document"
+            
+            interactive_obj = {
+                "type": "button",
+                "header": {"type": fmt, fmt: {"link": media_url}},
+                "body": {"text": "Please select an option:"},
+                "action": {"buttons": buttons[:3]}
+            }
+            asyncio.create_task(send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials))
+        return True
+        
+    elif action == 'text_list':
+        text = node_data.get('text', '')
+        title = node_data.get('list_title', 'Menu')
+        rows = []
+        for i in range(1, 20):
+            opt_text = node_data.get(f'opt{i}')
+            if opt_text:
+                rows.append({"id": f"opt_{i}", "title": str(opt_text)[:24]})
+        if text and rows:
+            interactive_obj = {
+                "type": "list",
+                "body": {"text": text},
+                "action": {
+                    "button": title[:20],
+                    "sections": [{"title": "Options", "rows": rows[:10]}]
+                }
+            }
+            asyncio.create_task(send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials))
+        return True
+        
+    elif action == 'request_location':
+        text = node_data.get('text', 'Please share your location')
+        interactive_obj = {
+            "type": "location_request_message",
+            "body": {"text": text},
+            "action": {"name": "send_location"}
+        }
+        asyncio.create_task(send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials))
+        return True
+        
+    elif action == 'create_ticket':
+        dept = node_data.get('department', 'General')
+        print(f"DEBUG: TICKET CREATED FOR {phone} in {dept}")
+        return False
+        
+    elif action == 'add_tag':
+        tag = node_data.get('tag_name')
+        print(f"DEBUG: TAG {tag} added to {phone}")
+        return False
+        
+    return False

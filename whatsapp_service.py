@@ -275,7 +275,7 @@ async def upload_whatsapp_media(file_bytes, filename, mime_type, credentials):
         print(f"DEBUG: Error in upload_whatsapp_media: {str(e)}")
         return None, str(e)
 
-async def send_whatsapp_message(phone, message, msg_type="text", template_name=None, language_code="en_US", media_url=None, template_params=None, credentials=None, media_id=None, forced_components=None):
+async def send_whatsapp_message(phone, message=None, msg_type="text", template_name=None, language_code="en_US", media_url=None, template_params=None, credentials=None, media_id=None, forced_components=None, interactive_obj=None):
     """Sends a message via Meta API. Supports templates with media and variables."""
     final_phone = normalize_phone(phone)
 
@@ -350,6 +350,15 @@ async def send_whatsapp_message(phone, message, msg_type="text", template_name=N
             
         if message:
             payload[msg_type]["caption"] = message
+            
+    elif msg_type == "interactive":
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": final_phone,
+            "type": "interactive",
+            "interactive": interactive_obj
+        }
+        print(f"DEBUG: Meta Send Interactive Payload: {json.dumps(payload, indent=2)}")
     else:
         # plain text
         payload = {
