@@ -2980,7 +2980,6 @@ async def webhook_handler(request: Request):
                                 except Exception as e:
                                     print(f"DEBUG WEBHOOK: Failed to forward status to Google Sheet: {e}")
                             
-                            import asyncio
                             asyncio.create_task(send_to_sheet())
                         
                         # BROADCAST to Live UI (SSE)
