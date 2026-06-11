@@ -5,6 +5,17 @@ from whatsapp_service import send_whatsapp_message
 import asyncio
 import httpx
 
+async def log_bot_reply(user_id, phone, text, wamid=""):
+    db = await get_db()
+    ts = datetime.now(timezone.utc)
+    try:
+        await db.execute("""
+            INSERT INTO chat_messages (user_id, phone, message, direction, wa_message_id, is_read, timestamp, sender_name, status)
+            VALUES (:u, :phone, :msg, 'outbound', :wamid, 1, :ts, 'Bot', 'sent')
+        """, {"u": user_id, "phone": phone, "msg": text, "wamid": wamid, "ts": ts})
+    except Exception as e:
+        print(f"DEBUG: Failed to save bot reply to chat_messages: {e}")
+
 async def get_active_credentials(user_id: int):
     db = await get_db()
     return await db.fetch_one("SELECT whatsapp_token, phone_number_id, waba_id, phone_number FROM user_credentials WHERE is_active = 1 AND user_id = :u LIMIT 1", {"u": user_id})
@@ -181,8 +192,12 @@ async def execute_single_node(user_id, phone, node_data):
     if action == 'text_reply':
         text = node_data.get('text', '')
         if text:
-            success, err = await send_whatsapp_message(phone=phone, message=text, msg_type="text", credentials=credentials)
-            if not success: print(f"DEBUG CHATBOT ERROR: Failed to send text_reply to {phone}: {err}")
+            success, res = await send_whatsapp_message(phone=phone, message=text, msg_type="text", credentials=credentials)
+            if success:
+                wamid = res.get('messages', [{}])[0].get('id', '')
+                await log_bot_reply(user_id, phone, text, wamid)
+            else:
+                print(f"DEBUG CHATBOT ERROR: Failed to send text_reply to {phone}: {res}")
         return False
         
     elif action == 'text_button':
@@ -201,8 +216,12 @@ async def execute_single_node(user_id, phone, node_data):
                 "body": {"text": text},
                 "action": {"buttons": buttons[:3]} # Max 3 buttons
             }
-            success, err = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
-            if not success: print(f"DEBUG CHATBOT ERROR: Failed to send text_button to {phone}: {err}")
+            success, res = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
+            if success:
+                wamid = res.get('messages', [{}])[0].get('id', '')
+                await log_bot_reply(user_id, phone, f"[Button Menu sent: {text}]", wamid)
+            else:
+                print(f"DEBUG CHATBOT ERROR: Failed to send text_button to {phone}: {res}")
         return True # Expects button click
         
     elif action == 'media_button':
@@ -223,8 +242,12 @@ async def execute_single_node(user_id, phone, node_data):
                 "body": {"text": "Please select an option:"},
                 "action": {"buttons": buttons[:3]}
             }
-            success, err = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
-            if not success: print(f"DEBUG CHATBOT ERROR: Failed to send media_button to {phone}: {err}")
+            success, res = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
+            if success:
+                wamid = res.get('messages', [{}])[0].get('id', '')
+                await log_bot_reply(user_id, phone, f"[Media sent with buttons: {media_url}]", wamid)
+            else:
+                print(f"DEBUG CHATBOT ERROR: Failed to send media_button to {phone}: {res}")
         return True
         
     elif action == 'text_list':
@@ -244,8 +267,12 @@ async def execute_single_node(user_id, phone, node_data):
                     "sections": [{"title": "Options", "rows": rows[:10]}]
                 }
             }
-            success, err = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
-            if not success: print(f"DEBUG CHATBOT ERROR: Failed to send text_list to {phone}: {err}")
+            success, res = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
+            if success:
+                wamid = res.get('messages', [{}])[0].get('id', '')
+                await log_bot_reply(user_id, phone, f"[List Menu sent: {text}]", wamid)
+            else:
+                print(f"DEBUG CHATBOT ERROR: Failed to send text_list to {phone}: {res}")
         return True
         
     elif action == 'request_location':
@@ -255,8 +282,12 @@ async def execute_single_node(user_id, phone, node_data):
             "body": {"text": text},
             "action": {"name": "send_location"}
         }
-        success, err = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
-        if not success: print(f"DEBUG CHATBOT ERROR: Failed to send request_location to {phone}: {err}")
+        success, res = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
+        if success:
+            wamid = res.get('messages', [{}])[0].get('id', '')
+            await log_bot_reply(user_id, phone, f"[Location Request sent: {text}]", wamid)
+        else:
+            print(f"DEBUG CHATBOT ERROR: Failed to send request_location to {phone}: {res}")
         return True
         
     elif action == 'create_ticket':
