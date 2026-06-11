@@ -555,11 +555,27 @@
                 </div>
             </div>
 
+            <!-- Advanced Options Container -->
+            <div id="wappFormAdvancedOptions" class="hidden px-8 py-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-3">
+                <label class="flex items-center gap-2 cursor-pointer w-fit">
+                    <input type="checkbox" id="wf_enable_webhook" class="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500 cursor-pointer">
+                    <span class="text-sm font-medium text-slate-700">Enable Webhook</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer w-fit">
+                    <input type="checkbox" id="wf_add_completion" class="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500 cursor-pointer">
+                    <span class="text-sm font-medium text-slate-700">Add Completion Response</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer w-fit">
+                    <input type="checkbox" id="wf_allow_duplicates" class="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500 cursor-pointer" checked>
+                    <span class="text-sm font-medium text-slate-700">Allow Duplicates</span>
+                </label>
+            </div>
+
             <!-- Footer Buttons -->
             <div class="px-8 py-5 border-t border-slate-100 bg-white flex gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <button onclick="saveWappFormManager()" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded text-sm font-bold shadow-sm transition-colors">Save WhatsApp Form</button>
                 <button class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2.5 rounded text-sm font-bold shadow-sm transition-colors">View Saved Forms</button>
-                <button class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2.5 rounded text-sm font-bold shadow-sm transition-colors">Advanced Options</button>
+                <button onclick="document.getElementById('wappFormAdvancedOptions').classList.toggle('hidden')" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2.5 rounded text-sm font-bold shadow-sm transition-colors">Advanced Options</button>
             </div>
         </div>
     </div>
@@ -5674,6 +5690,14 @@
                     <div style="width: 10%; display: flex; justify-content: flex-end;"><button onclick="this.closest('.question-row').remove()" class="rounded text-sm font-bold shadow-sm cursor-pointer" style="background-color: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; height: fit-content;">Delete</button></div>
                 </div>`;
             }
+            const advWebhook = document.getElementById('wf_enable_webhook');
+            if (advWebhook) advWebhook.checked = false;
+            const advComp = document.getElementById('wf_add_completion');
+            if (advComp) advComp.checked = false;
+            const advDup = document.getElementById('wf_allow_duplicates');
+            if (advDup) advDup.checked = true;
+            document.getElementById('wappFormAdvancedOptions').classList.add('hidden');
+
             const titleEl = document.querySelector('#wappFormModal h3');
             if (titleEl) titleEl.textContent = 'Create WAPP Form';
             openWappFormManager();
@@ -5712,6 +5736,14 @@
                         </div>`).join('');
                 }
             }
+            const advWebhook = document.getElementById('wf_enable_webhook');
+            if (advWebhook) advWebhook.checked = !!form.enableWebhook;
+            const advComp = document.getElementById('wf_add_completion');
+            if (advComp) advComp.checked = !!form.addCompletion;
+            const advDup = document.getElementById('wf_allow_duplicates');
+            if (advDup) advDup.checked = form.allowDuplicates !== false;
+            document.getElementById('wappFormAdvancedOptions').classList.add('hidden');
+
             const titleEl = document.querySelector('#wappFormModal h3');
             if (titleEl) titleEl.textContent = 'Edit WAPP Form';
             openWappFormManager();
@@ -5837,12 +5869,16 @@
                 if (text.trim()) questions.push({ text: text.trim(), format });
             });
 
+            const enableWebhook = document.getElementById('wf_enable_webhook').checked;
+            const addCompletion = document.getElementById('wf_add_completion').checked;
+            const allowDuplicates = document.getElementById('wf_allow_duplicates').checked;
+
             const editingId = window._wfEditingId;
             if (editingId) {
                 // Edit mode: update existing form
                 const idx = window.savedWappForms.findIndex(f => f.id === editingId);
                 if (idx !== -1) {
-                    window.savedWappForms[idx] = { ...window.savedWappForms[idx], name: formName, questions };
+                    window.savedWappForms[idx] = { ...window.savedWappForms[idx], name: formName, questions, enableWebhook, addCompletion, allowDuplicates };
                 }
                 window._wfEditingId = null;
             } else {
@@ -5851,6 +5887,9 @@
                     id: 'form_' + Date.now(),
                     name: formName,
                     questions,
+                    enableWebhook,
+                    addCompletion,
+                    allowDuplicates,
                     createdAt: new Date().toISOString()
                 });
             }
