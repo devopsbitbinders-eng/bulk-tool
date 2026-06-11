@@ -47,7 +47,36 @@ async def process_chatbot_message(user_id: int, phone: str, body: str, msg_type:
     elif msg_type == "location":
         text_input = "location" # Special keyword we can use
 
-    # 2. Check Session
+    # 2. Check Triggers First (Global overrides)
+    trigger_flow_id = None
+    if text_input:
+        trigger = await db.fetch_one("SELECT flow_id FROM triggers WHERE user_id = :uid AND LOWER(keyword) = :kw LIMIT 1", {"uid": user_id, "kw": text_input})
+        if trigger:
+            trigger_flow_id = trigger['flow_id']
+            # Clear old session because they triggered a new flow
+            await db.execute("DELETE FROM user_sessions WHERE user_id = :uid AND phone_number = :phone", {"uid": user_id, "phone": phone})
+            
+            flow = await db.fetch_one("SELECT flow_json FROM flows WHERE id = :fid", {"fid": trigger_flow_id})
+            if flow:
+                try:
+                    flow_data = json.loads(flow['flow_json'])
+                    nodes_dict = flow_data.get('drawflow', {}).get('Home', {}).get('data', {})
+                    
+                    start_node = next((n for n in nodes_dict.values() if n.get('data', {}).get('action') == 'start'), None)
+                    if start_node:
+                        # Insert new session
+                        await db.execute("INSERT INTO user_sessions (user_id, phone_number, flow_id, current_node_id, state_data) VALUES (:uid, :phone, :fid, :node, '{}')", {"uid": user_id, "phone": phone, "fid": trigger_flow_id, "node": start_node['id']})
+                        session_res = await db.fetch_one("SELECT id FROM user_sessions WHERE phone_number = :p ORDER BY id DESC LIMIT 1", {"p": phone})
+                        session_id = session_res['id']
+                        
+                        outputs = get_node_outputs(start_node)
+                        if outputs:
+                            await process_node_execution(user_id, phone, outputs[0]['target_node'], nodes_dict, session_id)
+                except Exception as e:
+                    print(f"DEBUG: Trigger flow start error: {e}")
+            return # Flow started, stop processing here
+
+    # 3. Check Session (if no global trigger matched)
     session = await db.fetch_one("SELECT * FROM user_sessions WHERE user_id = :uid AND phone_number = :phone LIMIT 1", {"uid": user_id, "phone": phone})
     
     now_utc = datetime.now(timezone.utc)
@@ -98,7 +127,7 @@ async def process_chatbot_message(user_id: int, phone: str, body: str, msg_type:
                         next_node_id = out['target_node']
                         break
             elif len(outputs) == 1:
-                # If they sent something else but there's only 1 fallback line
+                # Fallback to the only output
                 next_node_id = outputs[0]['target_node']
                 
         else:
@@ -108,30 +137,6 @@ async def process_chatbot_message(user_id: int, phone: str, body: str, msg_type:
                 
         if next_node_id:
             await process_node_execution(user_id, phone, next_node_id, nodes_dict, session['id'])
-    else:
-        # No session, check triggers
-        if text_input:
-            trigger = await db.fetch_one("SELECT flow_id FROM triggers WHERE user_id = :uid AND LOWER(keyword) = :kw LIMIT 1", {"uid": user_id, "kw": text_input})
-            if trigger:
-                flow_id = trigger['flow_id']
-                flow = await db.fetch_one("SELECT flow_json FROM flows WHERE id = :fid", {"fid": flow_id})
-                if flow:
-                    try:
-                        flow_data = json.loads(flow['flow_json'])
-                        nodes_dict = flow_data.get('drawflow', {}).get('Home', {}).get('data', {})
-                        
-                        start_node = next((n for n in nodes_dict.values() if n.get('data', {}).get('action') == 'start'), None)
-                        if start_node:
-                            # Insert session
-                            await db.execute("INSERT INTO user_sessions (user_id, phone_number, flow_id, current_node_id, state_data) VALUES (:uid, :phone, :fid, :node, '{}')", {"uid": user_id, "phone": phone, "fid": flow_id, "node": start_node['id']})
-                            session_res = await db.fetch_one("SELECT id FROM user_sessions WHERE phone_number = :p ORDER BY id DESC LIMIT 1", {"p": phone})
-                            session_id = session_res['id']
-                            
-                            # Start node automatically transitions to its first output
-                            outputs = get_node_outputs(start_node)
-                            if outputs:
-                                await process_node_execution(user_id, phone, outputs[0]['target_node'], nodes_dict, session_id)
-                    except: pass
 
 
 async def process_node_execution(user_id, phone, node_id, nodes_dict, session_id):
