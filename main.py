@@ -3783,4 +3783,21 @@ async def save_flow(request: Request):
             res = await db.fetch_one("SELECT LAST_INSERT_ID() as id")
         flow_id = res['id'] if res else None
         
+    if flow_id:
+        await db.execute("DELETE FROM triggers WHERE flow_id = :id AND user_id = :u", {"id": flow_id, "u": u_id})
+        try:
+            parsed = json.loads(flow_json)
+            nodes = parsed.get("drawflow", {}).get("Home", {}).get("data", {})
+            for node_id, node_data in nodes.items():
+                nd = node_data.get("data", {})
+                if nd.get("action") == "start":
+                    keywords = nd.get("keyword", "")
+                    if keywords:
+                        for kw in keywords.split(","):
+                            kw_clean = kw.strip().lower()
+                            if kw_clean:
+                                await db.execute("INSERT INTO triggers (user_id, flow_id, keyword) VALUES (:u, :f, :k)", {"u": u_id, "f": flow_id, "k": kw_clean})
+        except Exception as e:
+            print(f"DEBUG: Failed to parse flow_json for triggers: {e}")
+        
     return {"status": "ok", "id": flow_id}
