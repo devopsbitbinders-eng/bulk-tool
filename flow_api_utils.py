@@ -1,5 +1,8 @@
 import httpx
 import json
+import re
+import tempfile
+import os
 
 async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_name: str, questions: list) -> str:
     """
@@ -52,7 +55,7 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
     })
     
     flow_json = {
-      "version": "3.1",
+      "version": "3.1", # Safe to use with v21.0
       "routing_model": {
         "START": "SCREEN_1"
       },
@@ -73,13 +76,12 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
         "Authorization": f"Bearer {access_token}"
     }
     
-    import re
     safe_name = re.sub(r'[^a-zA-Z0-9_]', '', flow_name.replace(" ", "_"))[:20].lower()
     
-    # 1. Create Flow
     async with httpx.AsyncClient() as client:
+        # 1. Create Flow (Updated to v21.0)
         res = await client.post(
-            f"https://graph.facebook.com/v18.0/{waba_id}/flows",
+            f"https://graph.facebook.com/v21.0/{waba_id}/flows",
             headers=headers,
             data={
                 "name": safe_name,
@@ -91,9 +93,7 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
             
         flow_id = res.json().get('id')
         
-        # 2. Upload Asset
-        import tempfile
-        import os
+        # 2. Upload Asset (Updated to v21.0)
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp:
             json.dump(flow_json, temp)
             temp_path = temp.name
@@ -101,7 +101,7 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
         try:
             with open(temp_path, 'rb') as f:
                 res2 = await client.post(
-                    f"https://graph.facebook.com/v18.0/{flow_id}/assets",
+                    f"https://graph.facebook.com/v21.0/{flow_id}/assets",
                     headers=headers,
                     data={"name": "flow.json", "asset_type": "FLOW_JSON"},
                     files={"file": ("flow.json", f, "application/json")}
@@ -112,9 +112,9 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
         if res2.status_code != 200:
             raise Exception(f"Failed to upload flow asset: {res2.text}")
             
-        # 3. Publish Flow
+        # 3. Publish Flow (Updated to v21.0)
         res3 = await client.post(
-            f"https://graph.facebook.com/v18.0/{flow_id}/publish",
+            f"https://graph.facebook.com/v21.0/{flow_id}/publish",
             headers=headers
         )
         if res3.status_code != 200:
