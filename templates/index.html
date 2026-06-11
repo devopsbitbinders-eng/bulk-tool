@@ -5658,7 +5658,7 @@
                         <td class="px-6 py-4 whitespace-nowrap text-slate-500 text-sm">${new Date(r.timestamp).toLocaleString()}</td>
                         <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-700">${r.phone}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-slate-600">${r.sender_name || '-'}</td>
-                        <td class="px-6 py-4 text-slate-700">${escapeHtml(r.response || '')}</td>
+                        <td class="px-6 py-4 text-slate-700">${(r.response || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')}</td>
                     </tr>
                 `).join('');
             } catch (err) {
