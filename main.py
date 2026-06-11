@@ -3768,10 +3768,16 @@ async def save_flow(request: Request):
     db = await get_db()
     
     if flow_id:
-        await db.execute("""
-            UPDATE flows SET name = :n, flow_json = :j, updated_at = CURRENT_TIMESTAMP
-            WHERE id = :id AND user_id = :u
-        """, {"n": name, "j": flow_json, "id": flow_id, "u": u_id})
+        if name:
+            await db.execute("""
+                UPDATE flows SET name = :n, flow_json = :j, updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id AND user_id = :u
+            """, {"n": name, "j": flow_json, "id": flow_id, "u": u_id})
+        else:
+            await db.execute("""
+                UPDATE flows SET flow_json = :j, updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id AND user_id = :u
+            """, {"j": flow_json, "id": flow_id, "u": u_id})
     else:
         await db.execute("""
             INSERT INTO flows (user_id, name, flow_json) VALUES (:u, :n, :j)
