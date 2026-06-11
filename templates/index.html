@@ -558,9 +558,12 @@
             <!-- Advanced Options Container -->
             <div id="wappFormAdvancedOptions" class="hidden px-8 py-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-3">
                 <label class="flex items-center gap-2 cursor-pointer w-fit">
-                    <input type="checkbox" id="wf_enable_webhook" class="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500 cursor-pointer">
+                    <input type="checkbox" id="wf_enable_webhook" class="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500 cursor-pointer" onchange="document.getElementById('wf_webhook_url_container').classList.toggle('hidden', !this.checked)">
                     <span class="text-sm font-medium text-slate-700">Enable Webhook</span>
                 </label>
+                <div id="wf_webhook_url_container" class="hidden ml-6 mb-2">
+                    <input type="text" id="wf_webhook_url" class="w-full max-w-md border border-slate-200 rounded px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="https://your-webhook-url.com/api">
+                </div>
                 <label class="flex items-center gap-2 cursor-pointer w-fit">
                     <input type="checkbox" id="wf_add_completion" class="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500 cursor-pointer">
                     <span class="text-sm font-medium text-slate-700">Add Completion Response</span>
@@ -5692,6 +5695,9 @@
             }
             const advWebhook = document.getElementById('wf_enable_webhook');
             if (advWebhook) advWebhook.checked = false;
+            const webhookUrl = document.getElementById('wf_webhook_url');
+            if (webhookUrl) webhookUrl.value = '';
+            document.getElementById('wf_webhook_url_container')?.classList.add('hidden');
             const advComp = document.getElementById('wf_add_completion');
             if (advComp) advComp.checked = false;
             const advDup = document.getElementById('wf_allow_duplicates');
@@ -5738,6 +5744,9 @@
             }
             const advWebhook = document.getElementById('wf_enable_webhook');
             if (advWebhook) advWebhook.checked = !!form.enableWebhook;
+            const webhookUrl = document.getElementById('wf_webhook_url');
+            if (webhookUrl) webhookUrl.value = form.webhookUrl || '';
+            document.getElementById('wf_webhook_url_container')?.classList.toggle('hidden', !form.enableWebhook);
             const advComp = document.getElementById('wf_add_completion');
             if (advComp) advComp.checked = !!form.addCompletion;
             const advDup = document.getElementById('wf_allow_duplicates');
@@ -5870,15 +5879,21 @@
             });
 
             const enableWebhook = document.getElementById('wf_enable_webhook').checked;
+            const webhookUrl = document.getElementById('wf_webhook_url').value.trim();
             const addCompletion = document.getElementById('wf_add_completion').checked;
             const allowDuplicates = document.getElementById('wf_allow_duplicates').checked;
+
+            if (enableWebhook && !webhookUrl) {
+                showToast("Please enter a Webhook URL", "error");
+                return;
+            }
 
             const editingId = window._wfEditingId;
             if (editingId) {
                 // Edit mode: update existing form
                 const idx = window.savedWappForms.findIndex(f => f.id === editingId);
                 if (idx !== -1) {
-                    window.savedWappForms[idx] = { ...window.savedWappForms[idx], name: formName, questions, enableWebhook, addCompletion, allowDuplicates };
+                    window.savedWappForms[idx] = { ...window.savedWappForms[idx], name: formName, questions, enableWebhook, webhookUrl, addCompletion, allowDuplicates };
                 }
                 window._wfEditingId = null;
             } else {
@@ -5888,6 +5903,7 @@
                     name: formName,
                     questions,
                     enableWebhook,
+                    webhookUrl,
                     addCompletion,
                     allowDuplicates,
                     createdAt: new Date().toISOString()
