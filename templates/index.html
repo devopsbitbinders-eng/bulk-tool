@@ -264,6 +264,8 @@
                 </button>
                 <button onclick="switchTab('chatbot')" id="tab-chatbot"
                     class="tab-btn h-full px-4 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all flex items-center border-b-2 border-transparent">Chatbot</button>
+                <button onclick="switchTab('wappforms')" id="tab-wappforms"
+                    class="tab-btn h-full px-4 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all flex items-center border-b-2 border-transparent">WhatsApp Forms</button>
                 {% if is_admin %}
                 <button onclick="switchTab('admin')" id="tab-admin"
                     class="tab-btn h-full px-4 font-medium text-sm text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5 border-b-2 border-transparent">
@@ -2921,6 +2923,9 @@
                             fetchFilteredDashboard(drp.startDate.format('YYYY-MM-DD'), drp.endDate.format('YYYY-MM-DD'));
                         }
                     }
+                } else if (tab === 'wappforms') {
+                    content.classList.add('block');
+                    renderWappFormsTable();
                 } else {
                     content.classList.add('block');
                 }
@@ -5588,6 +5593,147 @@
             document.getElementById('wappFormModal').classList.add('flex');
         }
 
+        // Opens the WAPP Form modal cleared for creating a brand-new form
+        function openWappFormManagerForCreate() {
+            const nameEl = document.getElementById('wappFormName');
+            if (nameEl) nameEl.value = '';
+            window._wfEditingId = null;
+            const container = document.getElementById('wappFormQuestions');
+            if (container) {
+                container.innerHTML = `<div class="question-row" style="display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem;">
+                    <div style="width: 65%;"><textarea class="w-full border border-slate-200 rounded px-4 py-3 outline-none text-sm resize-none placeholder-slate-400" rows="2" placeholder="Enter question"></textarea></div>
+                    <div style="width: 25%;"><select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700">
+                        <option value="IMAGE">IMAGE</option><option value="TEXT">TEXT</option><option value="NUMBER">NUMBER</option><option value="DATE">DATE</option><option value="LIST">LIST MENU</option>
+                    </select></div>
+                    <div style="width: 10%; display: flex; justify-content: flex-end;"><button onclick="this.closest('.question-row').remove()" class="rounded text-sm font-bold shadow-sm cursor-pointer" style="background-color: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; height: fit-content;">Delete</button></div>
+                </div>`;
+            }
+            const titleEl = document.querySelector('#wappFormModal h3');
+            if (titleEl) titleEl.textContent = 'Create WAPP Form';
+            openWappFormManager();
+        }
+
+        // Opens the WAPP Form modal pre-filled for editing an existing form
+        function openWappFormManagerForEdit(formId) {
+            const form = (window.savedWappForms || []).find(f => f.id === formId);
+            if (!form) return;
+            window._wfEditingId = formId;
+            const nameEl = document.getElementById('wappFormName');
+            if (nameEl) nameEl.value = form.name || '';
+            const container = document.getElementById('wappFormQuestions');
+            if (container) {
+                const questions = form.questions || [];
+                if (questions.length === 0) {
+                    container.innerHTML = `<div class="question-row" style="display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem;">
+                        <div style="width: 65%;"><textarea class="w-full border border-slate-200 rounded px-4 py-3 outline-none text-sm resize-none placeholder-slate-400" rows="2" placeholder="Enter question"></textarea></div>
+                        <div style="width: 25%;"><select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700">
+                            <option value="IMAGE">IMAGE</option><option value="TEXT">TEXT</option><option value="NUMBER">NUMBER</option><option value="DATE">DATE</option><option value="LIST">LIST MENU</option>
+                        </select></div>
+                        <div style="width: 10%; display: flex; justify-content: flex-end;"><button onclick="this.closest('.question-row').remove()" class="rounded text-sm font-bold shadow-sm cursor-pointer" style="background-color: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; height: fit-content;">Delete</button></div>
+                    </div>`;
+                } else {
+                    container.innerHTML = questions.map(q => `
+                        <div class="question-row" style="display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem;">
+                            <div style="width: 65%;"><textarea class="w-full border border-slate-200 rounded px-4 py-3 outline-none text-sm resize-none placeholder-slate-400" rows="2">${q.text || ''}</textarea></div>
+                            <div style="width: 25%;"><select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700">
+                                <option value="IMAGE" ${q.format==='IMAGE'?'selected':''}>IMAGE</option>
+                                <option value="TEXT" ${q.format==='TEXT'?'selected':''}>TEXT</option>
+                                <option value="NUMBER" ${q.format==='NUMBER'?'selected':''}>NUMBER</option>
+                                <option value="DATE" ${q.format==='DATE'?'selected':''}>DATE</option>
+                                <option value="LIST" ${q.format==='LIST'?'selected':''}>LIST MENU</option>
+                            </select></div>
+                            <div style="width: 10%; display: flex; justify-content: flex-end;"><button onclick="this.closest('.question-row').remove()" class="rounded text-sm font-bold shadow-sm cursor-pointer" style="background-color: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; height: fit-content;">Delete</button></div>
+                        </div>`).join('');
+                }
+            }
+            const titleEl = document.querySelector('#wappFormModal h3');
+            if (titleEl) titleEl.textContent = 'Edit WAPP Form';
+            openWappFormManager();
+        }
+
+        // ---- WappForms Table Logic ----
+        window._wfPage = 0;
+        window._wfSort = { key: 'idx', dir: 1 };
+
+        function renderWappFormsTable() {
+            const forms = window.savedWappForms || [];
+            const perPageEl = document.getElementById('wfShowEntries');
+            const perPage = parseInt(perPageEl ? perPageEl.value : '10') || 10;
+            const total = forms.length;
+            const key = window._wfSort.key;
+            const dir = window._wfSort.dir;
+            const sorted = [...forms].map((f, i) => ({...f, _idx: i+1})).sort((a, b) => {
+                let va = key === 'name' ? (a.name||'') : key === 'date' ? (a.createdAt||'') : (a._idx||0);
+                let vb = key === 'name' ? (b.name||'') : key === 'date' ? (b.createdAt||'') : (b._idx||0);
+                if (va < vb) return -dir; if (va > vb) return dir; return 0;
+            });
+            const maxPage = Math.max(0, Math.ceil(total / perPage) - 1);
+            if (window._wfPage > maxPage) window._wfPage = maxPage;
+            const page = window._wfPage;
+            const slice = sorted.slice(page * perPage, page * perPage + perPage);
+
+            const drEl = document.getElementById('wfDateRange');
+            if (drEl) {
+                const now = new Date();
+                const fiveYearsAgo = new Date(now.getFullYear()-5, now.getMonth(), now.getDate());
+                drEl.textContent = fiveYearsAgo.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' - ' + now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+            }
+            const tbody = document.getElementById('wappFormsTableBody');
+            if (!tbody) return;
+            if (total === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400 text-sm italic">No data available in table</td></tr>';
+            } else {
+                tbody.innerHTML = slice.map((f, si) => {
+                    const rowIdx = page * perPage + si + 1;
+                    const dateStr = f.createdAt ? new Date(f.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+                    const notes = f.notes || '—';
+                    return `<tr class="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-3 text-slate-500 text-xs">${rowIdx}</td>
+                        <td class="px-4 py-3 font-medium text-slate-800">${f.name || '—'}</td>
+                        <td class="px-4 py-3 text-slate-500 text-sm">${notes}</td>
+                        <td class="px-4 py-3 text-slate-500 text-sm">${dateStr}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex gap-2">
+                                <button onclick="openWappFormManagerForEdit('${f.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold transition-colors">Edit</button>
+                                <button onclick="wfDeleteFormFromTable('${f.id}')" class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1 rounded text-xs font-bold transition-colors">Delete</button>
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+            const from = total === 0 ? 0 : page * perPage + 1;
+            const to = Math.min((page + 1) * perPage, total);
+            const showEl = document.getElementById('wfShowingText');
+            if (showEl) showEl.textContent = `Showing ${from} to ${to} of ${total} entries`;
+            const prevBtn = document.getElementById('wfPrevBtn');
+            const nextBtn = document.getElementById('wfNextBtn');
+            if (prevBtn) prevBtn.disabled = page === 0;
+            if (nextBtn) nextBtn.disabled = page >= maxPage;
+        }
+
+        function wfSortBy(key) {
+            if (window._wfSort.key === key) window._wfSort.dir *= -1;
+            else { window._wfSort.key = key; window._wfSort.dir = 1; }
+            window._wfPage = 0;
+            renderWappFormsTable();
+        }
+        function wfPrevPage() { if (window._wfPage > 0) { window._wfPage--; renderWappFormsTable(); } }
+        function wfNextPage() { window._wfPage++; renderWappFormsTable(); }
+
+        function wfDeleteFormFromTable(formId) {
+            if (!confirm('Delete this form?')) return;
+            window.savedWappForms = (window.savedWappForms || []).filter(f => f.id !== formId);
+            localStorage.setItem('savedWappForms', JSON.stringify(window.savedWappForms));
+            updateWappFormDropdowns();
+            renderSidebarForms();
+            renderWappFormsTable();
+            showToast('Form deleted', 'success');
+        }
+
+        function openViewFormResponsesModal() {
+            showToast('Form responses coming soon!', 'info');
+        }
+
         window.savedWappForms = JSON.parse(localStorage.getItem('savedWappForms') || '[]');
         // Render sidebar list once DOM is ready
         document.addEventListener('DOMContentLoaded', function() { renderSidebarForms(); });
@@ -5608,6 +5754,7 @@
         }
         setTimeout(updateWappFormDropdowns, 500);
 
+
         function saveWappFormManager() {
             const formNameInput = document.getElementById('wappFormName');
             const formName = formNameInput.value.trim();
@@ -5615,15 +5762,37 @@
                 showToast("Please enter a Form Name", "error");
                 return;
             }
-            window.savedWappForms.push({
-                id: 'form_' + Date.now(),
-                name: formName
+            // Collect questions
+            const questionRows = document.querySelectorAll('#wappFormQuestions .question-row');
+            const questions = [];
+            questionRows.forEach(row => {
+                const text = (row.querySelector('textarea') || {}).value || '';
+                const format = (row.querySelector('select') || {}).value || 'TEXT';
+                if (text.trim()) questions.push({ text: text.trim(), format });
             });
+
+            const editingId = window._wfEditingId;
+            if (editingId) {
+                // Edit mode: update existing form
+                const idx = window.savedWappForms.findIndex(f => f.id === editingId);
+                if (idx !== -1) {
+                    window.savedWappForms[idx] = { ...window.savedWappForms[idx], name: formName, questions };
+                }
+                window._wfEditingId = null;
+            } else {
+                // Create mode
+                window.savedWappForms.push({
+                    id: 'form_' + Date.now(),
+                    name: formName,
+                    questions,
+                    createdAt: new Date().toISOString()
+                });
+            }
             localStorage.setItem('savedWappForms', JSON.stringify(window.savedWappForms));
             updateWappFormDropdowns();
             renderSidebarForms();
+            renderWappFormsTable();
             formNameInput.value = '';
-            
             document.getElementById('wappFormModal').classList.add('hidden');
             document.getElementById('wappFormModal').classList.remove('flex');
             showToast("WAPP Form Saved!", "success");
@@ -5696,14 +5865,10 @@
             m.classList.remove('flex');
         }
 
+
         function openEditFormModal(formId) {
-            const form = window.savedWappForms.find(f => f.id === formId);
-            if (!form) return;
-            document.getElementById('editFormId').value = form.id;
-            document.getElementById('editFormName').value = form.name;
-            const m = document.getElementById('editFormModal');
-            m.classList.remove('hidden');
-            m.classList.add('flex');
+            // Open full WAPP Form editor with all questions loaded
+            openWappFormManagerForEdit(formId);
         }
 
         function closeEditFormModal() {
@@ -5954,6 +6119,80 @@
                 <div class="px-6 py-4 border-t border-slate-100 flex gap-3">
                     <button onclick="saveEditedForm()" class="text-white text-sm font-bold px-6 py-2.5 rounded-lg" style="background:#3b82f6">Save Changes</button>
                     <button onclick="closeEditFormModal()" class="ml-auto text-sm font-medium text-slate-500 border border-slate-200 px-5 py-2 rounded-lg">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- WhatsApp Forms Tab Content -->
+        <div id="content-wappforms" class="hidden max-w-7xl mx-auto px-4 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <!-- Header -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-10 pb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800">WappForm Report</h1>
+                    <p class="text-sm text-slate-500 mt-1">Manage all your WhatsApp interactive forms</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="openWappFormManagerForCreate()" class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        Create Form
+                    </button>
+                    <button onclick="openViewFormResponsesModal()" class="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        View All Form Responses
+                    </button>
+                </div>
+            </div>
+
+            <!-- Controls row -->
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    Show
+                    <select id="wfShowEntries" onchange="renderWappFormsTable()" class="border border-slate-200 rounded px-2 py-1 text-sm outline-none bg-white">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                    entries
+                </div>
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span id="wfDateRange" class="font-medium text-slate-700 bg-emerald-500 text-white px-3 py-1 rounded text-xs"></span>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr style="background-color:#10b981;" class="text-white">
+                            <th class="px-4 py-3 text-left font-bold w-8">
+                                <button onclick="wfSortBy('idx')" class="flex items-center gap-1">+<svg class="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 12v-12m0 12l4-4m-4 4l-4-4"></path></svg></button>
+                            </th>
+                            <th class="px-4 py-3 text-left font-bold">
+                                <button onclick="wfSortBy('name')" class="flex items-center gap-1">Form name<svg class="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 12v-12m0 12l4-4m-4 4l-4-4"></path></svg></button>
+                            </th>
+                            <th class="px-4 py-3 text-left font-bold">
+                                <button onclick="wfSortBy('notes')" class="flex items-center gap-1">Notes<svg class="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 12v-12m0 12l4-4m-4 4l-4-4"></path></svg></button>
+                            </th>
+                            <th class="px-4 py-3 text-left font-bold">
+                                <button onclick="wfSortBy('date')" class="flex items-center gap-1">Created On<svg class="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 12v-12m0 12l4-4m-4 4l-4-4"></path></svg></button>
+                            </th>
+                            <th class="px-4 py-3 text-left font-bold">
+                                <button onclick="wfSortBy('action')" class="flex items-center gap-1">Action<svg class="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 12v-12m0 12l4-4m-4 4l-4-4"></path></svg></button>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="wappFormsTableBody">
+                        <tr><td colspan="5" class="text-center py-8 text-slate-400 text-sm italic">No data available in table</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="flex items-center justify-between mt-3 text-sm text-slate-500">
+                <span id="wfShowingText">Showing 0 to 0 of 0 entries</span>
+                <div class="flex gap-1">
+                    <button id="wfPrevBtn" onclick="wfPrevPage()" class="px-3 py-1.5 border border-slate-200 rounded text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">Previous</button>
+                    <button id="wfNextBtn" onclick="wfNextPage()" class="px-3 py-1.5 border border-slate-200 rounded text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">Next</button>
                 </div>
             </div>
         </div>
