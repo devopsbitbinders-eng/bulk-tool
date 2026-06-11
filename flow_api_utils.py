@@ -55,7 +55,7 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
     })
     
     flow_json = {
-      "version": "3.1", # Safe to use with v21.0
+      "version": "7.3", # Safe to use with v21.0
       "routing_model": {
         "START": "SCREEN_1"
       },
