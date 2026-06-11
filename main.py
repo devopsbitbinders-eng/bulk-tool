@@ -3801,3 +3801,17 @@ async def save_flow(request: Request):
             print(f"DEBUG: Failed to parse flow_json for triggers: {e}")
         
     return {"status": "ok", "id": flow_id}
+
+@app.delete("/api/flows/{flow_id}")
+async def delete_flow(flow_id: int, request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    db = await get_db()
+    # Delete triggers
+    await db.execute("DELETE FROM triggers WHERE flow_id = :id AND user_id = :u", {"id": flow_id, "u": u_id})
+    # Delete flow
+    res = await db.execute("DELETE FROM flows WHERE id = :id AND user_id = :u", {"id": flow_id, "u": u_id})
+    return {"status": "ok"}
