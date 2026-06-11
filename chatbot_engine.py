@@ -73,7 +73,9 @@ async def process_chatbot_message(user_id: int, phone: str, body: str, msg_type:
                         if outputs:
                             await process_node_execution(user_id, phone, outputs[0]['target_node'], nodes_dict, session_id)
                 except Exception as e:
-                    print(f"DEBUG: Trigger flow start error: {e}")
+                    import traceback
+                    print(f"DEBUG: Trigger flow start error:")
+                    traceback.print_exc()
             return # Flow started, stop processing here
 
     # 3. Check Session (if no global trigger matched)
