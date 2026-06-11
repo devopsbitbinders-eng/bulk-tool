@@ -3043,6 +3043,19 @@ async def webhook_handler(request: Request):
                             "caption": m_caption,
                             "filename": m_data.get("filename")
                         })
+                    elif msg_type == "interactive":
+                        inter = msg_data.get("interactive", {})
+                        if inter.get("type") == "button_reply":
+                            body = inter.get("button_reply", {}).get("title", "[Button Clicked]")
+                        elif inter.get("type") == "list_reply":
+                            body = inter.get("list_reply", {}).get("title", "[List Item Selected]")
+                        else:
+                            body = "[Received interactive]"
+                    elif msg_type == "location":
+                        loc = msg_data.get("location", {})
+                        lat = loc.get("latitude", "")
+                        lng = loc.get("longitude", "")
+                        body = f"[Location Shared: {lat}, {lng}]"
                     else:
                         body = f"[Received {msg_type}]"
 
@@ -3075,7 +3088,8 @@ async def webhook_handler(request: Request):
                                 user_id=u_id,
                                 phone=clean_from,
                                 body=body,
-                                msg_type=msg_type
+                                msg_type=msg_type,
+                                raw_payload=msg_data
                             ))
                         
                         # BROADCAST to Live UI (SSE)
