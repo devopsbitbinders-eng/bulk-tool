@@ -2858,6 +2858,7 @@ async def force_subscribe():
 
 @app.post("/webhook")
 async def webhook_handler(request: Request):
+    import asyncio
     data = await request.json()
     db = await get_db()
     
