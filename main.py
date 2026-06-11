@@ -3839,6 +3839,8 @@ async def publish_wapp_form(request: Request):
         """, {"u": u_id, "n": name, "fid": flow_id, "q": json.dumps(questions)})
         return {"status": "ok", "meta_flow_id": flow_id}
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"DEBUG FLOW PUBLISH ERROR: {str(e)}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
