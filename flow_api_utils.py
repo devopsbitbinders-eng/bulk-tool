@@ -57,28 +57,24 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
     for idx, q in enumerate(questions):
         payload[f"q_{idx}"] = f"${{form.q_{idx}}}"
         
-    # Corrected Footer structural nesting for modern schema versions
     children.append({
         "type": "Footer",
-        "right-button": {
-            "label": "Submit",
-            "on-click-action": {
-                "name": "complete",
-                "payload": payload
-            }
+        "label": "Submit",
+        "on-click-action": {
+            "name": "complete",
+            "payload": payload
         }
     })
     
     flow_json = {
-      "version": "7.3", 
-      "routing_model": {
-        "START": "SCREEN_1"
-      },
+      "version": "7.3",
       "screens": [
         {
           "id": "SCREEN_1",
           "title": str(flow_name)[:20],
           "terminal": True,
+          "success": True,
+          "data": {},
           "layout": {
             "type": "SingleColumnLayout",
             "children": children
