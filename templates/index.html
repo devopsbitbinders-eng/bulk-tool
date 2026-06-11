@@ -2758,7 +2758,16 @@
                 html = `
                 <div class="title-box"><div class="flex items-center gap-2"><div class="w-6 h-6 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14"></path></svg></div> Media + Button</div> <svg class="w-4 h-4" onclick="editor.removeNodeId('node-'+this.parentElement.parentElement.id.slice(5))" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>
                 <div class="box space-y-2">
-                    <input df-media_url type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="Media URL (Img/Vid/Doc)">
+                    <div class="flex flex-col gap-1 w-full">
+                        <div class="flex gap-2 items-center">
+                            <input df-media_url type="text" class="flex-1 w-full text-sm border border-slate-200 rounded p-2" placeholder="Media URL (Img/Vid/Doc)">
+                            <button onclick="this.nextElementSibling.click()" class="bg-indigo-50 p-2 rounded hover:bg-indigo-100 flex-shrink-0" title="Upload Media">
+                                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            </button>
+                            <input type="file" class="hidden" onchange="uploadDrawflowMedia(this)">
+                        </div>
+                        <div class="text-[10px] text-indigo-600 font-medium hidden"></div>
+                    </div>
                     <input df-btn1 type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="Button 1 text">
                     <div class="flex justify-between mt-2 text-xs text-slate-400 font-medium px-1"><span>Btn 1</span></div>
                 </div>
@@ -2792,7 +2801,16 @@
                 html = `
                 <div class="title-box"><div class="flex items-center gap-2"><div class="w-6 h-6 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01"></path></svg></div> Media Caption</div> <svg class="w-4 h-4" onclick="editor.removeNodeId('node-'+this.parentElement.parentElement.id.slice(5))" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>
                 <div class="box space-y-2">
-                    <input df-media_url type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="Media URL">
+                    <div class="flex flex-col gap-1 w-full">
+                        <div class="flex gap-2 items-center">
+                            <input df-media_url type="text" class="flex-1 w-full text-sm border border-slate-200 rounded p-2" placeholder="Media URL">
+                            <button onclick="this.nextElementSibling.click()" class="bg-indigo-50 p-2 rounded hover:bg-indigo-100 flex-shrink-0" title="Upload Media">
+                                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            </button>
+                            <input type="file" class="hidden" onchange="uploadDrawflowMedia(this)">
+                        </div>
+                        <div class="text-[10px] text-indigo-600 font-medium hidden"></div>
+                    </div>
                     <textarea df-caption class="w-full text-sm border border-slate-200 rounded p-2" rows="2" placeholder="Caption..."></textarea>
                 </div>
                 `;
@@ -3977,6 +3995,46 @@
                 } catch (err) {
                     showToast('Upload error', 'error');
                 }
+            }
+
+            async function uploadDrawflowMedia(input) {
+                if (!input.files || !input.files[0]) return;
+                const file = input.files[0];
+                if (file.size > 100 * 1024 * 1024) return showToast('File too large! Max 100MB.', 'error');
+                
+                const container = input.parentElement.parentElement;
+                const urlInput = container.querySelector('input[df-media_url]');
+                const statusDiv = container.children[1];
+                const nodeId = input.closest('.drawflow-node').id.slice(5);
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                try {
+                    statusDiv.textContent = 'Uploading...';
+                    statusDiv.className = 'text-[10px] text-indigo-600 font-medium mt-1';
+                    
+                    const res = await fetch('https://bitbinders.in/spread/upload.php', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    
+                    if(data.success && data.url) {
+                        urlInput.value = data.url;
+                        const nodeData = editor.getNodeFromId(nodeId).data;
+                        nodeData.media_url = data.url;
+                        editor.updateNodeDataFromId(nodeId, nodeData);
+                        
+                        statusDiv.textContent = 'Uploaded successfully!';
+                        statusDiv.className = 'text-[10px] text-emerald-600 font-medium mt-1';
+                        setTimeout(() => { statusDiv.className = 'hidden'; }, 3000);
+                    } else {
+                        throw new Error('Upload failed');
+                    }
+                } catch (e) {
+                    statusDiv.textContent = 'Upload failed!';
+                    statusDiv.className = 'text-[10px] text-rose-500 font-medium mt-1';
+                    setTimeout(() => { statusDiv.className = 'hidden'; }, 3000);
+                }
+                input.value = '';
             }
 
             async function handleCampaignMedia(input) {
