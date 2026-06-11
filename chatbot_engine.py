@@ -318,7 +318,7 @@ async def execute_single_node(user_id, phone, node_data):
                 await log_bot_reply(user_id, phone, f"[WAPP Flow sent: {flow_id}]", wamid)
             else:
                 print(f"DEBUG CHATBOT ERROR: Failed to send wapp_form to {phone}: {res}")
-        return False
+        return True
         
     elif action == 'url_button':
         btn_label = node_data.get('btn_label', 'Click Here')

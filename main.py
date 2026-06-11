@@ -3068,8 +3068,19 @@ async def webhook_handler(request: Request):
                             body = inter.get("button_reply", {}).get("title", "[Button Clicked]")
                         elif inter.get("type") == "list_reply":
                             body = inter.get("list_reply", {}).get("title", "[List Item Selected]")
+                        elif inter.get("type") == "nfm_reply":
+                            try:
+                                import json
+                                nfm = inter.get("nfm_reply", {})
+                                raw_res = nfm.get("response_json", "{}")
+                                res_data = json.loads(raw_res)
+                                body = f"📄 Form Submitted:\n"
+                                for k, v in res_data.items():
+                                    body += f"• {k}: {v}\n"
+                            except Exception as e:
+                                body = f"[Form Submitted: Data Parse Error]"
                         else:
-                            body = "[Received interactive]"
+                            body = f"[Received interactive {inter.get('type')}]"
                     elif msg_type == "location":
                         loc = msg_data.get("location", {})
                         lat = loc.get("latitude", "")
@@ -3801,6 +3812,46 @@ async def save_flow(request: Request):
             print(f"DEBUG: Failed to parse flow_json for triggers: {e}")
         
     return {"status": "ok", "id": flow_id}
+
+@app.post("/api/wapp_forms/publish")
+async def publish_wapp_form(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    data = await request.json()
+    name = data.get("name", "New Form")
+    questions = data.get("questions", [])
+    
+    db = await get_db()
+    creds = await db.fetch_one("SELECT whatsapp_token, waba_id FROM user_credentials WHERE user_id = :u LIMIT 1", {"u": u_id})
+    if not creds or not creds['whatsapp_token'] or not creds['waba_id']:
+        return JSONResponse(status_code=400, content={"error": "WhatsApp credentials (waba_id and token) are missing."})
+        
+    try:
+        from flow_api_utils import create_and_publish_meta_flow
+        import json
+        flow_id = await create_and_publish_meta_flow(creds['waba_id'], creds['whatsapp_token'], name, questions)
+        
+        await db.execute("""
+            INSERT INTO wapp_forms (user_id, name, meta_flow_id, questions_json)
+            VALUES (:u, :n, :fid, :q)
+        """, {"u": u_id, "n": name, "fid": flow_id, "q": json.dumps(questions)})
+        return {"status": "ok", "meta_flow_id": flow_id}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/wapp_forms")
+async def get_wapp_forms(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    db = await get_db()
+    forms = await db.fetch_all("SELECT id, name, meta_flow_id, questions_json FROM wapp_forms WHERE user_id = :u ORDER BY created_at DESC", {"u": u_id})
+    return [dict(f) for f in forms]
 
 @app.delete("/api/flows/{flow_id}")
 async def delete_flow(flow_id: int, request: Request):

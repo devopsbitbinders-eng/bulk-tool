@@ -210,6 +210,16 @@ async def init_db():
 
     # 10. Chatbot Triggers Table
     await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS wapp_forms (
+            id INTEGER PRIMARY KEY {auto_inc},
+            user_id INTEGER,
+            name {text_type},
+            meta_flow_id {text_type},
+            questions_json {long_text_type},
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) {table_opts}
+    """)
+    await db.execute(f"""
         CREATE TABLE IF NOT EXISTS triggers (
             id INTEGER PRIMARY KEY {auto_inc},
             user_id INTEGER,
