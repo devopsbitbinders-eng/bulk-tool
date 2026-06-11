@@ -290,6 +290,36 @@ async def execute_single_node(user_id, phone, node_data):
             print(f"DEBUG CHATBOT ERROR: Failed to send request_location to {phone}: {res}")
         return True
         
+    elif action == 'wapp_form':
+        flow_id = node_data.get('flow_id', '').strip()
+        flow_cta = node_data.get('flow_cta', 'Open Form').strip()
+        if flow_id:
+            interactive_obj = {
+                "type": "flow",
+                "header": {"type": "text", "text": "Form"},
+                "body": {"text": "Please tap the button below to fill out the form:"},
+                "action": {
+                    "name": "flow",
+                    "parameters": {
+                        "flow_message_version": "3",
+                        "flow_token": f"form_{flow_id}_{user_id}",
+                        "flow_id": flow_id,
+                        "flow_cta": flow_cta[:20],
+                        "flow_action": "navigate",
+                        "flow_action_payload": {
+                            "screen": "START"
+                        }
+                    }
+                }
+            }
+            success, res = await send_whatsapp_message(phone=phone, msg_type="interactive", interactive_obj=interactive_obj, credentials=credentials)
+            if success:
+                wamid = res.get('messages', [{}])[0].get('id', '')
+                await log_bot_reply(user_id, phone, f"[WAPP Flow sent: {flow_id}]", wamid)
+            else:
+                print(f"DEBUG CHATBOT ERROR: Failed to send wapp_form to {phone}: {res}")
+        return False
+        
     elif action == 'url_button':
         btn_label = node_data.get('btn_label', 'Click Here')
         url = node_data.get('url', '')

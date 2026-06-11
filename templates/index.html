@@ -2717,6 +2717,21 @@
         }
 
         async function executeSaveFlow(id, name, data) {
+            // Inject WAPP form questions into node data
+            if (data && data.drawflow && data.drawflow.Home && data.drawflow.Home.data) {
+                for (const key in data.drawflow.Home.data) {
+                    const node = data.drawflow.Home.data[key];
+                    if (node.name === 'wapp_form' && node.data.form_id) {
+                        const form = window.savedWappForms.find(f => f.id === node.data.form_id);
+                        if (form) {
+                            node.data.form_questions = form.questions;
+                            node.data.form_name = form.name;
+                            node.data.form_webhook = form.webhookUrl;
+                        }
+                    }
+                }
+            }
+            
             try {
                 const res = await fetch('/api/flows', {
                     method: 'POST',
@@ -2903,16 +2918,15 @@
             }
             else if(name === 'wapp_form') {
                 html = `
-                <div class="title-box" style="background: white; border-bottom: 1px solid #e2e8f0; border-radius: 12px 12px 0 0;"><div class="flex items-center gap-2"><div class="w-6 h-6 rounded bg-red-50 text-red-500 flex items-center justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div> <span class="text-blue-900 font-bold text-base">WAPP Form</span></div> <svg class="w-4 h-4 text-slate-400" onclick="editor.removeNodeId('node-'+this.parentElement.parentElement.id.slice(5))" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>
+                <div class="title-box" style="background-color: #e2e8f0; border-radius: 12px 12px 0 0;"><div class="flex items-center gap-2"><div class="w-6 h-6 rounded bg-red-50 text-red-500 flex items-center justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div> <span class="text-blue-900 font-bold text-base">Meta WAPP Flow</span></div> <svg class="w-4 h-4 text-slate-400" onclick="editor.removeNodeId('node-'+this.parentElement.parentElement.id.slice(5))" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>
                 <div class="box space-y-3 bg-white" style="border-radius: 0 0 12px 12px;">
-                    <select df-form_id class="w-full text-base border border-slate-300 rounded p-2 bg-white outline-none text-slate-800" onclick="updateWappFormDropdowns()">
-                        <option value="">Select Formname</option>
-                    </select>
-                    <button onclick="openWappFormManager()" class="w-full text-white font-bold py-2.5 px-4 rounded shadow-sm transition-colors text-sm" style="background-color: #b8860b;">Manage WAPP Form</button>
+                    <label class="text-xs font-bold text-slate-500">Meta Flow ID</label>
+                    <input df-flow_id type="text" class="w-full text-sm border border-slate-300 rounded p-2 bg-white outline-none text-slate-800" placeholder="e.g. 123456789">
+                    <label class="text-xs font-bold text-slate-500 mt-2">Button Label</label>
+                    <input df-flow_cta type="text" class="w-full text-sm border border-slate-300 rounded p-2 bg-white outline-none text-slate-800" placeholder="Open Form">
                 </div>
                 `;
-                editor.addNode('wapp_form', 1, 1, pos_x, pos_y, 'wapp_form', { "action": "wapp_form", "form_id": "" }, html);
-                setTimeout(updateWappFormDropdowns, 100);
+                editor.addNode('wapp_form', 1, 1, pos_x, pos_y, 'wapp_form', { "action": "wapp_form", "flow_id": "", "flow_cta": "Open Form" }, html);
                 
                 // Add green border to the newly created node
                 setTimeout(() => {
