@@ -2967,10 +2967,13 @@
                 html = `
                 <div class="title-box"><div class="flex items-center gap-2"><div class="w-6 h-6 rounded bg-slate-100 text-slate-600 flex items-center justify-center"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></div> Add to Group</div> <svg class="w-4 h-4" onclick="editor.removeNodeId('node-'+this.parentElement.parentElement.id.slice(5))" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>
                 <div class="box space-y-2">
-                    <input df-group_name type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="Group Name">
+                    <select df-group_name class="w-full text-sm border border-slate-200 rounded p-2 outline-none" onclick="updateAddGroupDropdowns()">
+                        <option value="">Select a Group...</option>
+                    </select>
                 </div>
                 `;
                 editor.addNode('add_group', 1, 1, pos_x, pos_y, 'add_group', { "action": "add_group", "group_name": "" }, html);
+                setTimeout(updateAddGroupDropdowns, 100);
             }
             else if(name === 'add_tag') {
                 html = `
@@ -3066,6 +3069,7 @@
                 } else if (tab === 'chatbot') {
                     content.classList.add('block');
                     initDrawflow();
+                    fetchWpChannels();
                 } else if (tab === 'chat') {
                     content.classList.add('flex');
                     loadChatContacts();
@@ -6916,10 +6920,10 @@
                     <h2 class="text-xl text-slate-600 mr-4">Group Master</h2>
                     
                     <div class="flex gap-2">
-                        <button onclick="document.getElementById('addChannelModal').classList.remove('hidden')" class="bg-[#10b981] hover:bg-emerald-600 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm">
+                        <button onclick="document.getElementById('addChannelModal').classList.remove('hidden')" class="px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm hover:opacity-90" style="background-color: #10b981; color: white;">
                             Create Group
                         </button>
-                        <button onclick="fetchWpChannels()" class="bg-[#10b981] hover:bg-emerald-600 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm">
+                        <button onclick="fetchWpChannels()" class="px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm hover:opacity-90" style="background-color: #10b981; color: white;">
                             Fetch from WAChannel
                         </button>
                     </div>
@@ -6971,7 +6975,7 @@
                 <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <h3 class="text-lg font-bold text-slate-800" id="viewMembersModalTitle">Group Members</h3>
                     <div class="flex items-center gap-3">
-                        <button onclick="fetchContactsForChannel()" id="btnFetchChannelContacts" class="bg-[#10b981] hover:bg-emerald-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
+                        <button onclick="fetchContactsForChannel()" id="btnFetchChannelContacts" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
                             <i class="fa-solid fa-cloud-arrow-down"></i> Fetch from WAChannel
                         </button>
                         <button onclick="document.getElementById('viewMembersModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-colors">
@@ -7223,11 +7227,32 @@
         });
 
         // WP Channels Logic
+        window.backendWpChannels = [];
+        function updateAddGroupDropdowns() {
+            const dropdowns = document.querySelectorAll('.drawflow-node.add_group select[df-group_name]');
+            dropdowns.forEach(dropdown => {
+                const currentVal = dropdown.value;
+                dropdown.innerHTML = '<option value="">Select a Group...</option>';
+                (window.backendWpChannels || []).forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.name;
+                    opt.textContent = f.name;
+                    dropdown.appendChild(opt);
+                });
+                const exists = Array.from(dropdown.options).some(opt => opt.value == currentVal);
+                if (exists && currentVal !== "") {
+                    dropdown.value = currentVal;
+                }
+            });
+        }
+
         async function fetchWpChannels() {
             try {
                 const res = await fetch('/api/wp_channels');
                 if (res.ok) {
                     const channels = await res.json();
+                    window.backendWpChannels = channels;
+                    if(typeof updateAddGroupDropdowns === 'function') updateAddGroupDropdowns();
                     const tbody = document.getElementById('channelsList');
                     if (channels.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-sm text-slate-500 italic">No groups found. Create one above!</td></tr>';
@@ -7447,100 +7472,6 @@
             </div>
         </div>
     </div>
-<script>
-async function fetchWpChannels() {
-    try {
-        const response = await fetch('/api/wp_channels');
-        const data = await response.json();
-        
-        const tbody = document.getElementById('channelsList');
-        tbody.innerHTML = '';
-        
-        // The API returns an array directly
-        if (Array.isArray(data) && data.length > 0) {
-            data.forEach(channel => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-50 transition-colors group';
-                tr.innerHTML = `
-                    <td class="p-4 font-medium text-slate-900">#${channel.id}</td>
-                    <td class="p-4 font-bold text-slate-800">${channel.name}</td>
-                    <td class="p-4 text-slate-500">${new Date(channel.created_at).toLocaleString()}</td>
-                    <td class="p-4 text-right">
-                        <button onclick="viewChannelMembers(${channel.id})" class="text-blue-600 hover:text-blue-800 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors text-sm">
-                            <i class="fa-solid fa-users mr-1"></i> View Members
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        } else {
-            tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-slate-500">No groups found. Create one to get started!</td></tr>`;
-        }
-    } catch (error) {
-        console.error('Error fetching WP Channels:', error);
-    }
-}
 
-async function submitChannel(event) {
-    event.preventDefault();
-    const nameInput = document.getElementById('channelName');
-    const name = nameInput.value.trim();
-    
-    if (!name) return;
-    
-    try {
-        const response = await fetch('/api/wp_channels', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name: name })
-        });
-        
-        if (response.ok) {
-            document.getElementById('addChannelModal').classList.add('hidden');
-            nameInput.value = '';
-            fetchWpChannels();
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            alert(errorData.error || 'Failed to create channel');
-        }
-    } catch (error) {
-        console.error('Error creating channel:', error);
-        alert('An error occurred');
-    }
-}
-
-async function viewChannelMembers(channelId) {
-    try {
-        const response = await fetch(`/api/wp_channels/${channelId}/members`);
-        const data = await response.json();
-        
-        const tbody = document.getElementById('channelMembersList');
-        tbody.innerHTML = '';
-        
-        // The API returns an array directly
-        if (Array.isArray(data) && data.length > 0) {
-            data.forEach(member => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-50 transition-colors';
-                tr.innerHTML = `
-                    <td class="p-4 font-medium text-slate-900">${member.phone}</td>
-                    <td class="p-4 text-slate-600">${member.name || '-'}</td>
-                    <td class="p-4 text-slate-500">${new Date(member.created_at).toLocaleString()}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        } else {
-            tbody.innerHTML = `<tr><td colspan="3" class="p-8 text-center text-slate-500">No members found in this group yet.</td></tr>`;
-        }
-        
-        document.getElementById('viewMembersModal').classList.remove('hidden');
-    } catch (error) {
-        console.error('Error fetching members:', error);
-        alert('Failed to fetch members');
-    }
-}
-</script>
 </body>
 </html>
