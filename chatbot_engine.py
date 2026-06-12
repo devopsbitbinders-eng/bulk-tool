@@ -53,6 +53,8 @@ async def process_chatbot_message(user_id: int, phone: str, body: str, msg_type:
             elif inter_type == 'list_reply':
                 interactive_id = inter.get('list_reply', {}).get('id')
                 text_input = str(inter.get('list_reply', {}).get('title', '')).strip().lower()
+            elif inter_type == 'nfm_reply':
+                text_input = "form_submitted"
         except:
             pass
     elif msg_type == "location":
@@ -307,7 +309,7 @@ async def execute_single_node(user_id, phone, node_data):
                         "flow_cta": flow_cta[:20],
                         "flow_action": "navigate",
                         "flow_action_payload": {
-                            "screen": "START"
+                            "screen": "FORM_SCREEN"
                         }
                     }
                 }
