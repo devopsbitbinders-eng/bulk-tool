@@ -187,6 +187,7 @@ async def execute_single_node(user_id, phone, node_data):
     Returns False if execution should flow immediately to the next node.
     """
     action = node_data.get('action')
+    db = await get_db()
     credentials_record = await get_active_credentials(user_id)
     if not credentials_record: return False
     credentials = dict(credentials_record)
@@ -351,8 +352,70 @@ async def execute_single_node(user_id, phone, node_data):
         return False
         
     elif action == 'add_tag':
-        tag = node_data.get('tag_name')
-        print(f"DEBUG: TAG {tag} added to {phone}")
+        tag_name = node_data.get('tag_name', '')
+        print(f"DEBUG: TAG {tag_name} added to {phone}")
+        await log_bot_reply(user_id, phone, f"[Tag Added: {tag_name}]", "")
         return False
+        
+    elif action == 'add_group':
+        group_name = node_data.get('group_name', '')
+        print(f"DEBUG: Added {phone} to group {group_name}")
+        await log_bot_reply(user_id, phone, f"[Added to Group: {group_name}]", "")
+        return False
+        
+    elif action == 'opt_out':
+        print(f"DEBUG: Opt-out triggered for {phone}")
+        try:
+            await db.execute("INSERT OR IGNORE INTO opt_outs (phone) VALUES (:p)", {"p": phone})
+            await log_bot_reply(user_id, phone, f"[User Opted Out]", "")
+        except: pass
+        return False
+        
+    elif action == 'connect_agents':
+        print(f"DEBUG: Connecting {phone} to agents")
+        session = await db.fetch_one("SELECT state_data FROM user_sessions WHERE user_id = :u AND phone_number = :p", {"u": user_id, "p": phone})
+        if session:
+            try:
+                import json
+                state = json.loads(session['state_data']) if session['state_data'] else {}
+                state['live_agent'] = True
+                await db.execute("UPDATE user_sessions SET state_data = :st WHERE user_id = :u AND phone_number = :p", {"st": json.dumps(state), "u": user_id, "p": phone})
+            except: pass
+        await log_bot_reply(user_id, phone, f"[Routing to Live Agent...]", "")
+        return False
+        
+    elif action == 'push_webhook':
+        webhook_url = node_data.get('webhook_url', '')
+        if webhook_url:
+            session = await db.fetch_one("SELECT state_data FROM user_sessions WHERE user_id = :u AND phone_number = :p", {"u": user_id, "p": phone})
+            payload = {"phone": phone, "user_id": user_id}
+            if session:
+                import json
+                try: payload['state'] = json.loads(session['state_data'])
+                except: pass
+            try:
+                async with httpx.AsyncClient() as client:
+                    await client.post(webhook_url, json=payload, timeout=5.0)
+                await log_bot_reply(user_id, phone, f"[Webhook Pushed: {webhook_url}]", "")
+            except Exception as e:
+                print(f"DEBUG: Webhook push failed: {e}")
+        return False
+        
+    elif action == 'connect_flow':
+        flow_id = node_data.get('flow_id', '')
+        if str(flow_id).isdigit():
+            new_flow = await db.fetch_one("SELECT flow_json FROM flows WHERE id = :fid", {"fid": int(flow_id)})
+            if new_flow:
+                try:
+                    import json
+                    flow_data = json.loads(new_flow['flow_json'])
+                    new_nodes = flow_data.get('drawflow', {}).get('Home', {}).get('data', {})
+                    start_node = next((n for n in new_nodes.values() if n.get('data', {}).get('action') == 'start'), None)
+                    if start_node:
+                        # Update session to point to the new flow's start node
+                        await db.execute("UPDATE user_sessions SET flow_id = :fid, current_node_id = :nid WHERE user_id = :u AND phone_number = :p", {"fid": int(flow_id), "nid": start_node['id'], "u": user_id, "p": phone})
+                        await log_bot_reply(user_id, phone, f"[Connected to Flow: {flow_id}]", "")
+                except Exception as e: print(f"DEBUG Connect flow error: {e}")
+        return True # Return True to stop current flow execution and wait for next interaction
         
     return False
