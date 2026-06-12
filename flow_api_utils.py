@@ -47,8 +47,8 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
                 "name": f"q_{idx}",
                 "label": str(q_text)[:30],
                 "options": [
-                    {"id": "opt1", "title": "Option 1"},
-                    {"id": "opt2", "title": "Option 2"}
+                    {"id": "opt_a", "title": "Option 1"},
+                    {"id": "opt_b", "title": "Option 2"}
                 ],
                 "required": True
             })
@@ -70,7 +70,7 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
       "version": "7.3",
       "screens": [
         {
-          "id": "SCREEN_1",
+          "id": "FORM_SCREEN",
           "title": str(flow_name)[:20],
           "terminal": True,
           "success": True,
