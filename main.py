@@ -3852,8 +3852,19 @@ async def get_wapp_forms(request: Request):
     u_id = await get_user_id(username)
     
     db = await get_db()
-    forms = await db.fetch_all("SELECT id, name, meta_flow_id, questions_json FROM wapp_forms WHERE user_id = :u ORDER BY created_at DESC", {"u": u_id})
-    return [dict(f) for f in forms]
+    forms = await db.fetch_all("SELECT id, name, meta_flow_id, questions_json, created_at FROM wapp_forms WHERE user_id = :u ORDER BY created_at DESC", {"u": u_id})
+    res = []
+    import json
+    for f in forms:
+        d = dict(f)
+        d['id'] = str(d['id'])
+        d['createdAt'] = d['created_at']
+        try:
+            d['questions'] = json.loads(d['questions_json']) if d['questions_json'] else []
+        except:
+            d['questions'] = []
+        res.append(d)
+    return res
 
 @app.delete("/api/flows/{flow_id}")
 async def delete_flow(flow_id: int, request: Request):
