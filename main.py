@@ -3985,7 +3985,7 @@ async def get_wp_channels(request: Request):
     if not username: return JSONResponse(status_code=401, content={'error': 'Unauthorized'})
     u_id = await get_user_id(username)
     db = await get_db()
-    rows = await db.fetch_all('SELECT id, name, created_at FROM wp_channels WHERE user_id = :u ORDER BY created_at DESC', {'u': u_id})
+    rows = await db.fetch_all('SELECT c.id, c.name, c.created_at, (SELECT COUNT(*) FROM wp_channel_members m WHERE m.channel_id = c.id) as total FROM wp_channels c WHERE c.user_id = :u ORDER BY c.created_at DESC', {'u': u_id})
     return safe_json_response([dict(r) for r in rows])
 
 @app.post('/api/wp_channels')
@@ -4013,3 +4013,94 @@ async def get_wp_channel_members(channel_id: int, request: Request):
     members = await db.fetch_all('SELECT id, phone, name, created_at FROM wp_channel_members WHERE channel_id = :id ORDER BY created_at DESC', {'id': channel_id})
     return safe_json_response([dict(m) for m in members])
 
+@app.post('/api/wp_channels/{channel_id}/fetch')
+async def fetch_wp_channel_contacts(channel_id: int, request: Request):
+    session_token = request.cookies.get('session_token')
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={'error': 'Unauthorized'})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    
+    channel = await db.fetch_one('SELECT id, name FROM wp_channels WHERE id = :id AND user_id = :u', {'id': channel_id, 'u': u_id})
+    if not channel: return JSONResponse(status_code=404, content={'error': 'Channel not found'})
+    
+    channel_name = channel['name']
+    added_count = 0
+    
+    if channel_name.lower() == 'campaign replies':
+        # Fetch anyone who has replied but is not in any other group
+        # Find all inbound senders
+        senders = await db.fetch_all("SELECT phone, sender_name FROM chat_messages WHERE user_id = :u AND direction = 'inbound' AND phone IS NOT NULL", {'u': u_id})
+        unique_senders = {s['phone']: s['sender_name'] for s in senders}
+        
+        # Find all phones currently in ANY group for this user
+        existing_members = await db.fetch_all("""
+            SELECT m.phone FROM wp_channel_members m
+            JOIN wp_channels c ON m.channel_id = c.id
+            WHERE c.user_id = :u
+        """, {'u': u_id})
+        existing_phones = {m['phone'] for m in existing_members}
+        
+        # Insert phones not in any group
+        for phone, name in unique_senders.items():
+            if phone not in existing_phones:
+                try:
+                    await db.execute("INSERT INTO wp_channel_members (channel_id, phone, name) VALUES (:cid, :p, :n) ON DUPLICATE KEY UPDATE name = :n", 
+                                     {"cid": channel_id, "p": phone, "n": name})
+                    added_count += 1
+                except:
+                    pass
+    else:
+        # Fetch anyone who has submitted a form that contains this channel name
+        # "if any user submitted the flow in which they have chosen the group name so when the client is inside that group and clicked on fetch then only fetch those who has that group assigned via flow form"
+        like_query = f"%📄 Form Submitted:%{channel_name}%"
+        form_submitters = await db.fetch_all("""
+            SELECT phone, sender_name FROM chat_messages 
+            WHERE user_id = :u AND direction = 'inbound' AND message LIKE :lq
+        """, {'u': u_id, 'lq': like_query})
+        
+        unique_submitters = {s['phone']: s['sender_name'] for s in form_submitters}
+        
+        for phone, name in unique_submitters.items():
+            try:
+                await db.execute("INSERT INTO wp_channel_members (channel_id, phone, name) VALUES (:cid, :p, :n) ON DUPLICATE KEY UPDATE name = :n", 
+                                 {"cid": channel_id, "p": phone, "n": name})
+                added_count += 1
+            except:
+                pass
+                
+        # Also remove them from 'Campaign Replies' if they were there
+        cr_channel = await db.fetch_one("SELECT id FROM wp_channels WHERE LOWER(name) = 'campaign replies' AND user_id = :u", {'u': u_id})
+        if cr_channel:
+            cr_id = cr_channel['id']
+            for phone in unique_submitters.keys():
+                await db.execute("DELETE FROM wp_channel_members WHERE channel_id = :cid AND phone = :p", {"cid": cr_id, "p": phone})
+                
+    return {'status': 'ok', 'added': added_count}
+
+@app.post('/api/wp_channels/members/move')
+async def move_wp_channel_member(request: Request):
+    session_token = request.cookies.get('session_token')
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={'error': 'Unauthorized'})
+    u_id = await get_user_id(username)
+    
+    data = await request.json()
+    member_id = data.get('member_id')
+    new_channel_id = data.get('new_channel_id')
+    
+    if not member_id or not new_channel_id:
+        return JSONResponse(status_code=400, content={'error': 'Missing member or channel ID'})
+        
+    db = await get_db()
+    channel = await db.fetch_one('SELECT id FROM wp_channels WHERE id = :id AND user_id = :u', {'id': new_channel_id, 'u': u_id})
+    if not channel: return JSONResponse(status_code=403, content={'error': 'Invalid target channel'})
+    
+    # Update the member's channel_id. We also delete them if they already exist in the target channel to avoid duplicates before updating
+    phone_res = await db.fetch_one("SELECT phone FROM wp_channel_members WHERE id = :mid", {"mid": member_id})
+    if phone_res:
+        phone = phone_res['phone']
+        await db.execute("DELETE FROM wp_channel_members WHERE channel_id = :ncid AND phone = :p", {"ncid": new_channel_id, "p": phone})
+        await db.execute("UPDATE wp_channel_members SET channel_id = :ncid WHERE id = :mid", {"ncid": new_channel_id, "mid": member_id})
+                     
+    return {'status': 'ok'}

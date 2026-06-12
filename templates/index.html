@@ -6908,34 +6908,32 @@
 
         <!-- WP Channels -->
         <div id="content-channels" class="hidden max-w-7xl mx-auto px-4 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div class="flex justify-between items-center mb-8 mt-6">
-                <div>
-                    <h2 class="text-3xl font-bold text-slate-800 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                            <i class="fa-solid fa-users"></i>
-                        </div>
-                        WP Channels (Groups)
-                    </h2>
-                    <p class="text-slate-500 mt-2">Manage groups and fetch users who have interacted with your bot.</p>
-                </div>
-                <div class="flex gap-3">
-                    <button onclick="fetchWpChannels()" class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm flex items-center gap-2">
-                        <i class="fa-solid fa-rotate-right"></i> Refresh
-                    </button>
-                    <button onclick="document.getElementById('addChannelModal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm flex items-center gap-2">
-                        <i class="fa-solid fa-plus"></i> Add Group
-                    </button>
+            <div class="flex flex-col md:flex-row md:items-center gap-4 pt-6 pb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xl overflow-hidden">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <h2 class="text-xl text-slate-600 mr-4">Group Master</h2>
+                    
+                    <div class="flex gap-2">
+                        <button onclick="document.getElementById('addChannelModal').classList.remove('hidden')" class="bg-[#10b981] hover:bg-emerald-600 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm">
+                            Create Group
+                        </button>
+                        <button onclick="fetchWpChannels()" class="bg-[#10b981] hover:bg-emerald-600 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm">
+                            Fetch from WAChannel
+                        </button>
+                    </div>
                 </div>
             </div>
             
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <table class="w-full text-left border-collapse">
+            <div class="bg-white border border-slate-200 overflow-hidden shadow-sm mt-4">
+                <table class="w-full text-sm">
                     <thead>
-                        <tr class="bg-blue-50/50 border-b border-slate-200 text-slate-500 text-sm font-medium">
-                            <th class="p-4">Channel ID</th>
-                            <th class="p-4">Name</th>
-                            <th class="p-4">Created On</th>
-                            <th class="p-4 text-right">Action</th>
+                        <tr style="background-color:#10b981;" class="text-white">
+                            <th class="px-4 py-3 text-left font-bold">Group Name <i class="fa-solid fa-sort ml-1 opacity-70"></i></th>
+                            <th class="px-4 py-3 text-left font-bold">Created On <i class="fa-solid fa-sort ml-1 opacity-70"></i></th>
+                            <th class="px-4 py-3 text-left font-bold">Total <i class="fa-solid fa-sort ml-1 opacity-70"></i></th>
+                            <th class="px-4 py-3 text-center font-bold">Action <i class="fa-solid fa-sort ml-1 opacity-70"></i></th>
                         </tr>
                     </thead>
                     <tbody id="channelsList" class="text-sm">
@@ -6971,10 +6969,15 @@
         <div id="viewMembersModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
             <div class="bg-white shadow-xl w-full max-w-2xl overflow-hidden rounded-xl flex flex-col max-h-[80vh]">
                 <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 class="text-lg font-bold text-slate-800">Group Members</h3>
-                    <button onclick="document.getElementById('viewMembersModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-colors">
-                        <i class="fa-solid fa-xmark text-xl"></i>
-                    </button>
+                    <h3 class="text-lg font-bold text-slate-800" id="viewMembersModalTitle">Group Members</h3>
+                    <div class="flex items-center gap-3">
+                        <button onclick="fetchContactsForChannel()" id="btnFetchChannelContacts" class="bg-[#10b981] hover:bg-emerald-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-arrow-down"></i> Fetch from WAChannel
+                        </button>
+                        <button onclick="document.getElementById('viewMembersModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <i class="fa-solid fa-xmark text-xl"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="p-0 overflow-y-auto">
                     <table class="w-full text-left border-collapse">
@@ -6983,6 +6986,7 @@
                                 <th class="p-4">Phone</th>
                                 <th class="p-4">Name</th>
                                 <th class="p-4">Added On</th>
+                                <th class="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="channelMembersList" class="text-sm">
@@ -6992,6 +6996,33 @@
                 </div>
                 <div class="p-4 border-t border-slate-100 bg-slate-50 text-right">
                     <button onclick="document.getElementById('viewMembersModal').classList.add('hidden')" class="px-5 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors">Close</button>
+                </div>
+            </div>
+        </div>
+
+        </div>
+
+        <div id="moveMemberModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 transition-all duration-300 opacity-0 data-[state=open]:opacity-100">
+            <div class="bg-white shadow-xl w-full max-w-sm overflow-hidden rounded-xl flex flex-col">
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="text-lg font-bold text-slate-800">Move Member</h3>
+                    <button onclick="closeMoveMemberModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <p class="text-sm text-slate-500 mb-4">Select a new group for <span id="moveMemberName" class="font-bold text-slate-700"></span></p>
+                    <input type="hidden" id="moveMemberId">
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Target Group</label>
+                        <select id="moveMemberTargetChannel" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#0070f3] focus:border-[#0070f3] transition-all text-sm text-slate-700 outline-none">
+                            <option value="">Loading groups...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-slate-100 bg-slate-50 text-right flex justify-end gap-3">
+                    <button onclick="closeMoveMemberModal()" class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors">Cancel</button>
+                    <button onclick="submitMoveMember()" id="btnSubmitMove" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">Move User</button>
                 </div>
             </div>
         </div>
@@ -7204,13 +7235,22 @@
                     }
                     tbody.innerHTML = channels.map(c => `
                         <tr class="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-0">
-                            <td class="p-4 font-mono text-slate-500">${c.id}</td>
-                            <td class="p-4 font-medium text-slate-800">${c.name}</td>
-                            <td class="p-4 text-slate-500">${new Date(c.created_at).toLocaleString()}</td>
-                            <td class="p-4 text-right">
-                                <button onclick="viewChannelMembers(${c.id}, '${c.name.replace(/'/g, "\\'")}')" class="text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded text-xs font-bold transition-colors">
-                                    <i class="fa-solid fa-users mr-1"></i> View Members
-                                </button>
+                            <td class="px-4 py-3 text-slate-600">${c.name}</td>
+                            <td class="px-4 py-3 text-slate-500">${new Date(c.created_at).toLocaleString()}</td>
+                            <td class="px-4 py-3 text-slate-600">${c.total || 0}</td>
+                            <td class="px-4 py-3 text-center">
+                                <div class="relative inline-block text-left" x-data="{ open: false }">
+                                    <button onclick="this.nextElementSibling.classList.toggle('hidden')" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded text-sm transition-colors">
+                                        <i class="fa-solid fa-ellipsis"></i>
+                                    </button>
+                                    <div class="hidden absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                        <div class="py-1" role="none">
+                                            <button onclick="viewChannelMembers(${c.id}, '${c.name.replace(/'/g, "\\'")}')" class="text-slate-700 block w-full px-4 py-2 text-left text-sm hover:bg-slate-100"><i class="fa-solid fa-users mr-2 text-blue-500"></i> View Members</button>
+                                            <button class="text-slate-700 block w-full px-4 py-2 text-left text-sm hover:bg-slate-100"><i class="fa-solid fa-code-merge mr-2 text-amber-500"></i> Merge Group</button>
+                                            <button class="text-rose-600 block w-full px-4 py-2 text-left text-sm hover:bg-slate-100"><i class="fa-solid fa-trash mr-2"></i> Delete Group</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                     `).join('');
@@ -7243,7 +7283,13 @@
             }
         }
 
+        let currentViewedChannelId = null;
+        let currentViewedChannelName = null;
+
         async function viewChannelMembers(id, name) {
+            currentViewedChannelId = id;
+            currentViewedChannelName = name;
+            document.getElementById('viewMembersModalTitle').innerText = 'Group Members: ' + name;
             document.getElementById('viewMembersModal').classList.remove('hidden');
             const tbody = document.getElementById('channelMembersList');
             tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-sm text-slate-500 italic">Loading members...</td></tr>';
@@ -7260,12 +7306,116 @@
                             <td class="p-4 font-mono text-slate-700">${m.phone_number}</td>
                             <td class="p-4 font-medium text-slate-800">${m.sender_name || '-'}</td>
                             <td class="p-4 text-slate-500">${new Date(m.joined_at).toLocaleString()}</td>
+                            <td class="p-4 text-right">
+                                <button onclick="openMoveMemberModal(${m.id}, '${m.sender_name || m.phone_number}')" class="bg-blue-100 hover:bg-blue-200 text-blue-600 px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fa-solid fa-people-arrows"></i> Move
+                                </button>
+                            </td>
                         </tr>
                     `).join('');
                 }
             } catch (e) {
                 tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-sm text-red-500">Error loading members</td></tr>';
                 showToast("Error fetching members", "error");
+            }
+        }
+
+        async function fetchContactsForChannel() {
+            if (!currentViewedChannelId) return;
+            const btn = document.getElementById('btnFetchChannelContacts');
+            const ogHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Fetching...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/wp_channels/${currentViewedChannelId}/fetch`, { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(`Successfully fetched and added ${data.added} contacts`, 'success');
+                    // Refresh the modal view
+                    viewChannelMembers(currentViewedChannelId, currentViewedChannelName);
+                    // Also refresh the channels list
+                    fetchWpChannels();
+                } else {
+                    showToast(data.error || "Failed to fetch contacts", "error");
+                }
+            } catch(e) {
+                showToast("Error fetching contacts", "error");
+            } finally {
+                btn.innerHTML = ogHtml;
+                btn.disabled = false;
+            }
+        }
+
+        async function openMoveMemberModal(memberId, memberName) {
+            document.getElementById('moveMemberId').value = memberId;
+            document.getElementById('moveMemberName').innerText = memberName;
+            
+            // fetch groups for dropdown
+            const select = document.getElementById('moveMemberTargetChannel');
+            select.innerHTML = '<option value="">Loading...</option>';
+            
+            try {
+                const res = await fetch('/api/wp_channels');
+                if (res.ok) {
+                    const channels = await res.json();
+                    select.innerHTML = channels.filter(c => c.id !== currentViewedChannelId).map(c => `
+                        <option value="${c.id}">${c.name}</option>
+                    `).join('');
+                }
+            } catch(e) {
+                console.error(e);
+                select.innerHTML = '<option value="">Error loading groups</option>';
+            }
+            
+            const modal = document.getElementById('moveMemberModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.setAttribute('data-state', 'open'); }, 10);
+        }
+
+        function closeMoveMemberModal() {
+            const modal = document.getElementById('moveMemberModal');
+            modal.removeAttribute('data-state');
+            setTimeout(() => { modal.classList.add('hidden'); }, 300);
+        }
+
+        async function submitMoveMember() {
+            const memberId = document.getElementById('moveMemberId').value;
+            const newChannelId = document.getElementById('moveMemberTargetChannel').value;
+            if (!newChannelId) {
+                showToast('Please select a target group', 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('btnSubmitMove');
+            const ogHtml = btn.innerHTML;
+            btn.innerHTML = 'Moving...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/wp_channels/members/${memberId}/move`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_channel_id: newChannelId })
+                });
+                
+                if (res.ok) {
+                    showToast('Member moved successfully', 'success');
+                    closeMoveMemberModal();
+                    // refresh current members list
+                    viewChannelMembers(currentViewedChannelId, currentViewedChannelName);
+                    // refresh total count in background
+                    fetchWpChannels();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || 'Failed to move member', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Error moving member', 'error');
+            } finally {
+                btn.innerHTML = ogHtml;
+                btn.disabled = false;
             }
         }
     </script>
