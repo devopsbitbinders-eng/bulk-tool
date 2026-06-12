@@ -52,16 +52,26 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
             
         elif q_type == 'LIST':
             options = []
+            opts_raw = q.get('options', '')
             import re
-            match = re.search(r'[\(\[](.+?)[\)\]]$', q_text.strip())
-            label_text = q_text
-            if match:
-                opts_str = match.group(1)
-                opts = [o.strip() for o in opts_str.split(',') if o.strip()]
-                if opts:
-                    for i, opt in enumerate(opts):
-                        options.append({"id": f"opt_{i}", "title": str(opt)[:24]})
-                    label_text = q_text.replace(match.group(0), "").strip()
+            
+            # First try to get options from the dedicated UI field
+            if opts_raw:
+                opts = [o.strip() for o in opts_raw.split(',') if o.strip()]
+                for i, opt in enumerate(opts):
+                    options.append({"id": f"opt_{i}", "title": str(opt)[:24]})
+                label_text = q_text
+            else:
+                # Fallback to parsing from brackets in the question text
+                match = re.search(r'[\(\[](.+?)[\)\]]$', q_text.strip())
+                label_text = q_text
+                if match:
+                    opts_str = match.group(1)
+                    opts = [o.strip() for o in opts_str.split(',') if o.strip()]
+                    if opts:
+                        for i, opt in enumerate(opts):
+                            options.append({"id": f"opt_{i}", "title": str(opt)[:24]})
+                        label_text = q_text.replace(match.group(0), "").strip()
             
             if not options:
                 options = [

@@ -5868,12 +5868,15 @@
             window._wfEditingId = null;
             const container = document.getElementById('wappFormQuestions');
             if (container) {
-                container.innerHTML = `<div class="question-row" style="display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem;">
+                container.innerHTML = `<div class="question-row" style="display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem; flex-wrap: wrap;">
                     <div style="width: 65%;"><textarea class="w-full border border-slate-200 rounded px-4 py-3 outline-none text-sm resize-none placeholder-slate-400" rows="2" placeholder="Enter question"></textarea></div>
-                    <div style="width: 25%;"><select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700">
-                        <option value="IMAGE">IMAGE</option><option value="TEXT">TEXT</option><option value="NUMBER">NUMBER</option><option value="DATE">DATE</option><option value="LIST">LIST MENU</option>
+                    <div style="width: 25%;"><select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700" onchange="this.parentElement.nextElementSibling.nextElementSibling.style.display = this.value === 'LIST' ? 'block' : 'none'">
+                        <option value="TEXT">TEXT</option><option value="IMAGE">IMAGE</option><option value="NUMBER">NUMBER</option><option value="DATE">DATE</option><option value="LIST">LIST MENU</option>
                     </select></div>
                     <div style="width: 10%; display: flex; justify-content: flex-end;"><button onclick="this.closest('.question-row').remove()" class="rounded text-sm font-bold shadow-sm cursor-pointer" style="background-color: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; height: fit-content;">Delete</button></div>
+                    <div style="width: 100%; display: none;" class="options-container">
+                        <input type="text" class="w-full border border-slate-200 rounded px-4 py-2 outline-none text-sm placeholder-slate-400 list-options-input" placeholder="Comma-separated options (e.g. Red, Blue, Green)">
+                    </div>
                 </div>`;
             }
             const advWebhook = document.getElementById('wf_enable_webhook');
@@ -5903,25 +5906,31 @@
             if (container) {
                 const questions = form.questions || [];
                 if (questions.length === 0) {
-                    container.innerHTML = `<div class="question-row" style="display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem;">
+                    container.innerHTML = `<div class="question-row" style="display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem; flex-wrap: wrap;">
                         <div style="width: 65%;"><textarea class="w-full border border-slate-200 rounded px-4 py-3 outline-none text-sm resize-none placeholder-slate-400" rows="2" placeholder="Enter question"></textarea></div>
-                        <div style="width: 25%;"><select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700">
-                            <option value="IMAGE">IMAGE</option><option value="TEXT">TEXT</option><option value="NUMBER">NUMBER</option><option value="DATE">DATE</option><option value="LIST">LIST MENU</option>
+                        <div style="width: 25%;"><select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700" onchange="this.parentElement.nextElementSibling.nextElementSibling.style.display = this.value === 'LIST' ? 'block' : 'none'">
+                            <option value="TEXT">TEXT</option><option value="IMAGE">IMAGE</option><option value="NUMBER">NUMBER</option><option value="DATE">DATE</option><option value="LIST">LIST MENU</option>
                         </select></div>
                         <div style="width: 10%; display: flex; justify-content: flex-end;"><button onclick="this.closest('.question-row').remove()" class="rounded text-sm font-bold shadow-sm cursor-pointer" style="background-color: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; height: fit-content;">Delete</button></div>
+                        <div style="width: 100%; display: none;" class="options-container">
+                            <input type="text" class="w-full border border-slate-200 rounded px-4 py-2 outline-none text-sm placeholder-slate-400 list-options-input" placeholder="Comma-separated options (e.g. Red, Blue, Green)">
+                        </div>
                     </div>`;
                 } else {
                     container.innerHTML = questions.map(q => `
-                        <div class="question-row" style="display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem;">
+                        <div class="question-row" style="display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem; flex-wrap: wrap;">
                             <div style="width: 65%;"><textarea class="w-full border border-slate-200 rounded px-4 py-3 outline-none text-sm resize-none placeholder-slate-400" rows="2">${q.text || ''}</textarea></div>
-                            <div style="width: 25%;"><select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700">
-                                <option value="IMAGE" ${q.format==='IMAGE'?'selected':''}>IMAGE</option>
+                            <div style="width: 25%;"><select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700" onchange="this.parentElement.nextElementSibling.nextElementSibling.style.display = this.value === 'LIST' ? 'block' : 'none'">
                                 <option value="TEXT" ${q.format==='TEXT'?'selected':''}>TEXT</option>
+                                <option value="IMAGE" ${q.format==='IMAGE'?'selected':''}>IMAGE</option>
                                 <option value="NUMBER" ${q.format==='NUMBER'?'selected':''}>NUMBER</option>
                                 <option value="DATE" ${q.format==='DATE'?'selected':''}>DATE</option>
                                 <option value="LIST" ${q.format==='LIST'?'selected':''}>LIST MENU</option>
                             </select></div>
                             <div style="width: 10%; display: flex; justify-content: flex-end;"><button onclick="this.closest('.question-row').remove()" class="rounded text-sm font-bold shadow-sm cursor-pointer" style="background-color: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; height: fit-content;">Delete</button></div>
+                            <div style="width: 100%; display: ${q.format === 'LIST' ? 'block' : 'none'};" class="options-container">
+                                <input type="text" class="w-full border border-slate-200 rounded px-4 py-2 outline-none text-sm placeholder-slate-400 list-options-input" placeholder="Comma-separated options (e.g. Red, Blue, Green)" value="${q.options || ''}">
+                            </div>
                         </div>`).join('');
                 }
             }
@@ -6141,7 +6150,8 @@
             questionRows.forEach(row => {
                 const text = (row.querySelector('textarea') || {}).value || '';
                 const format = (row.querySelector('select') || {}).value || 'TEXT';
-                if (text.trim()) questions.push({ text: text.trim(), format });
+                const options = (row.querySelector('.list-options-input') || {}).value || '';
+                if (text.trim()) questions.push({ text: text.trim(), format, options });
             });
 
             const btn = event.currentTarget || document.querySelector('#wappFormQuestions').nextElementSibling.querySelector('button');
@@ -6290,15 +6300,15 @@
             const container = document.getElementById('wappFormQuestions');
             const row = document.createElement('div');
             row.className = 'question-row';
-            row.style = 'display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem;';
+            row.style = 'display: flex; gap: 1.5rem; background-color: #f8fafc; padding: 1rem; border-radius: 0.75rem; flex-wrap: wrap;';
             row.innerHTML = `
                 <div style="width: 65%;">
                     <textarea class="w-full border border-slate-200 rounded px-4 py-3 outline-none text-sm resize-none placeholder-slate-400" rows="2" placeholder="Enter question"></textarea>
                 </div>
                 <div style="width: 25%;">
-                    <select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700">
-                        <option value="IMAGE">IMAGE</option>
+                    <select class="w-full border border-slate-200 rounded px-3 py-2.5 outline-none text-sm bg-white text-slate-700" onchange="this.parentElement.nextElementSibling.nextElementSibling.style.display = this.value === 'LIST' ? 'block' : 'none'">
                         <option value="TEXT">TEXT</option>
+                        <option value="IMAGE">IMAGE</option>
                         <option value="NUMBER">NUMBER</option>
                         <option value="DATE">DATE</option>
                         <option value="LIST">LIST MENU</option>
@@ -6306,6 +6316,9 @@
                 </div>
                 <div style="width: 10%; display: flex; justify-content: flex-end;">
                     <button onclick="this.closest('.question-row').remove()" class="rounded text-sm font-bold shadow-sm cursor-pointer" style="background-color: #ef4444; color: white; border: none; padding: 0.6rem 1.2rem; height: fit-content;">Delete</button>
+                </div>
+                <div style="width: 100%; display: none;" class="options-container">
+                    <input type="text" class="w-full border border-slate-200 rounded px-4 py-2 outline-none text-sm placeholder-slate-400 list-options-input" placeholder="Comma-separated options (e.g. Red, Blue, Green)">
                 </div>
             `;
             container.appendChild(row);
