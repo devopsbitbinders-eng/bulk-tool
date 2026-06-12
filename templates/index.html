@@ -274,8 +274,10 @@
                 </button>
                 <button onclick="switchTab('chatbot')" id="tab-chatbot"
                     class="tab-btn h-full px-3 xl:px-4 font-medium text-[13px] xl:text-sm whitespace-nowrap text-slate-500 hover:text-slate-800 transition-all flex items-center border-b-2 border-transparent">Chatbot</button>
-                <button onclick="switchTab('wappforms')" id="tab-wappforms"
+                <button id="tab-wappforms" onclick="switchTab('wappforms')"
                     class="tab-btn h-full px-3 xl:px-4 font-medium text-[13px] xl:text-sm whitespace-nowrap text-slate-500 hover:text-slate-800 transition-all flex items-center border-b-2 border-transparent">WhatsApp Forms</button>
+                <button id="tab-agents" onclick="switchTab('agents')"
+                    class="tab-btn h-full px-3 xl:px-4 font-medium text-[13px] xl:text-sm whitespace-nowrap text-emerald-600 hover:text-emerald-700 transition-all flex items-center border-b-2 border-transparent"><i class="fa-solid fa-headset mr-2"></i>Agents</button>
                 {% if is_admin %}
                 <button onclick="switchTab('admin')" id="tab-admin"
                     class="tab-btn h-full px-3 xl:px-4 font-medium text-[13px] xl:text-sm whitespace-nowrap text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1.5 border-b-2 border-transparent">
@@ -6364,6 +6366,126 @@
             document.getElementById('previewSampleModal').classList.remove('flex');
         }
 
+        async function loadAgents() {
+            try {
+                const res = await fetch('/api/agents');
+                const agents = await res.json();
+                const tbody = document.getElementById('agentsList');
+                tbody.innerHTML = '';
+                
+                if(!agents || agents.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-slate-500">No data available in table</td></tr>`;
+                    return;
+                }
+                
+                agents.forEach(a => {
+                    const statusDot = a.online_status === 'online' ? '<div class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></div> Online' : '<div class="w-2 h-2 rounded-full bg-slate-300 mr-2"></div> Offline';
+                    const img = a.profile_image_url ? `<img src="${a.profile_image_url}" class="w-8 h-8 rounded-full object-cover shadow-sm border border-slate-200">` : `<div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold shadow-sm">${a.name.charAt(0).toUpperCase()}</div>`;
+                    
+                    tbody.innerHTML += `
+                        <tr class="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                            <td class="p-4 font-mono text-xs text-slate-500">#${a.id}</td>
+                            <td class="p-4">
+                                <div class="flex items-center gap-3">
+                                    ${img}
+                                    <span class="font-medium text-slate-800">${a.name}</span>
+                                </div>
+                            </td>
+                            <td class="p-4 flex items-center h-full mt-2">${statusDot}</td>
+                            <td class="p-4 text-slate-600">${a.email}</td>
+                            <td class="p-4 text-slate-600">${a.mobile}</td>
+                            <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-medium ${a.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}">${a.status}</span></td>
+                            <td class="p-4 text-slate-500 text-sm">${new Date(a.created_at).toLocaleDateString()}</td>
+                            <td class="p-4 text-right">
+                                <button onclick="deleteAgent(${a.id})" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center justify-center ml-auto">
+                                    <i class="fa-solid fa-trash-can text-sm"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        function previewAgentImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('agentImagePreview').innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover">`;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        async function submitAgent(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+            
+            const formData = new FormData();
+            formData.append('email', document.getElementById('agentEmail').value);
+            formData.append('password', document.getElementById('agentPassword').value);
+            formData.append('name', document.getElementById('agentName').value);
+            formData.append('mobile', document.getElementById('agentMobile').value);
+            formData.append('role', document.getElementById('agentRole').value);
+            
+            const fileInput = document.getElementById('agentImage');
+            if(fileInput.files.length > 0) {
+                formData.append('profile_image', fileInput.files[0]);
+            }
+            
+            try {
+                const res = await fetch('/api/agents', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if(res.ok) {
+                    showToast('Agent added successfully!', 'success');
+                    document.getElementById('addAgentModal').classList.add('hidden');
+                    document.getElementById('addAgentForm').reset();
+                    document.getElementById('agentImagePreview').innerHTML = `
+                        <div class="text-center p-4">
+                            <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-400 mb-2 group-hover:text-emerald-500"></i>
+                            <p class="text-sm text-slate-500">Drag & Drop your picture or <span class="text-emerald-600 underline">Browse</span></p>
+                        </div>
+                    `;
+                    loadAgents();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || 'Failed to add agent', 'error');
+                }
+            } catch(e) {
+                showToast('Network error', 'error');
+            }
+            
+            btn.disabled = false;
+            btn.innerHTML = 'Save';
+        }
+
+        async function deleteAgent(id) {
+            if(!confirm("Are you sure you want to delete this agent?")) return;
+            try {
+                const res = await fetch(`/api/agents/${id}`, { method: 'DELETE' });
+                if(res.ok) {
+                    showToast("Agent deleted", "success");
+                    loadAgents();
+                }
+            } catch(e) {
+                showToast("Failed to delete", "error");
+            }
+        }
+        
+        // Load agents when switching to agents tab
+        const originalSwitchTab = switchTab;
+        switchTab = function(tab) {
+            originalSwitchTab(tab);
+            if(tab === 'agents') loadAgents();
+        };
+
 </script>
         <!-- Chatbot Builder -->
         <div id="content-chatbot" class="hidden h-[75vh] w-full overflow-hidden">
@@ -6597,6 +6719,105 @@
         </div>
 
         <!-- Admin Tab Content -->
+        <div id="content-agents" class="hidden max-w-7xl mx-auto px-4 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-slate-800 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                            <i class="fa-solid fa-headset"></i>
+                        </div>
+                        Manage Agents
+                    </h2>
+                    <p class="text-slate-500 mt-2">Connect human agents to handle complex customer queries seamlessly.</p>
+                </div>
+                <button onclick="document.getElementById('addAgentModal').classList.remove('hidden')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Add Agent
+                </button>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-emerald-50/50 border-b border-slate-200 text-slate-500 text-sm font-medium">
+                                <th class="p-4">Agent ID</th>
+                                <th class="p-4">Name</th>
+                                <th class="p-4">Online Status</th>
+                                <th class="p-4">Email</th>
+                                <th class="p-4">Mobile</th>
+                                <th class="p-4">Status</th>
+                                <th class="p-4">Created On</th>
+                                <th class="p-4 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agentsList" class="text-sm">
+                            <!-- Agents will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Add Agent Modal -->
+        <div id="addAgentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="text-lg font-bold text-slate-800">Add Agent</h3>
+                    <button onclick="document.getElementById('addAgentModal').classList.remove('hidden')" class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <form id="addAgentForm" onsubmit="submitAgent(event)" class="p-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="col-span-1 md:col-span-2 flex flex-col items-center">
+                            <label class="block text-sm font-medium text-slate-700 mb-2 self-start">Add Profile Image :</label>
+                            <div class="relative group cursor-pointer" onclick="document.getElementById('agentImage').click()">
+                                <div id="agentImagePreview" class="w-40 h-40 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative transition-all group-hover:border-emerald-500 group-hover:bg-emerald-50">
+                                    <div class="text-center p-4">
+                                        <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-400 mb-2 group-hover:text-emerald-500"></i>
+                                        <p class="text-sm text-slate-500">Drag & Drop your picture or <span class="text-emerald-600 underline">Browse</span></p>
+                                    </div>
+                                </div>
+                                <input type="file" id="agentImage" class="hidden" accept="image/*" onchange="previewAgentImage(this)">
+                            </div>
+                            <p class="text-xs text-rose-500 mt-3 font-medium text-left w-full">Note - For The Best view use 100x100 image</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                            <input type="email" id="agentEmail" required placeholder="Enter email" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                            <input type="password" id="agentPassword" required placeholder="Enter password" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                            <input type="text" id="agentName" required placeholder="Enter Username" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Mobile</label>
+                            <input type="text" id="agentMobile" required placeholder="Enter mobile" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                            <select id="agentRole" required class="w-full border border-slate-200 rounded-lg px-4 py-2.5 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
+                                <option value="">Select Roles</option>
+                                <option value="support">Support Agent</option>
+                                <option value="sales">Sales Agent</option>
+                                <option value="manager">Manager</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                        <button type="button" onclick="document.getElementById('addAgentModal').classList.add('hidden')" class="px-5 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Discard</button>
+                        <button type="submit" class="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div id="content-admin"
             class="hidden max-w-7xl mx-auto px-4 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
             <!-- Admin Header -->

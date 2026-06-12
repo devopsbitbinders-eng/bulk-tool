@@ -3844,6 +3844,63 @@ async def publish_wapp_form(request: Request):
         print(f"DEBUG FLOW PUBLISH ERROR: {str(e)}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.get("/api/agents")
+async def get_agents(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    agents = await db.fetch_all("SELECT id, name, email, mobile, role, profile_image_url, status, online_status, created_at FROM agents WHERE user_id = :u ORDER BY created_at DESC", {"u": u_id})
+    return safe_json_response([dict(a) for a in agents])
+
+@app.post("/api/agents")
+async def create_agent(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    mobile: str = Form(...),
+    password: str = Form(...),
+    role: str = Form(...),
+    profile_image: UploadFile = File(None)
+):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    image_url = ""
+    if profile_image and profile_image.filename:
+        import uuid, os
+        os.makedirs("static/uploads/agents", exist_ok=True)
+        ext = profile_image.filename.split('.')[-1]
+        filename = f"{uuid.uuid4()}.{ext}"
+        filepath = f"static/uploads/agents/{filename}"
+        with open(filepath, "wb") as f:
+            f.write(await profile_image.read())
+        image_url = f"/{filepath}"
+        
+    db = await get_db()
+    import hashlib
+    pw_hash = hashlib.sha256(password.encode()).hexdigest()
+    
+    await db.execute("""
+        INSERT INTO agents (user_id, name, email, mobile, password_hash, role, profile_image_url)
+        VALUES (:u, :n, :e, :m, :p, :r, :img)
+    """, {"u": u_id, "n": name, "e": email, "m": mobile, "p": pw_hash, "r": role, "img": image_url})
+    
+    return {"status": "ok"}
+
+@app.delete("/api/agents/{agent_id}")
+async def delete_agent(agent_id: int, request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    await db.execute("DELETE FROM agents WHERE id = :id AND user_id = :u", {"id": agent_id, "u": u_id})
+    return {"status": "ok"}
+
 @app.get("/api/wapp_forms")
 async def get_wapp_forms(request: Request):
     session_token = request.cookies.get("session_token")

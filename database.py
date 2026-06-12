@@ -339,6 +339,23 @@ async def init_db():
         ) {table_opts}
     """)
 
+    # Agents Table
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS agents (
+            id INTEGER PRIMARY KEY {auto_inc},
+            user_id INTEGER,
+            name {text_type},
+            email {text_type},
+            mobile {text_type},
+            password_hash TEXT,
+            role {text_type},
+            profile_image_url TEXT,
+            status TEXT DEFAULT 'active',
+            online_status TEXT DEFAULT 'offline',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) {table_opts}
+    """)
+
     pass # Keep connection pool alive for the actual request
 
 async def get_db():
