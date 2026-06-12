@@ -374,14 +374,20 @@ async def execute_single_node(user_id, phone, node_data):
     elif action == 'connect_agents':
         print(f"DEBUG: Connecting {phone} to agents")
         session = await db.fetch_one("SELECT state_data FROM user_sessions WHERE user_id = :u AND phone_number = :p", {"u": user_id, "p": phone})
+        assigned_agent = node_data.get('assigned_agent', '')
         if session:
             try:
                 import json
                 state = json.loads(session['state_data']) if session['state_data'] else {}
                 state['live_agent'] = True
+                if assigned_agent:
+                    state['assigned_agent_id'] = assigned_agent
                 await db.execute("UPDATE user_sessions SET state_data = :st WHERE user_id = :u AND phone_number = :p", {"st": json.dumps(state), "u": user_id, "p": phone})
             except: pass
-        await log_bot_reply(user_id, phone, f"[Routing to Live Agent...]", "")
+        if assigned_agent:
+            await log_bot_reply(user_id, phone, f"[Routing to Agent #{assigned_agent}...]", "")
+        else:
+            await log_bot_reply(user_id, phone, f"[Routing to Live Agent...]", "")
         return False
         
     elif action == 'push_webhook':
