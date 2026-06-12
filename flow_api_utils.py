@@ -51,14 +51,29 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
             })
             
         elif q_type == 'LIST':
+            options = []
+            import re
+            match = re.search(r'[\(\[](.+?)[\)\]]$', q_text.strip())
+            label_text = q_text
+            if match:
+                opts_str = match.group(1)
+                opts = [o.strip() for o in opts_str.split(',') if o.strip()]
+                if opts:
+                    for i, opt in enumerate(opts):
+                        options.append({"id": f"opt_{i}", "title": str(opt)[:24]})
+                    label_text = q_text.replace(match.group(0), "").strip()
+            
+            if not options:
+                options = [
+                    {"id": "opt_a", "title": "Option 1"},
+                    {"id": "opt_b", "title": "Option 2"}
+                ]
+                
             children.append({
                 "type": "Dropdown",
                 "name": f"q_{idx}",
-                "label": str(q_text)[:30],
-                "data-source": [
-                    {"id": "opt_a", "title": "Option 1"},
-                    {"id": "opt_b", "title": "Option 2"}
-                ],
+                "label": str(label_text)[:30] if label_text else "Select an option",
+                "data-source": options,
                 "required": True
             })
             
