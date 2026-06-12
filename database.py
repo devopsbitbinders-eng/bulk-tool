@@ -361,6 +361,26 @@ async def init_db():
         ) {table_opts}
     """)
 
+    # WP Channels
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS wp_channels (
+            id INTEGER PRIMARY KEY {auto_inc},
+            user_id INTEGER,
+            name {text_type},
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) {table_opts}
+    """)
+    await db.execute(f"""
+        CREATE TABLE IF NOT EXISTS wp_channel_members (
+            id INTEGER PRIMARY KEY {auto_inc},
+            channel_id INTEGER,
+            phone {text_type},
+            name {text_type},
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(channel_id, phone)
+        ) {table_opts}
+    """)
+
     pass # Keep connection pool alive for the actual request
 
 async def get_db():

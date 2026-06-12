@@ -360,6 +360,22 @@ async def execute_single_node(user_id, phone, node_data):
     elif action == 'add_group':
         group_name = node_data.get('group_name', '')
         print(f"DEBUG: Added {phone} to group {group_name}")
+        if group_name:
+            try:
+                channel = await db.fetch_one("SELECT id FROM wp_channels WHERE name = :n AND user_id = :u", {"n": group_name, "u": user_id})
+                if not channel:
+                    channel_id = await db.execute("INSERT INTO wp_channels (user_id, name) VALUES (:u, :n)", {"u": user_id, "n": group_name})
+                else:
+                    channel_id = channel['id']
+                
+                name_row = await db.fetch_one("SELECT sender_name FROM chat_messages WHERE phone = :p AND sender_name IS NOT NULL LIMIT 1", {"p": phone})
+                c_name = name_row['sender_name'] if name_row else ''
+                
+                member = await db.fetch_one("SELECT id FROM wp_channel_members WHERE channel_id = :cid AND phone = :p", {"cid": channel_id, "p": phone})
+                if not member:
+                    await db.execute("INSERT INTO wp_channel_members (channel_id, phone, name) VALUES (:cid, :p, :name)", {"cid": channel_id, "p": phone, "name": c_name})
+            except Exception as e:
+                print(f"DEBUG Add Group Error: {e}")
         await log_bot_reply(user_id, phone, f"[Added to Group: {group_name}]", "")
         return False
         

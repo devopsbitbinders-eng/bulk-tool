@@ -3978,3 +3978,38 @@ async def delete_flow(flow_id: int, request: Request):
     # Delete flow
     res = await db.execute("DELETE FROM flows WHERE id = :id AND user_id = :u", {"id": flow_id, "u": u_id})
     return {"status": "ok"}
+@app.get('/api/wp_channels')
+async def get_wp_channels(request: Request):
+    session_token = request.cookies.get('session_token')
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={'error': 'Unauthorized'})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    rows = await db.fetch_all('SELECT id, name, created_at FROM wp_channels WHERE user_id = :u ORDER BY created_at DESC', {'u': u_id})
+    return safe_json_response([dict(r) for r in rows])
+
+@app.post('/api/wp_channels')
+async def create_wp_channel(request: Request):
+    session_token = request.cookies.get('session_token')
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={'error': 'Unauthorized'})
+    u_id = await get_user_id(username)
+    data = await request.json()
+    name = data.get('name')
+    if not name: return JSONResponse(status_code=400, content={'error': 'Name is required'})
+    db = await get_db()
+    channel_id = await db.execute('INSERT INTO wp_channels (user_id, name) VALUES (:u, :n)', {'u': u_id, 'n': name})
+    return {'status': 'ok', 'id': channel_id}
+
+@app.get('/api/wp_channels/{channel_id}/members')
+async def get_wp_channel_members(channel_id: int, request: Request):
+    session_token = request.cookies.get('session_token')
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={'error': 'Unauthorized'})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    channel = await db.fetch_one('SELECT id FROM wp_channels WHERE id = :id AND user_id = :u', {'id': channel_id, 'u': u_id})
+    if not channel: return JSONResponse(status_code=404, content={'error': 'Channel not found'})
+    members = await db.fetch_all('SELECT id, phone, name, created_at FROM wp_channel_members WHERE channel_id = :id ORDER BY created_at DESC', {'id': channel_id})
+    return safe_json_response([dict(m) for m in members])
+
