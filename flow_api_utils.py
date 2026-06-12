@@ -19,8 +19,8 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
         q_type = q.get('format')
         q_text = q.get('text')
         
-        # TEXT, NUMBER, and IMAGE components mapping
-        if q_type in ['TEXT', 'NUMBER', 'IMAGE']:
+        # TEXT and NUMBER components mapping
+        if q_type in ['TEXT', 'NUMBER']:
             input_type = "text"
             if q_type == 'NUMBER': 
                 input_type = "number"
@@ -29,6 +29,16 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
                 "name": f"q_{idx}",
                 "label": str(q_text)[:30],
                 "input-type": input_type,
+                "required": True
+            })
+            
+        # IMAGE component using PhotoPicker
+        elif q_type == 'IMAGE':
+            children.append({
+                "type": "PhotoPicker",
+                "name": f"q_{idx}",
+                "label": str(q_text)[:30],
+                "max-uploaded-photos": 1,
                 "required": True
             })
             
