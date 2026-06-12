@@ -38,8 +38,7 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
                 "type": "PhotoPicker",
                 "name": f"q_{idx}",
                 "label": str(q_text)[:30],
-                "max-uploaded-photos": 1,
-                "required": True
+                "max-uploaded-photos": 1
             })
             
         # Official DatePicker component for version 7.3
@@ -56,7 +55,7 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
                 "type": "Dropdown",
                 "name": f"q_{idx}",
                 "label": str(q_text)[:30],
-                "options": [
+                "data-source": [
                     {"id": "opt_a", "title": "Option 1"},
                     {"id": "opt_b", "title": "Option 2"}
                 ],
