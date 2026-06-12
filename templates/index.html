@@ -7306,13 +7306,14 @@ async function fetchWpChannels() {
         const tbody = document.getElementById('channelsList');
         tbody.innerHTML = '';
         
-        if (data.channels && data.channels.length > 0) {
-            data.channels.forEach(channel => {
+        // The API returns an array directly
+        if (Array.isArray(data) && data.length > 0) {
+            data.forEach(channel => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-50 transition-colors group';
                 tr.innerHTML = `
                     <td class="p-4 font-medium text-slate-900">#${channel.id}</td>
-                    <td class="p-4 font-bold text-slate-800">${channel.channel_name}</td>
+                    <td class="p-4 font-bold text-slate-800">${channel.name}</td>
                     <td class="p-4 text-slate-500">${new Date(channel.created_at).toLocaleString()}</td>
                     <td class="p-4 text-right">
                         <button onclick="viewChannelMembers(${channel.id})" class="text-blue-600 hover:text-blue-800 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors text-sm">
@@ -7343,7 +7344,7 @@ async function submitChannel(event) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ channel_name: name })
+            body: JSON.stringify({ name: name })
         });
         
         if (response.ok) {
@@ -7351,7 +7352,8 @@ async function submitChannel(event) {
             nameInput.value = '';
             fetchWpChannels();
         } else {
-            alert('Failed to create channel');
+            const errorData = await response.json().catch(() => ({}));
+            alert(errorData.error || 'Failed to create channel');
         }
     } catch (error) {
         console.error('Error creating channel:', error);
@@ -7367,14 +7369,15 @@ async function viewChannelMembers(channelId) {
         const tbody = document.getElementById('channelMembersList');
         tbody.innerHTML = '';
         
-        if (data.members && data.members.length > 0) {
-            data.members.forEach(member => {
+        // The API returns an array directly
+        if (Array.isArray(data) && data.length > 0) {
+            data.forEach(member => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-50 transition-colors';
                 tr.innerHTML = `
-                    <td class="p-4 font-medium text-slate-900">${member.phone_number}</td>
-                    <td class="p-4 text-slate-600">${member.sender_name || '-'}</td>
-                    <td class="p-4 text-slate-500">${new Date(member.joined_at).toLocaleString()}</td>
+                    <td class="p-4 font-medium text-slate-900">${member.phone}</td>
+                    <td class="p-4 text-slate-600">${member.name || '-'}</td>
+                    <td class="p-4 text-slate-500">${new Date(member.created_at).toLocaleString()}</td>
                 `;
                 tbody.appendChild(tr);
             });
