@@ -89,7 +89,7 @@ async def create_and_publish_meta_flow(waba_id: str, access_token: str, flow_nam
     
     safe_name = re.sub(r'[^a-zA-Z0-9_]', '', flow_name.replace(" ", "_"))[:20].lower()
     
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         # 1. Create Flow (v21.0)
         res = await client.post(
             f"https://graph.facebook.com/v21.0/{waba_id}/flows",
