@@ -216,6 +216,7 @@ async def init_db():
             name {text_type},
             meta_flow_id {text_type},
             questions_json {long_text_type},
+            status TEXT DEFAULT 'PUBLISHED',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         ) {table_opts}
     """)
@@ -281,6 +282,10 @@ async def init_db():
     
     # Migration: tag in messages
     try: await db.execute("ALTER TABLE messages ADD COLUMN tag TEXT")
+    except: pass
+    
+    # Migration: status in wapp_forms
+    try: await db.execute("ALTER TABLE wapp_forms ADD COLUMN status TEXT DEFAULT 'PUBLISHED'")
     except: pass
     
     # Migration: chat_messages status and error_message

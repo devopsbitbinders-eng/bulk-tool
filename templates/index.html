@@ -5988,6 +5988,8 @@
                     const rowIdx = page * perPage + si + 1;
                     const dateStr = f.createdAt ? new Date(f.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
                     const notes = f.notes || '—';
+                    const isDraft = f.status === 'DRAFT';
+                    const btnLabel = isDraft ? 'Delete' : 'Deprecate';
                     return `<tr class="border-t border-slate-100 hover:bg-slate-50 transition-colors">
                         <td class="px-4 py-3 text-slate-500 text-xs">${rowIdx}</td>
                         <td class="px-4 py-3 font-medium text-slate-800">${f.name || '—'}</td>
@@ -5995,8 +5997,7 @@
                         <td class="px-4 py-3 text-slate-500 text-sm">${dateStr}</td>
                         <td class="px-4 py-3">
                             <div class="flex gap-2">
-                                <button onclick="openWappFormManagerForEdit('${f.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold transition-colors">Edit</button>
-                                <button onclick="wfDeleteFormFromTable('${f.id}')" class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1 rounded text-xs font-bold transition-colors">Delete</button>
+                                <button onclick="wfDeleteFormFromTable('${f.id}', '${f.status || 'PUBLISHED'}')" class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1 rounded text-xs font-bold transition-colors">${btnLabel}</button>
                             </div>
                         </td>
                     </tr>`;
@@ -6021,14 +6022,8 @@
         function wfPrevPage() { if (window._wfPage > 0) { window._wfPage--; renderWappFormsTable(); } }
         function wfNextPage() { window._wfPage++; renderWappFormsTable(); }
 
-        function wfDeleteFormFromTable(formId) {
-            if (!confirm('Delete this form?')) return;
-            window.backendWappForms = (window.backendWappForms || []).filter(f => f.id !== formId);
-            localStorage.setItem('savedWappForms', JSON.stringify(window.backendWappForms));
-            updateWappFormDropdowns();
-            renderSidebarForms();
-            renderWappFormsTable();
-            showToast('Form deleted', 'success');
+        function wfDeleteFormFromTable(formId, status) {
+            deleteForm(formId, status);
         }
 
         function openViewFormResponsesModal() {
@@ -6208,19 +6203,19 @@
                 list.innerHTML = '<p class="text-xs text-slate-400 italic">No forms yet. Click + to create one.</p>';
                 return;
             }
-            list.innerHTML = window.backendWappForms.map(f => `
+            list.innerHTML = window.backendWappForms.map(f => {
+                const isDraft = f.status === 'DRAFT';
+                const btnLabel = isDraft ? 'Delete' : 'Deprecate';
+                return `
                 <div class="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 group">
                     <span class="text-xs font-semibold text-slate-700 truncate flex-1 mr-1">${f.name}</span>
                     <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onclick="openEditFormModal('${f.id}')" title="Edit" class="text-blue-400 hover:text-blue-600">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                        </button>
-                        <button onclick="deleteForm('${f.id}')" title="Delete" class="text-rose-400 hover:text-rose-600">
+                        <button onclick="deleteForm('${f.id}', '${f.status || 'PUBLISHED'}')" title="${btnLabel}" class="text-rose-400 hover:text-rose-600 font-medium text-xs flex items-center gap-1">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         function renderManageFormsList() {
@@ -6230,7 +6225,10 @@
                 list.innerHTML = '<p class="text-sm text-slate-400 italic text-center py-8">No forms saved yet.</p>';
                 return;
             }
-            list.innerHTML = window.backendWappForms.map(f => `
+            list.innerHTML = window.backendWappForms.map(f => {
+                const isDraft = f.status === 'DRAFT';
+                const btnLabel = isDraft ? 'Delete' : 'Deprecate';
+                return `
                 <div class="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
@@ -6242,11 +6240,10 @@
                         </div>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="openEditFormModal('${f.id}'); closeManageFormsModal();" class="text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition">Edit</button>
-                        <button onclick="deleteForm('${f.id}'); renderManageFormsList();" class="text-xs font-bold text-rose-600 border border-rose-200 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition">Delete</button>
+                        <button onclick="deleteForm('${f.id}', '${f.status || 'PUBLISHED'}'); renderManageFormsList();" class="text-xs font-bold text-rose-600 border border-rose-200 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition">${btnLabel}</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         function openManageFormsModal() {
@@ -6288,13 +6285,32 @@
             showToast('Form updated!', 'success');
         }
 
-        function deleteForm(formId) {
-            if (!confirm('Delete this form? It will be removed from all dropdowns.')) return;
-            window.backendWappForms = window.backendWappForms.filter(f => f.id !== formId);
-            localStorage.setItem('savedWappForms', JSON.stringify(window.backendWappForms));
-            updateWappFormDropdowns();
-            renderSidebarForms();
-            showToast('Form deleted', 'success');
+        function deleteForm(formId, status) {
+            const isDraft = status === 'DRAFT';
+            const actionText = isDraft ? 'Delete this form?' : 'Deprecate this form? It will no longer be available for new messages.';
+            if (!confirm(actionText)) return;
+
+            fetch(`/api/wapp_forms/${formId}?action=${isDraft ? 'delete' : 'deprecate'}`, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    if (isDraft) {
+                        window.backendWappForms = window.backendWappForms.filter(f => f.id !== formId);
+                        showToast('Form deleted', 'success');
+                    } else {
+                        const form = window.backendWappForms.find(f => f.id === formId);
+                        if (form) form.status = 'DEPRECATED';
+                        showToast('Form deprecated', 'success');
+                    }
+                    localStorage.setItem('savedWappForms', JSON.stringify(window.backendWappForms));
+                    updateWappFormDropdowns();
+                    renderSidebarForms();
+                    if (typeof renderManageFormsList === 'function') renderManageFormsList();
+                    if (typeof renderWappFormsTable === 'function') renderWappFormsTable();
+                } else {
+                    showToast('Failed to ' + (isDraft ? 'delete' : 'deprecate'), 'error');
+                }
+            }).catch(() => showToast('Network error', 'error'));
         }
 
 

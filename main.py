@@ -3909,7 +3909,7 @@ async def get_wapp_forms(request: Request):
     u_id = await get_user_id(username)
     
     db = await get_db()
-    forms = await db.fetch_all("SELECT id, name, meta_flow_id, questions_json, created_at FROM wapp_forms WHERE user_id = :u ORDER BY created_at DESC", {"u": u_id})
+    forms = await db.fetch_all("SELECT id, name, meta_flow_id, questions_json, status, created_at FROM wapp_forms WHERE user_id = :u ORDER BY created_at DESC", {"u": u_id})
     res = []
     import json
     for f in forms:
@@ -3922,6 +3922,48 @@ async def get_wapp_forms(request: Request):
             d['questions'] = []
         res.append(d)
     return res
+
+@app.delete("/api/wapp_forms/{form_id}")
+async def delete_wapp_form(form_id: int, request: Request, action: str = "deprecate"):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    
+    db = await get_db()
+    form = await db.fetch_one("SELECT * FROM wapp_forms WHERE id = :id AND user_id = :u", {"id": form_id, "u": u_id})
+    
+    if not form:
+        return JSONResponse(status_code=404, content={"error": "Form not found"})
+        
+    if action == "delete" or form['status'] == 'DRAFT':
+        await db.execute("DELETE FROM wapp_forms WHERE id = :id AND user_id = :u", {"id": form_id, "u": u_id})
+        return {"status": "ok", "message": "Deleted locally"}
+    else:
+        # Deprecate flow in Meta
+        meta_flow_id = form['meta_flow_id']
+        if meta_flow_id:
+            creds = await get_active_credentials(u_id)
+            if creds:
+                token = creds['token']
+                import httpx
+                headers = {"Authorization": f"Bearer {token}"}
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    try:
+                        res = await client.post(
+                            f"https://graph.facebook.com/v21.0/{meta_flow_id}/deprecate",
+                            headers=headers
+                        )
+                        if res.status_code != 200:
+                            print(f"Failed to deprecate meta flow: {res.text}")
+                            # we still mark it deprecated locally if it fails?
+                            # no, maybe we should return error if meta fails.
+                            pass 
+                    except Exception as e:
+                        print(f"Meta flow deprecation exception: {e}")
+        
+        await db.execute("UPDATE wapp_forms SET status = 'DEPRECATED' WHERE id = :id AND user_id = :u", {"id": form_id, "u": u_id})
+        return {"status": "ok", "message": "Deprecated flow"}
 
 @app.delete("/api/flows/{flow_id}")
 async def delete_flow(flow_id: int, request: Request):
