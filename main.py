@@ -4031,6 +4031,14 @@ async def get_wp_channels(request: Request):
     if not username: return JSONResponse(status_code=401, content={'error': 'Unauthorized'})
     u_id = await get_user_id(username)
     db = await get_db()
+    
+    # Ensure Campaign Replies group exists for unassigned users
+    campaign_replies_channel = await db.fetch_one('SELECT id FROM wp_channels WHERE LOWER(name) = :n AND user_id = :u', {'n': 'campaign replies', 'u': u_id})
+    if not campaign_replies_channel:
+        try:
+            await db.execute('INSERT INTO wp_channels (user_id, name) VALUES (:u, :n)', {'u': u_id, 'n': 'Campaign Replies'})
+        except: pass
+
     rows = await db.fetch_all('SELECT c.id, c.name, c.created_at, (SELECT COUNT(*) FROM wp_channel_members m WHERE m.channel_id = c.id) as total FROM wp_channels c WHERE c.user_id = :u ORDER BY c.created_at DESC', {'u': u_id})
     return safe_json_response([dict(r) for r in rows])
 

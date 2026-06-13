@@ -2388,9 +2388,9 @@
 
                 <!-- Message Log Table -->
                 <div class="flex-grow overflow-y-auto px-8 pb-8">
-                    <div class="rounded-2xl border border-slate-100 overflow-hidden">
+                    <div class="rounded-2xl border border-slate-100 overflow-visible">
                         <table class="w-full text-left">
-                            <thead class="bg-[#4267B2] text-white sticky top-0">
+                            <thead class="bg-[#4267B2] text-white sticky top-0 z-10">
                                 <tr>
                                     <th class="px-4 py-4 w-[5%]"><input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)" class="rounded border-slate-300"></th>
                                     <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider w-[15%]">Number</th>
@@ -6972,8 +6972,8 @@
 
         <!-- View Members Modal -->
         <div id="viewMembersModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-            <div class="bg-white shadow-xl w-full max-w-2xl overflow-hidden rounded-xl flex flex-col max-h-[80vh]">
-                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div class="bg-white shadow-xl w-full max-w-2xl rounded-xl flex flex-col" style="max-height: 80vh; height: auto;">
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 flex-shrink-0 rounded-t-xl">
                     <h3 class="text-lg font-bold text-slate-800" id="viewMembersModalTitle">Group Members</h3>
                     <div class="flex items-center gap-3">
                         <button onclick="fetchContactsForChannel()" id="btnFetchChannelContacts" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
@@ -6984,8 +6984,8 @@
                         </button>
                     </div>
                 </div>
-                <div class="p-0 overflow-y-auto flex-1 min-h-0">
-                    <table class="w-full text-left border-collapse relative">
+                <div class="p-0 overflow-auto flex-1" style="min-height: 200px;">
+                    <table class="w-full text-left border-collapse min-w-[500px]">
                         <thead class="sticky top-0 z-10 bg-slate-50 shadow-sm">
                             <tr class="text-slate-500 text-sm font-medium">
                                 <th class="p-4 border-b border-slate-200">Phone</th>
@@ -6999,7 +6999,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="p-4 border-t border-slate-100 bg-slate-50 text-right">
+                <div class="p-4 border-t border-slate-100 bg-slate-50 text-right flex-shrink-0 rounded-b-xl">
                     <button onclick="document.getElementById('viewMembersModal').classList.add('hidden')" class="px-5 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors">Close</button>
                 </div>
             </div>
