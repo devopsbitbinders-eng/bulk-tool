@@ -882,6 +882,12 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                     if pending_msgs == 0:
                         await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
                         return {"completed": True, "processed": 0}
+                else:
+                    # For campaigns without a file (e.g. single mobile, group, tag)
+                    pending_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'pending'", {"id": campaign_id})
+                    if pending_msgs == 0:
+                        await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
+                        return {"completed": True, "processed": 0}
                 return {"completed": False, "processed": 0}
             else:
                 file_id = pending_file['id']
@@ -2304,7 +2310,7 @@ async def upload_file(
     })
 
     # 2. Handle inserts or background processing
-    if single_mobile:
+    if single_mobile or target_group or target_tag:
         values_list = []
         for row in data:
             raw_phone = str(row.get('phone', ''))

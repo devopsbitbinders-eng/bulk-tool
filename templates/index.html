@@ -7055,7 +7055,7 @@
 
         <!-- View Members Modal -->
         <div id="viewMembersModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-            <div class="bg-white shadow-xl w-full max-w-2xl rounded-xl flex flex-col" style="max-height: 80vh; height: auto;">
+            <div class="bg-white shadow-xl w-full max-w-2xl rounded-xl flex flex-col overflow-hidden" style="max-height: 80vh;">
                 <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 flex-shrink-0 rounded-t-xl">
                     <h3 class="text-lg font-bold text-slate-800" id="viewMembersModalTitle">Group Members</h3>
                     <div class="flex items-center gap-3">
@@ -7067,7 +7067,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="p-0 overflow-auto flex-1" style="min-height: 200px;">
+                <div class="p-0 overflow-y-auto flex-1 min-h-0" style="min-height: 200px;">
                     <table class="w-full text-left border-collapse min-w-[500px]">
                         <thead class="sticky top-0 z-10 bg-slate-50 shadow-sm">
                             <tr class="text-slate-500 text-sm font-medium">
