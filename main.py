@@ -2074,11 +2074,20 @@ async def manual_auth(request: Request):
         INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
         VALUES (:u, :token, :phone_id, :waba_id, :phone, 1)
     """, {"u": u_id, "token": token, "phone_id": phone_id, "waba_id": waba_id, "phone": phone_number})
-    
     # SUBSCRIBE THE WABA TO OUR APP WEBHOOKS
     await subscribe_waba_to_app(waba_id, token)
 
     return {"message": "Credentials updated successfully!", "phone": phone_number}
+
+@app.get("/api/tags")
+async def get_tags(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    tags = await db.fetch_all("SELECT DISTINCT tag FROM messages WHERE user_id = :u AND tag IS NOT NULL AND tag != ''", {"u": u_id})
+    return [t['tag'] for t in tags]
 
 @app.post("/upload")
 async def upload_file(
@@ -2086,6 +2095,8 @@ async def upload_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(None),
     single_mobile: str = Form(None),
+    target_group: str = Form(None),
+    target_tag: str = Form(None),
     message: str = Form(None),
     msg_type: str = Form("text"),
     template_name: str = Form(None),
@@ -2119,7 +2130,51 @@ async def upload_file(
                 fixed_url_from_mapping = h_data
         except: pass
 
-    if single_mobile:
+    if target_group:
+        channel = await db.fetch_one("SELECT id, name FROM wp_channels WHERE id = :id AND user_id = :u", {"id": target_group, "u": u_id})
+        if not channel: return JSONResponse(status_code=400, content={"error": "Selected group not found."})
+        members = await db.fetch_all("SELECT phone FROM wp_channel_members WHERE channel_id = :cid", {"cid": target_group})
+        numbers = [m['phone'] for m in members if m['phone']]
+        if not numbers: return JSONResponse(status_code=400, content={"error": "Selected group has no valid contacts."})
+        data = [{"phone": n} for n in numbers]
+        phone_col = "phone"
+        filename = f"Group: {channel['name']}"
+        
+        if mappings_dict:
+            new_mappings = {"vars": {}, "header": None}
+            if "vars" in mappings_dict:
+                for k, v in mappings_dict["vars"].items():
+                    for row in data:
+                        row[f"var_{k}"] = v
+                    new_mappings["vars"][k] = f"var_{k}"
+            if "header" in mappings_dict and mappings_dict["header"]:
+                for row in data:
+                    row["header_url"] = mappings_dict["header"]
+                new_mappings["header"] = "header_url"
+            mappings_dict = new_mappings
+
+    elif target_tag:
+        members = await db.fetch_all("SELECT DISTINCT phone FROM messages WHERE user_id = :u AND tag = :tag AND phone IS NOT NULL", {"u": u_id, "tag": target_tag})
+        numbers = [m['phone'] for m in members if m['phone']]
+        if not numbers: return JSONResponse(status_code=400, content={"error": "No contacts found with the selected tag."})
+        data = [{"phone": n} for n in numbers]
+        phone_col = "phone"
+        filename = f"Tag: {target_tag}"
+        
+        if mappings_dict:
+            new_mappings = {"vars": {}, "header": None}
+            if "vars" in mappings_dict:
+                for k, v in mappings_dict["vars"].items():
+                    for row in data:
+                        row[f"var_{k}"] = v
+                    new_mappings["vars"][k] = f"var_{k}"
+            if "header" in mappings_dict and mappings_dict["header"]:
+                for row in data:
+                    row["header_url"] = mappings_dict["header"]
+                new_mappings["header"] = "header_url"
+            mappings_dict = new_mappings
+
+    elif single_mobile:
         single_mobile = single_mobile.strip()
         # Support multiple numbers separated by comma
         numbers = [n.strip() for n in single_mobile.split(",") if n.strip()]
@@ -2141,7 +2196,7 @@ async def upload_file(
             mappings_dict = new_mappings
     else:
         if not file:
-            return JSONResponse(status_code=400, content={"error": "File or valid mobile number required."})
+            return JSONResponse(status_code=400, content={"error": "File, valid mobile number, group, or tag required."})
         
         content = await file.read()
         try:
@@ -2839,6 +2894,17 @@ async def tag_messages(request: Request, body: TagRequest):
             await db.execute("UPDATE messages SET tag = :tag WHERE id = :id", {"id": mid, "tag": body.tag})
     
     return safe_json_response({"status": "tagged"})
+
+@app.get("/api/tags")
+async def get_tags(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    
+    tags = await db.fetch_all("SELECT DISTINCT tag FROM messages WHERE user_id = :u AND tag IS NOT NULL AND tag != ''", {"u": u_id})
+    return safe_json_response([dict(t) for t in tags])
 
 # --- Meta Webhook Handlers ---
 
