@@ -4066,7 +4066,10 @@ async def fetch_all_wp_channel_contacts(request: Request):
     if not username: return JSONResponse(status_code=401, content={'error': 'Unauthorized'})
     u_id = await get_user_id(username)
     db = await get_db()
-    
+    campaign_replies_channel = await db.fetch_one('SELECT id FROM wp_channels WHERE LOWER(name) = :n AND user_id = :u', {'n': 'campaign replies', 'u': u_id})
+    if not campaign_replies_channel:
+        await db.execute('INSERT INTO wp_channels (user_id, name) VALUES (:u, :n)', {'u': u_id, 'n': 'Campaign Replies'})
+        
     channels = await db.fetch_all('SELECT id, name FROM wp_channels WHERE user_id = :u', {'u': u_id})
     
     total_added = 0
@@ -4133,6 +4136,10 @@ async def fetch_wp_channel_contacts(channel_id: int, request: Request):
     
     channel_name = channel['name']
     added_count = 0
+    
+    campaign_replies_channel = await db.fetch_one('SELECT id FROM wp_channels WHERE LOWER(name) = :n AND user_id = :u', {'n': 'campaign replies', 'u': u_id})
+    if not campaign_replies_channel:
+        await db.execute('INSERT INTO wp_channels (user_id, name) VALUES (:u, :n)', {'u': u_id, 'n': 'Campaign Replies'})
     
     if channel_name.lower() == 'campaign replies':
         # Fetch anyone who has replied but is not in any other group
