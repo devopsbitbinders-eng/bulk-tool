@@ -3168,8 +3168,7 @@
         });
 
         function switchTab(tab) {
-                // Close all dropdowns
-                closeAllTabDropdowns();
+                // Dropdowns are handled by document click listener and explicit toggle functions
 
                 document.querySelectorAll('.tab-btn').forEach(b => {
                     b.classList.remove('active', 'text-green-600', 'border-green-600', 'border-b-2');
