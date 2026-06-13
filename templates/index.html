@@ -6924,8 +6924,8 @@
                         <button onclick="document.getElementById('addChannelModal').classList.remove('hidden')" class="px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm hover:opacity-90" style="background-color: #10b981; color: white;">
                             Create Group
                         </button>
-                        <button onclick="fetchWpChannels()" class="px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm hover:opacity-90" style="background-color: #10b981; color: white;">
-                            Fetch from WAChannel
+                        <button onclick="fetchAllChannels()" id="btnFetchAllChannels" class="px-4 py-1.5 rounded text-sm font-medium transition-colors shadow-sm hover:opacity-90 flex items-center gap-2" style="background-color: #10b981; color: white;">
+                            <i class="fa-solid fa-cloud-arrow-down"></i> Fetch from WAChannel
                         </button>
                     </div>
                 </div>
@@ -7229,6 +7229,29 @@
 
         // WP Channels Logic
         window.backendWpChannels = [];
+
+        async function fetchAllChannels() {
+            const btn = document.getElementById('btnFetchAllChannels');
+            const ogHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Fetching...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/wp_channels/fetch_all', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(`Successfully processed. Added/moved ${data.added} contacts globally.`, 'success');
+                    fetchWpChannels();
+                } else {
+                    showToast(data.error || 'Failed to fetch contacts globally', 'error');
+                }
+            } catch (e) {
+                showToast("Error processing global fetch", "error");
+            }
+            btn.innerHTML = ogHtml;
+            btn.disabled = false;
+        }
+
         function updateAddGroupDropdowns() {
             const dropdowns = document.querySelectorAll('.drawflow-node.add_group select[df-group_name]');
             dropdowns.forEach(dropdown => {

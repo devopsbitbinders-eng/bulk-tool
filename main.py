@@ -4059,6 +4059,67 @@ async def get_wp_channel_members(channel_id: int, request: Request):
     members = await db.fetch_all('SELECT id, phone, name, created_at FROM wp_channel_members WHERE channel_id = :id ORDER BY created_at DESC', {'id': channel_id})
     return safe_json_response([dict(m) for m in members])
 
+@app.post('/api/wp_channels/fetch_all')
+async def fetch_all_wp_channel_contacts(request: Request):
+    session_token = request.cookies.get('session_token')
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={'error': 'Unauthorized'})
+    u_id = await get_user_id(username)
+    db = await get_db()
+    
+    channels = await db.fetch_all('SELECT id, name FROM wp_channels WHERE user_id = :u', {'u': u_id})
+    
+    total_added = 0
+    for channel in channels:
+        channel_id = channel['id']
+        channel_name = channel['name']
+        added_count = 0
+        
+        if channel_name.lower() == 'campaign replies':
+            senders = await db.fetch_all("SELECT phone, sender_name FROM chat_messages WHERE user_id = :u AND direction = 'inbound' AND phone IS NOT NULL", {'u': u_id})
+            unique_senders = {s['phone']: s['sender_name'] for s in senders}
+            
+            existing_members = await db.fetch_all("""
+                SELECT m.phone FROM wp_channel_members m
+                JOIN wp_channels c ON m.channel_id = c.id
+                WHERE c.user_id = :u
+            """, {'u': u_id})
+            existing_phones = {m['phone'] for m in existing_members}
+            
+            for phone, name in unique_senders.items():
+                if phone not in existing_phones:
+                    try:
+                        await db.execute("INSERT INTO wp_channel_members (channel_id, phone, name) VALUES (:cid, :p, :n) ON DUPLICATE KEY UPDATE name = :n", 
+                                         {"cid": channel_id, "p": phone, "n": name})
+                        added_count += 1
+                    except:
+                        pass
+        else:
+            like_query = f"%📄 Form Submitted:%{channel_name}%"
+            form_submitters = await db.fetch_all("""
+                SELECT phone, sender_name FROM chat_messages 
+                WHERE user_id = :u AND direction = 'inbound' AND message LIKE :lq
+            """, {'u': u_id, 'lq': like_query})
+            
+            unique_submitters = {s['phone']: s['sender_name'] for s in form_submitters}
+            
+            for phone, name in unique_submitters.items():
+                try:
+                    await db.execute("INSERT INTO wp_channel_members (channel_id, phone, name) VALUES (:cid, :p, :n) ON DUPLICATE KEY UPDATE name = :n", 
+                                     {"cid": channel_id, "p": phone, "n": name})
+                    added_count += 1
+                except:
+                    pass
+                    
+            cr_channel = await db.fetch_one("SELECT id FROM wp_channels WHERE LOWER(name) = 'campaign replies' AND user_id = :u", {'u': u_id})
+            if cr_channel:
+                cr_id = cr_channel['id']
+                for phone in unique_submitters.keys():
+                    await db.execute("DELETE FROM wp_channel_members WHERE channel_id = :cid AND phone = :p", {"cid": cr_id, "p": phone})
+        total_added += added_count
+                    
+    return {'status': 'ok', 'added': total_added}
+
 @app.post('/api/wp_channels/{channel_id}/fetch')
 async def fetch_wp_channel_contacts(channel_id: int, request: Request):
     session_token = request.cookies.get('session_token')
