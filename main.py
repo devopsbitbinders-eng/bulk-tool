@@ -3073,9 +3073,55 @@ async def webhook_handler(request: Request):
                                 nfm = inter.get("nfm_reply", {})
                                 raw_res = nfm.get("response_json", "{}")
                                 res_data = json.loads(raw_res)
+                                
+                                # Attempt to map option IDs (opt_X) and questions (q_X) to real labels
+                                flow_token = res_data.get("flow_token", "")
+                                meta_flow_id = ""
+                                if flow_token and flow_token.startswith("form_"):
+                                    parts = flow_token.split("_")
+                                    if len(parts) >= 2:
+                                        meta_flow_id = parts[1]
+                                
+                                question_map = {}
+                                option_map = {}
+                                
+                                if meta_flow_id:
+                                    try:
+                                        form_def = await db.fetch_one("SELECT questions_json FROM wapp_forms WHERE meta_flow_id = :fid", {"fid": meta_flow_id})
+                                        if form_def and form_def['questions_json']:
+                                            questions = json.loads(form_def['questions_json'])
+                                            for idx, q in enumerate(questions):
+                                                q_key = f"q_{idx}"
+                                                question_text = q.get("text", q_key)
+                                                question_map[q_key] = question_text
+                                                
+                                                opts_raw = q.get('options', '')
+                                                if opts_raw:
+                                                    opts = [o.strip() for o in opts_raw.split(',') if o.strip()]
+                                                    for i, opt in enumerate(opts):
+                                                        option_map[f"opt_{i}"] = opt
+                                                else:
+                                                    import re
+                                                    match = re.search(r'[\(\[](.+?)[\)\]]$', question_text.strip())
+                                                    if match:
+                                                        opts_str = match.group(1)
+                                                        opts = [o.strip() for o in opts_str.split(',') if o.strip()]
+                                                        for i, opt in enumerate(opts):
+                                                            option_map[f"opt_{i}"] = opt
+                                                            
+                                                    # Clean up question text from bracketed options if present
+                                                    if match:
+                                                        question_map[q_key] = question_text.replace(match.group(0), "").strip()
+                                    except Exception as lookup_err:
+                                        print(f"DEBUG Form Lookup Error: {lookup_err}")
+
                                 body = f"📄 Form Submitted:\n"
                                 for k, v in res_data.items():
-                                    body += f"• {k}: {v}\n"
+                                    if k in ["form_submitted", "flow_token"]:
+                                        continue
+                                    display_k = question_map.get(k, k)
+                                    display_v = option_map.get(v, str(v))
+                                    body += f"• {display_k}: {display_v}\n"
                             except Exception as e:
                                 body = f"[Form Submitted: Data Parse Error]"
                         else:
