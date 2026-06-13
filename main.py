@@ -2901,14 +2901,8 @@ async def tag_messages(request: Request, body: TagRequest):
     
     return safe_json_response({"status": "tagged"})
 
-@app.get("/api/tags")
-async def get_tags(request: Request):
-    session_token = request.cookies.get("session_token")
-    username = verify_session_token(session_token)
-    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-    u_id = await get_user_id(username)
-    db = await get_db()
-    
+@app.get("/webhook")
+async def verify_webhook(request: Request):
     # Meta verification: hub.mode, hub.verify_token, hub.challenge
     params = request.query_params
     mode = params.get("hub.mode")
