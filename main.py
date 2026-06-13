@@ -2092,8 +2092,11 @@ async def get_tags(request: Request):
     if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     u_id = await get_user_id(username)
     db = await get_db()
-    tags = await db.fetch_all("SELECT DISTINCT tag FROM messages WHERE user_id = :u AND tag IS NOT NULL AND tag != ''", {"u": u_id})
-    return [t['tag'] for t in tags]
+    tags = await db.fetch_all(
+        "SELECT tag, COUNT(DISTINCT phone) as total FROM messages WHERE user_id = :u AND tag IS NOT NULL AND tag != '' GROUP BY tag ORDER BY tag",
+        {"u": u_id}
+    )
+    return [{"tag": t['tag'], "total": t['total']} for t in tags]
 
 @app.post("/upload")
 async def upload_file(
