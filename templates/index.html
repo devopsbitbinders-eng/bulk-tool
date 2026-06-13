@@ -7351,11 +7351,11 @@
                     }
                     tbody.innerHTML = members.map(m => `
                         <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
-                            <td class="p-4 font-mono text-slate-700">${m.phone_number}</td>
-                            <td class="p-4 font-medium text-slate-800">${m.sender_name || '-'}</td>
-                            <td class="p-4 text-slate-500">${new Date(m.joined_at).toLocaleString()}</td>
+                            <td class="p-4 font-mono text-slate-700">${m.phone}</td>
+                            <td class="p-4 font-medium text-slate-800">${m.name || '-'}</td>
+                            <td class="p-4 text-slate-500">${new Date(m.created_at).toLocaleString()}</td>
                             <td class="p-4 text-right">
-                                <button onclick="openMoveMemberModal(${m.id}, '${m.sender_name || m.phone_number}')" class="bg-blue-100 hover:bg-blue-200 text-blue-600 px-3 py-1 rounded text-sm transition-colors">
+                                <button onclick="openMoveMemberModal(${m.id}, '${(m.name || m.phone).replace(/'/g, "\\'")}')" class="bg-blue-100 hover:bg-blue-200 text-blue-600 px-3 py-1 rounded text-sm transition-colors">
                                     <i class="fa-solid fa-people-arrows"></i> Move
                                 </button>
                             </td>
