@@ -3024,10 +3024,15 @@
                 html = `
                 <div class="title-box"><div class="flex items-center gap-2"><div class="w-6 h-6 rounded bg-slate-100 text-slate-600 flex items-center justify-center"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg></div> Add to Tag</div> <svg class="w-4 h-4" onclick="editor.removeNodeId('node-'+this.parentElement.parentElement.id.slice(5))" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>
                 <div class="box space-y-2">
-                    <input df-tag_name type="text" class="w-full text-sm border border-slate-200 rounded p-2" placeholder="Tag Name">
+                    <select df-tag_name class="w-full text-sm border border-slate-200 rounded p-2 bg-white outline-none text-slate-800" onchange="handleTagNodeChange(this)">
+                        <option value="">Select a Tag...</option>
+                    </select>
+                    <input type="text" class="w-full text-sm border border-slate-200 rounded p-2 hidden tag-new-input" placeholder="New tag name..." oninput="syncNewTagToSelect(this)">
+                    <p class="text-[10px] text-slate-400">Select existing or pick "＋ New Tag" to create one</p>
                 </div>
                 `;
                 editor.addNode('add_tag', 1, 1, pos_x, pos_y, 'add_tag', { "action": "add_tag", "tag_name": "" }, html);
+                setTimeout(updateAddTagDropdowns, 100);
             }
             else if(name === 'push_webhook') {
                 html = `
@@ -3115,6 +3120,7 @@
                     content.classList.add('block');
                     initDrawflow();
                     fetchWpChannels();
+                    fetchTagsForFlow();
                 } else if (tab === 'chat') {
                     content.classList.add('flex');
                     loadChatContacts();
@@ -7392,6 +7398,66 @@
                     dropdown.value = currentVal;
                 }
             });
+        }
+
+        function handleTagNodeChange(select) {
+            const box = select.closest('.box');
+            const newInput = box.querySelector('.tag-new-input');
+            if (select.value === '__new__') {
+                newInput.classList.remove('hidden');
+                newInput.focus();
+            } else {
+                newInput.classList.add('hidden');
+                newInput.value = '';
+            }
+        }
+
+        function syncNewTagToSelect(input) {
+            // Keep the df-tag_name select value in sync by temporarily storing in a data attr
+            const box = input.closest('.box');
+            const sel = box.querySelector('select[df-tag_name]');
+            // We need Drawflow to pick up the value — update a hidden option
+            let customOpt = sel.querySelector('option[value="__custom__"]');
+            if (!customOpt) {
+                customOpt = document.createElement('option');
+                customOpt.value = '__custom__';
+                sel.appendChild(customOpt);
+            }
+            customOpt.value = input.value;
+            customOpt.textContent = input.value;
+            sel.value = input.value;
+        }
+
+        function updateAddTagDropdowns() {
+            const dropdowns = document.querySelectorAll('.drawflow-node.add_tag select[df-tag_name]');
+            dropdowns.forEach(dropdown => {
+                const currentVal = dropdown.value;
+                dropdown.innerHTML = '<option value="">Select a Tag...</option>';
+                (window.backendTags || []).forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.tag || t;
+                    opt.textContent = `${t.tag || t} (${t.total || 0} contacts)`;
+                    dropdown.appendChild(opt);
+                });
+                // Always add "New Tag" option at bottom
+                const newOpt = document.createElement('option');
+                newOpt.value = '__new__';
+                newOpt.textContent = '＋ New Tag...';
+                dropdown.appendChild(newOpt);
+                // Restore previous value if still valid
+                const exists = Array.from(dropdown.options).some(o => o.value === currentVal);
+                if (exists && currentVal !== '') dropdown.value = currentVal;
+            });
+        }
+
+        async function fetchTagsForFlow() {
+            try {
+                const res = await fetch('/api/tags');
+                if (res.ok) {
+                    window.backendTags = await res.json();
+                    updateAddTagDropdowns();
+                }
+            } catch(e) {}
         }
 
         async function fetchWpChannels() {
