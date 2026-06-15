@@ -1878,6 +1878,7 @@ async def import_opt_outs(request: Request, file: UploadFile = File(...)):
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     
     try:
+        u_id = await get_user_id(verify_session_token(session_token))
         content = await file.read()
         data, phone_col = extract_phone_numbers(content, file.filename)
         if not data:
@@ -1891,12 +1892,13 @@ async def import_opt_outs(request: Request, file: UploadFile = File(...)):
             
         added_count = 0
         for val in values_list:
+            val["u"] = u_id
             try:
-                await db.execute("INSERT IGNORE INTO opt_outs (phone) VALUES (:phone)", val)
+                await db.execute("INSERT IGNORE INTO opt_outs (phone, user_id) VALUES (:phone, :u)", val)
                 added_count += 1
             except:
                 try: 
-                    await db.execute("INSERT OR IGNORE INTO opt_outs (phone) VALUES (:phone)", val)
+                    await db.execute("INSERT OR IGNORE INTO opt_outs (phone, user_id) VALUES (:phone, :u)", val)
                     added_count += 1
                 except: pass
                 
@@ -1911,7 +1913,8 @@ async def export_opt_outs(request: Request):
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
         
     db = await get_db()
-    rows = await db.fetch_all("SELECT phone, timestamp FROM opt_outs ORDER BY id DESC")
+    u_id = await get_user_id(verify_session_token(session_token))
+    rows = await db.fetch_all("SELECT phone, timestamp FROM opt_outs WHERE user_id = :u ORDER BY id DESC", {"u": u_id})
     
     import pandas as pd
     import io
@@ -2280,7 +2283,7 @@ async def upload_file(
     
     # 0. FILTER OPT-OUTS
     db = await get_db()
-    opt_outs = await db.fetch_all("SELECT phone FROM opt_outs")
+    opt_outs = await db.fetch_all("SELECT phone FROM opt_outs WHERE user_id = :u", {"u": u_id})
     opt_out_set = {row['phone'] for row in opt_outs if row['phone']}
     
     removed_opt_outs = []
@@ -3293,11 +3296,11 @@ async def webhook_handler(request: Request):
                         # NEW: Handle STOP opt-outs
                         if msg_type == "text" and body and body.strip().lower() in ["stop", "unsubscribe", "opt out", "opt-out", "cancel"]:
                             try:
-                                await db.execute("INSERT IGNORE INTO opt_outs (phone) VALUES (:phone)", {"phone": clean_from})
-                                print(f"DEBUG WEBHOOK: Added {clean_from} to opt_outs list")
+                                await db.execute("INSERT IGNORE INTO opt_outs (phone, user_id) VALUES (:phone, :u)", {"phone": clean_from, "u": u_id})
+                                print(f"DEBUG WEBHOOK: Added {clean_from} to opt_outs list for user {u_id}")
                             except:
                                 # SQLite fallback for ignore
-                                try: await db.execute("INSERT OR IGNORE INTO opt_outs (phone) VALUES (:phone)", {"phone": clean_from})
+                                try: await db.execute("INSERT OR IGNORE INTO opt_outs (phone, user_id) VALUES (:phone, :u)", {"phone": clean_from, "u": u_id})
                                 except: pass
                         
                         # CHATBOT INTEGRATION
@@ -3417,7 +3420,7 @@ async def get_chat_contacts(request: Request, page: int = 1, limit: int = 50):
                 SELECT phone, MAX(timestamp) as latest_ts FROM chat_messages WHERE user_id = :u GROUP BY phone
             ) t
             LEFT JOIN chat_messages c ON t.phone = c.phone AND c.user_id = :u
-            LEFT JOIN opt_outs o ON t.phone = o.phone
+            LEFT JOIN opt_outs o ON t.phone = o.phone AND o.user_id = :u
             WHERE t.phone IS NOT NULL AND t.phone != ''
             GROUP BY t.phone
             ORDER BY last_activity DESC, t.phone ASC

@@ -339,9 +339,22 @@ async def init_db():
     await db.execute(f"""
         CREATE TABLE IF NOT EXISTS opt_outs (
             id INTEGER PRIMARY KEY {auto_inc},
-            phone {text_type} UNIQUE,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            user_id INTEGER,
+            phone {text_type},
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(phone, user_id)
         ) {table_opts}
+    """)
+    
+    # Migration: Add user_id to opt_outs
+    try: await db.execute("ALTER TABLE opt_outs ADD COLUMN user_id INTEGER")
+    except: pass
+    
+    # Migration: Drop the global unique constraint on phone if possible, 
+    # but SQLite doesn't support dropping constraints easily. For MySQL we can try.
+    if is_mysql:
+        try: await db.execute("ALTER TABLE opt_outs DROP INDEX phone")
+        except: pass
     """)
 
     # Agents Table
