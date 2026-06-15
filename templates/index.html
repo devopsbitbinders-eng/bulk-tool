@@ -4148,7 +4148,11 @@
                     const result = await response.json();
                     if (response.ok) {
                         if (isScheduled) {
-                            showToast('Campaign scheduled successfully!', 'success');
+                            if (result.removed_opt_outs && result.removed_opt_outs.length > 0) {
+                                alert(`Campaign scheduled!\n\nAutomatically removed ${result.removed_opt_outs.length} opted-out numbers from ${result.filename}:\n${result.removed_opt_outs.join(', ')}`);
+                            } else {
+                                showToast('Campaign scheduled successfully!', 'success');
+                            }
                             setTimeout(() => location.reload(), 2000);
                         } else {
                             // Remember the Header URL for next time
@@ -4158,7 +4162,11 @@
                                 localStorage.setItem(`last_header_url_${tName}`, hInput.value);
                             }
 
-                            showToast('Campaign queued with ' + result.total + ' rows!', 'success');
+                            if (result.removed_opt_outs && result.removed_opt_outs.length > 0) {
+                                alert(`Campaign queued with ${result.total} rows!\n\nAutomatically removed ${result.removed_opt_outs.length} opted-out numbers from ${result.filename}:\n${result.removed_opt_outs.join(', ')}`);
+                            } else {
+                                showToast('Campaign queued with ' + result.total + ' rows!', 'success');
+                            }
                             document.getElementById('progressCard').classList.remove('hidden');
                             setupSSE();
                             // Reset Button

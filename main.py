@@ -2216,6 +2216,26 @@ async def upload_file(
         
     if not data or len(data) == 0:
         return JSONResponse(status_code=400, content={"error": "No valid contacts found in the uploaded file. Please ensure your file has at least one phone number."})
+    
+    # 0. FILTER OPT-OUTS
+    db = await get_db()
+    opt_outs = await db.fetch_all("SELECT phone FROM opt_outs")
+    opt_out_set = {row['phone'] for row in opt_outs if row['phone']}
+    
+    removed_opt_outs = []
+    filtered_data = []
+    for row in data:
+        raw_p = str(row.get(phone_col, ''))
+        normalized_p = normalize_phone(raw_p)
+        if normalized_p in opt_out_set:
+            removed_opt_outs.append(raw_p)
+        else:
+            filtered_data.append(row)
+            
+    data = filtered_data
+    if not data or len(data) == 0:
+        return JSONResponse(status_code=400, content={"error": f"All contacts in this file were skipped because they exist in your Opt-Out list. Removed: {len(removed_opt_outs)}"})
+
     now_utc = get_now_utc()
     
     # Handle media file upload if provided
@@ -2340,7 +2360,7 @@ async def upload_file(
             UPDATE campaigns SET sent_failed = sent_failed + :f WHERE id = :id
         """, {"f": failed_initial_count, "id": campaign_id})
     
-    return {"message": "Campaign queued", "campaign_id": campaign_id, "total": len(data)}
+    return {"message": "Campaign queued", "campaign_id": campaign_id, "total": len(data), "removed_opt_outs": removed_opt_outs, "filename": filename}
 
 @app.post("/api/campaigns/{campaign_id}/process")
 async def process_batch_endpoint(request: Request, campaign_id: int):
@@ -3210,7 +3230,7 @@ async def webhook_handler(request: Request):
                         print(f"DEBUG WEBHOOK: Saved inbound {msg_type} from {clean_from} for user {u_id}")
                         
                         # NEW: Handle STOP opt-outs
-                        if msg_type == "text" and body and body.strip().lower() == "stop":
+                        if msg_type == "text" and body and body.strip().lower() in ["stop", "unsubscribe", "opt out", "opt-out", "cancel"]:
                             try:
                                 await db.execute("INSERT IGNORE INTO opt_outs (phone) VALUES (:phone)", {"phone": clean_from})
                                 print(f"DEBUG WEBHOOK: Added {clean_from} to opt_outs list")
