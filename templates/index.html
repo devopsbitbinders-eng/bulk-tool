@@ -6000,7 +6000,8 @@
                 const response = await fetch('/api/opt-outs/import', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (response.ok) {
-                    showToast(`Successfully added ${result.added} numbers to Opt-Outs list!`, 'success');
+                    alert(`Success!\n\nAdded ${result.added} new numbers to your Opt-Out database.\n\nTotal rows processed: ${result.total}`);
+                    showToast('Opt-outs updated', 'success');
                 } else {
                     showToast(result.error || 'Failed to upload opt-outs', 'error');
                 }
