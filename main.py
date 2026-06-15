@@ -1871,6 +1871,34 @@ async def export_campaign(campaign_id: int):
     if not rows:
         return JSONResponse({"error": "No data found for this campaign"}, status_code=404)
 
+@app.get("/api/opt-outs/export")
+async def export_opt_outs(request: Request):
+    session_token = request.cookies.get("session_token")
+    if not verify_session_token(session_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+        
+    db = await get_db()
+    rows = await db.fetch_all("SELECT phone, timestamp FROM opt_outs ORDER BY id DESC")
+    
+    import pandas as pd
+    import io
+    from fastapi.responses import StreamingResponse
+    
+    if not rows:
+        return JSONResponse({"error": "No opt-outs found"}, status_code=404)
+        
+    data = []
+    for r in rows:
+        data.append({"Phone": r['phone'], "Opt-Out Date": r.get('timestamp', '')})
+        
+    df = pd.DataFrame(data)
+    stream = io.StringIO()
+    df.to_csv(stream, index=False)
+    
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=opt_outs.csv"
+    return response
+
     # Strictly show only: Phone Number, Name, Status, Error, and Time
     report_data = []
     from datetime import datetime, timedelta
