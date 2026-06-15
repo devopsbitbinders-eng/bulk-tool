@@ -1136,15 +1136,13 @@
                                 </div>
                             </div>
 
-                            <div class="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                                <div class="flex items-center justify-between mb-3">
+                            <div class="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                                <div class="flex items-center justify-between">
                                     <label class="flex items-center gap-2 cursor-pointer group">
                                         <input type="checkbox" id="isScheduled" name="is_scheduled"
                                             onchange="toggleScheduleInput(this.checked)"
                                             class="w-4 h-4 text-green-600 rounded border-slate-300 focus:ring-green-500">
-                                        <span
-                                            class="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Schedule
-                                            for later</span>
+                                        <span class="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Schedule for later</span>
                                     </label>
                                     <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor"
                                         viewBox="0 0 24 24">
@@ -1156,8 +1154,16 @@
                                 <div id="scheduleTimeArea" class="hidden animate-in slide-in-from-top-2 duration-300">
                                     <input type="datetime-local" id="scheduledAt" name="scheduled_at"
                                         class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none text-sm font-medium bg-white">
-                                    <p class="text-[10px] text-slate-400 mt-2 italic px-1">Campaign will start
-                                        automatically at the selected time.</p>
+                                    <p class="text-[10px] text-slate-400 mt-2 italic px-1">Campaign will start automatically at the selected time.</p>
+                                </div>
+                                <div class="flex items-center justify-between border-t border-slate-200 pt-4 mt-4">
+                                    <label class="flex items-center gap-2 cursor-pointer group">
+                                        <input type="checkbox" id="excludeOptOuts" name="exclude_opt_outs" checked value="true"
+                                            onchange="handleExcludeOptOutsToggle(this)"
+                                            class="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500">
+                                        <span class="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Exclude Opt-Out Numbers</span>
+                                    </label>
+                                    <span class="text-[10px] bg-slate-200 px-2 py-0.5 rounded text-slate-600 font-bold">Recommended</span>
                                 </div>
                             </div>
 
@@ -2607,7 +2613,7 @@
                     <p id="confirmModalMessage" class="text-slate-600 text-sm">Are you sure you want to proceed?</p>
                 </div>
                 <div class="px-6 py-4 bg-slate-50 flex justify-end gap-3">
-                    <button onclick="closeConfirmModal()" class="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 bg-slate-100 rounded-lg transition-colors text-sm">Cancel</button>
+                    <button id="confirmModalCancelBtn" onclick="closeConfirmModal()" class="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 bg-slate-100 rounded-lg transition-colors text-sm">Cancel</button>
                     <button id="confirmModalBtn" class="px-4 py-2 bg-indigo-600 text-white font-medium hover:bg-indigo-700 rounded-lg transition-colors text-sm shadow-sm">Confirm</button>
                 </div>
             </div>
@@ -4058,8 +4064,21 @@
                 list.innerHTML = html || `<p class="text-[10px] text-slate-400 p-2 italic">This template has no variables.</p>`;
             }
 
+
+            function handleExcludeOptOutsToggle(checkbox) {
+                if (!checkbox.checked) {
+                    checkbox.checked = true;
+                    showCustomConfirm(
+                        'Send to Opt-Outs?', 
+                        'Are you absolutely sure you want to send this campaign to people who have previously opted out? This is generally not recommended.', 
+                        () => { checkbox.checked = false; }
+                    );
+                }
+            }
+
             campaignForm.onsubmit = async (e) => {
                 e.preventDefault();
+                const processSubmit = async () => {
                 const method = document.querySelector('input[name="delivery_method"]:checked')?.value || 'bulk';
 
                 if (method === 'bulk' && fileInput.files.length === 0) {
@@ -4176,6 +4195,10 @@
                     } else {
                         formData.append('retry_enabled', 'false');
                     }
+                    // Append allow_opt_outs flag
+                    if (!document.getElementById('excludeOptOuts').checked) {
+                        formData.append('allow_opt_outs', 'true');
+                    }
                     const response = await fetch('/upload', { method: 'POST', body: formData });
                     const result = await response.json();
                     if (response.ok) {
@@ -4217,6 +4240,22 @@
                     showToast('Network error, try again.', 'error');
                     submitBtn.disabled = false;
                     submitBtn.innerText = 'Launch Campaign';
+                }
+                }; // end processSubmit
+                
+                const checkbox = document.getElementById('excludeOptOuts');
+                if (!checkbox.checked) {
+                    showCustomConfirm(
+                        'Final Confirmation', 
+                        'You are about to launch this campaign to ALL numbers, INCLUDING those who have opted out. Are you sure you want to proceed?', 
+                        () => { processSubmit(); }, 
+                        () => { 
+                            checkbox.checked = true;
+                            processSubmit();
+                        }
+                    );
+                } else {
+                    processSubmit();
                 }
             };
 
@@ -6107,7 +6146,7 @@
             }
 
 
-            function showCustomConfirm(title, message, onConfirmCallback) {
+            function showCustomConfirm(title, message, onConfirmCallback, onCancelCallback = null) {
                 document.getElementById('confirmModalTitle').innerText = title;
                 document.getElementById('confirmModalMessage').innerText = message;
                 
@@ -6116,6 +6155,14 @@
                     closeConfirmModal();
                     onConfirmCallback();
                 };
+
+                const cancelBtn = document.getElementById('confirmModalCancelBtn');
+                if (cancelBtn) {
+                    cancelBtn.onclick = () => {
+                        closeConfirmModal();
+                        if (onCancelCallback) onCancelCallback();
+                    };
+                }
                 
                 const modal = document.getElementById('customConfirmModal');
                 modal.classList.remove('hidden');
