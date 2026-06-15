@@ -1432,6 +1432,11 @@
                             </path>
                         </svg>
                     </button>
+                    <label class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-200 transition-colors shadow-sm flex items-center gap-2 border border-slate-200 cursor-pointer" title="Upload Opt-Outs CSV">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        Upload
+                        <input type="file" class="hidden" accept=".csv,.xlsx" onchange="uploadOptOuts(this)">
+                    </label>
                     <a href="/api/opt-outs/export" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-200 transition-colors shadow-sm flex items-center gap-2 border border-slate-200" title="Download Opt-Outs CSV">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         Opt-Outs
@@ -5977,6 +5982,28 @@
                 console.error(err);
                 tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-sm text-red-500 italic">Failed to load responses</td></tr>`;
             }
+        }
+
+        async function uploadOptOuts(input) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            showToast('Uploading Opt-Outs...', 'info');
+            try {
+                const response = await fetch('/api/opt-outs/import', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast(`Successfully added ${result.added} numbers to Opt-Outs list!`, 'success');
+                } else {
+                    showToast(result.error || 'Failed to upload opt-outs', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Network error, try again.', 'error');
+            }
+            input.value = ''; // Reset input
         }
 
         async function downloadFlowResponses() {

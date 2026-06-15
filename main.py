@@ -1871,6 +1871,39 @@ async def export_campaign(campaign_id: int):
     if not rows:
         return JSONResponse({"error": "No data found for this campaign"}, status_code=404)
 
+@app.post("/api/opt-outs/import")
+async def import_opt_outs(request: Request, file: UploadFile = File(...)):
+    session_token = request.cookies.get("session_token")
+    if not verify_session_token(session_token):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    
+    try:
+        content = await file.read()
+        data, phone_col = extract_phone_numbers(content, file.filename)
+        if not data:
+            return JSONResponse(status_code=400, content={"error": "No valid phone numbers found in file"})
+            
+        db = await get_db()
+        # To avoid duplicate errors gracefully in both MySQL and SQLite
+        values_list = [{"phone": normalize_phone(str(row.get(phone_col, '')))} for row in data if normalize_phone(str(row.get(phone_col, '')))]
+        if not values_list:
+            return JSONResponse(status_code=400, content={"error": "No valid phone numbers found after normalization."})
+            
+        added_count = 0
+        for val in values_list:
+            try:
+                await db.execute("INSERT IGNORE INTO opt_outs (phone) VALUES (:phone)", val)
+                added_count += 1
+            except:
+                try: 
+                    await db.execute("INSERT OR IGNORE INTO opt_outs (phone) VALUES (:phone)", val)
+                    added_count += 1
+                except: pass
+                
+        return {"message": "Success", "added": added_count, "total": len(values_list)}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+
 @app.get("/api/opt-outs/export")
 async def export_opt_outs(request: Request):
     session_token = request.cookies.get("session_token")
