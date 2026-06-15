@@ -355,7 +355,6 @@ async def init_db():
     if is_mysql:
         try: await db.execute("ALTER TABLE opt_outs DROP INDEX phone")
         except: pass
-    """)
 
     # Agents Table
     await db.execute(f"""
