@@ -3204,6 +3204,53 @@ async def webhook_handler(request: Request):
                     if wa_id and name:
                         profile_names[wa_id] = name
 
+                # Check if it's an outbound message sent from the WhatsApp App (Coexistence smb_message_echoes)
+                # Ensure you are subscribed to smb_message_echoes in the Meta App Dashboard
+                echoes = value.get("smb_message_echoes", [])
+                # Sometimes Meta sends it as a single dictionary, sometimes as a list
+                if isinstance(echoes, dict):
+                    echoes = [echoes]
+                    
+                for echo_data in echoes:
+                    wa_message_id = echo_data.get("messageId") or echo_data.get("id")
+                    to_phone = echo_data.get("to")
+                    msg_type = echo_data.get("type")
+                    
+                    if not wa_message_id or not to_phone:
+                        continue
+                        
+                    body = f"[Sent {msg_type}]"
+                    if msg_type == "text":
+                        body = echo_data.get("text", {}).get("body", "")
+                    
+                    db = await get_db()
+                    # Check if already exists
+                    existing = await db.fetch_one("SELECT id FROM chat_messages WHERE wa_message_id = :id", {"id": wa_message_id})
+                    if not existing:
+                        clean_to = normalize_phone(to_phone)
+                        
+                        # Use the same fallback for u_id if needed
+                        if u_id is None:
+                            first_user = await db.fetch_one("SELECT id FROM users WHERE is_approved = 1 LIMIT 1")
+                            u_id = first_user['id'] if first_user else None
+                            
+                        await db.execute("""
+                            INSERT INTO chat_messages (user_id, phone, message, direction, wa_message_id, is_read, timestamp, status)
+                            VALUES (:u, :phone, :message, 'outbound', :id, 1, :ts, 'sent')
+                        """, {"u": u_id, "phone": clean_to, "message": body, "id": wa_message_id, "ts": get_now_utc()})
+                        print(f"DEBUG WEBHOOK: Saved outbound echo {msg_type} to {clean_to}")
+                        
+                        # BROADCAST to Live UI (SSE)
+                        outbound_event = json.dumps({
+                            "type": "new_message",
+                            "phone": clean_to,
+                            "message": body,
+                            "user_id": u_id,
+                            "direction": "outbound"
+                        })
+                        for queue in event_queues:
+                            await queue.put(outbound_event)
+
                 # Check if it's an incoming message
                 incoming_messages = value.get("messages", [])
                 for msg_data in incoming_messages:
