@@ -3968,11 +3968,29 @@ async def wp_webhook_listener(request: Request, user_id: int, admin_phone: str):
     }
     
     import httpx
+    import uuid
     async with httpx.AsyncClient() as client:
         url = f"https://graph.facebook.com/v17.0/{cred['phone_number_id']}/messages"
         res = await client.post(url, headers=headers, json=payload)
         
-    return {"status": "success", "message": "Alert sent to admin!"}
+        # Save the outbound message to the database so it appears in the chat dashboard
+        if res.status_code == 200:
+            res_data = res.json()
+            wa_msg_id = res_data.get("messages", [{}])[0].get("id", f"wp_alert_{uuid.uuid4().hex}")
+            clean_phone = admin_phone.replace("+", "").replace(" ", "").replace("-", "")
+            try:
+                await db.execute(
+                    """
+                    INSERT INTO chat_messages 
+                    (user_id, phone, message, direction, status, wa_message_id) 
+                    VALUES (:u, :p, :m, 'outbound', 'sent', :wa)
+                    """,
+                    {"u": user_id, "p": clean_phone, "m": formatted_text[:1000], "wa": wa_msg_id}
+                )
+            except Exception as e:
+                print(f"DEBUG: Failed to log WP alert to chat_messages: {e}")
+                
+    return {"status": "success", "message": "Alert sent to admin and logged in chat!"}
 
 # --- STATIC MOUNTS (MOVE TO END TO PREVENT SHADOWING) ---
 # SPECIFIC MOUNT FOR UPLOADS
