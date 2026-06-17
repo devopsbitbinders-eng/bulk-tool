@@ -3960,14 +3960,14 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
         formatted_text += f"*{clean_key}:* {value}\n"
         
     # Get the client's WhatsApp Credentials
-    cred = await db.fetch_one("SELECT whatsapp_token, phone_number_id, phone_number FROM user_credentials WHERE user_id = :u AND is_active = 1", {"u": user_id})
+    cred = await db.fetch_one("SELECT whatsapp_token, phone_number_id, phone_number, alert_phone FROM user_credentials WHERE user_id = :u AND is_active = 1", {"u": user_id})
     if not cred:
         return JSONResponse(status_code=404, content={"error": "User WhatsApp not connected"})
         
-    # The alert goes directly to the phone number connected to the API
-    admin_phone = cred['phone_number']
+    # The alert goes directly to the personal alert phone number
+    admin_phone = cred['alert_phone']
     if not admin_phone:
-        return JSONResponse(status_code=400, content={"error": "No phone number found in database"})
+        return JSONResponse(status_code=400, content={"error": "No alert phone number set in dashboard settings"})
         
     clean_phone = str(admin_phone).replace("+", "").replace(" ", "").replace("-", "")
         
