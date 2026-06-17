@@ -3942,6 +3942,8 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
     if not admin_phone:
         return JSONResponse(status_code=400, content={"error": "No phone number found in database"})
         
+    clean_phone = str(admin_phone).replace("+", "").replace(" ", "").replace("-", "")
+        
     # Send the WhatsApp message to the Admin's Phone
     headers = {
         "Authorization": f"Bearer {cred['whatsapp_token']}",
@@ -3953,7 +3955,7 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
     payload = {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",
-        "to": admin_phone,
+        "to": clean_phone,
         "type": "template",
         "template": {
             "name": template.lower().strip(),
