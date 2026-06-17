@@ -1266,6 +1266,7 @@ async def process_batch_endpoint(campaign_id: int):
     return await process_campaign_batch(campaign_id)
 
 @app.post("/api/cron/process")
+@app.get("/api/cron/process")
 async def cron_process_endpoint():
     """External Cron endpoint to process pending messages across all campaigns."""
     db = await get_db()
