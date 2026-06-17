@@ -3951,8 +3951,8 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
         return JSONResponse(status_code=400, content={"error": f"Invalid form data: {e}"})
         
     # Format the form data into a clean, single line string
-    # We will ignore ugly metadata fields that Fluent Forms sends automatically
-    ignore_keys = ['fluentform', 'embed', 'post', 'referer', 'action', 'nonce', 'step']
+    # We ignore standard hidden/metadata fields sent by form builders
+    ignore_keys = ['fluentform', 'embed', 'post', 'referer', 'action', 'nonce', 'step', 'recaptcha']
     
     parsed_fields = {}
     form_source = "Website"
@@ -3970,12 +3970,8 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
         if any(ignored in key_str for ignored in ignore_keys) or key_str.startswith('_'):
             continue
             
-        clean_key = str(key).replace("_", " ").title()
-        
-        # Clean up common ugly names
-        if clean_key == "Input Text": clean_key = "Name"
-        elif clean_key == "Numeric Field": clean_key = "Phone"
-        elif clean_key == "Names": clean_key = "Name"
+        # Create a nice human-readable label from the key (e.g. input_text_1 -> Input Text 1)
+        clean_key = str(key).replace("_", " ").replace("-", " ").title().strip()
 
         # Handle dictionaries (like Names: {'first_name': 'john'})
         if isinstance(value, dict):
@@ -3984,6 +3980,13 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
             value = ", ".join([str(v) for v in value if v])
             
         if value:
+            # If a field with this exact name already exists, append a number so it doesn't overwrite
+            original_clean_key = clean_key
+            counter = 1
+            while clean_key in parsed_fields:
+                clean_key = f"{original_clean_key} {counter}"
+                counter += 1
+                
             parsed_fields[clean_key] = str(value).strip()
     
     # Priority order for fields to look good
