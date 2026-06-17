@@ -3908,7 +3908,7 @@ async def get_webhook_debug_logs(request: Request):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/wp-webhook/{user_id}")
-async def wp_webhook_listener(request: Request, user_id: int):
+async def wp_webhook_listener(request: Request, user_id: int, template: str = "admin_alert"):
     db = await get_db()
     
     # Grab the exact form data WordPress sent us (Handle JSON or Form-Encoded)
@@ -3949,14 +3949,14 @@ async def wp_webhook_listener(request: Request, user_id: int):
     }
     
     # We use a template to bypass the 24-hour Meta rule. 
-    # The template must be named exactly 'admin_alert' in Meta dashboard.
+    # It dynamically uses the template name provided in the URL query parameter (defaults to 'admin_alert')
     payload = {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",
         "to": admin_phone,
         "type": "template",
         "template": {
-            "name": "admin_alert",
+            "name": template.lower().strip(),
             "language": {"code": "en_US"},
             "components": [
                 {
