@@ -1,0 +1,1 @@
+{'content': '🚨 New Website Lead! Details: {{1}}. From Website', 'components': '[{"type": "BODY", "text": "\\ud83d\\udea8 New Website Lead! Details: {{1}}. From Website", "example": {"body_text": [["1"]]}}]'}

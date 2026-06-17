@@ -3952,9 +3952,9 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
         
     # Format the form data into a clean, single line string
     # We will ignore ugly metadata fields that Fluent Forms sends automatically
-    ignore_keys = ['fluent_form_embded_post_id', 'fluentform_nonce', 'wp_http_referer', 'action']
+    ignore_keys = ['fluentform', 'embed', 'post', 'referer', 'action', 'nonce', 'step']
     
-    parts = []
+    parsed_fields = {}
     form_source = "Website"
     
     for key, value in form_data.items():
@@ -3975,8 +3975,29 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
         # Clean up common ugly names
         if clean_key == "Input Text": clean_key = "Name"
         elif clean_key == "Numeric Field": clean_key = "Phone"
+        elif clean_key == "Names": clean_key = "Name"
+
+        # Handle dictionaries (like Names: {'first_name': 'john'})
+        if isinstance(value, dict):
+            value = " ".join([str(v) for v in value.values() if v])
+        elif isinstance(value, list):
+            value = ", ".join([str(v) for v in value if v])
             
-        parts.append(f"{clean_key}: {value}")
+        if value:
+            parsed_fields[clean_key] = str(value).strip()
+    
+    # Priority order for fields to look good
+    priority = ["Name", "Email", "Phone", "Mobile"]
+    parts = []
+    
+    # Add priority fields first
+    for p in priority:
+        if p in parsed_fields:
+            parts.append(f"{p}: {parsed_fields.pop(p)}")
+            
+    # Add remaining fields
+    for k, v in parsed_fields.items():
+        parts.append(f"{k}: {v}")
     
     # Put the Form Name at the very beginning!
     parts.insert(0, f"Form: {form_source}")
