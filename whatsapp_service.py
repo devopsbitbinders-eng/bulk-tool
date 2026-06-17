@@ -65,7 +65,8 @@ def create_whatsapp_template(name, category, language, body_text=None, component
         "name": name,
         "category": category,
         "language": language,
-        "components": final_components
+        "components": final_components,
+        "allow_category_change": True
     }
     if subtype and subtype != "DEFAULT":
         payload["category_subtype"] = subtype
