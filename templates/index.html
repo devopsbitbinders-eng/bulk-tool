@@ -7269,7 +7269,7 @@
                     <p class="text-sm text-indigo-700 mt-1">Paste this Webhook URL into your WordPress forms to get instant WhatsApp alerts for new leads.</p>
                 </div>
                 <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-indigo-200 shadow-sm flex-1 md:max-w-xl">
-                    <code id="wpWebhookUrl" class="text-xs text-slate-600 truncate flex-1 font-mono">https://{{ request.headers.get('host') }}/api/wp-webhook/{{ u_id }}/{{ linked_phone or 'YOUR_PHONE' }}</code>
+                    <code id="wpWebhookUrl" class="text-xs text-slate-600 truncate flex-1 font-mono">https://{{ request.headers.get('host') }}/api/wp-webhook/{{ u_id }}</code>
                     <button onclick="navigator.clipboard.writeText(document.getElementById('wpWebhookUrl').innerText); showToast('Webhook URL Copied!', 'success')" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-lg hover:bg-indigo-50 transition-colors" title="Copy URL">
                         <i class="fa-regular fa-copy"></i>
                     </button>

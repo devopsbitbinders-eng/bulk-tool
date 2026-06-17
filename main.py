@@ -3907,8 +3907,8 @@ async def get_webhook_debug_logs(request: Request):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.post("/api/wp-webhook/{user_id}/{admin_phone}")
-async def wp_webhook_listener(request: Request, user_id: int, admin_phone: str):
+@app.post("/api/wp-webhook/{user_id}")
+async def wp_webhook_listener(request: Request, user_id: int):
     db = await get_db()
     
     # Grab the exact form data WordPress sent us (Handle JSON or Form-Encoded)
@@ -3933,9 +3933,14 @@ async def wp_webhook_listener(request: Request, user_id: int, admin_phone: str):
         formatted_text += f"*{clean_key}:* {value}\n"
         
     # Get the client's WhatsApp Credentials
-    cred = await db.fetch_one("SELECT whatsapp_token, phone_number_id FROM user_credentials WHERE user_id = :u AND is_active = 1", {"u": user_id})
+    cred = await db.fetch_one("SELECT whatsapp_token, phone_number_id, phone_number FROM user_credentials WHERE user_id = :u AND is_active = 1", {"u": user_id})
     if not cred:
         return JSONResponse(status_code=404, content={"error": "User WhatsApp not connected"})
+        
+    # The alert goes directly to the phone number connected to the API
+    admin_phone = cred['phone_number']
+    if not admin_phone:
+        return JSONResponse(status_code=400, content={"error": "No phone number found in database"})
         
     # Send the WhatsApp message to the Admin's Phone
     headers = {
