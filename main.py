@@ -3207,11 +3207,16 @@ async def webhook_handler(request: Request):
                 # Check if it's an outbound message sent from the WhatsApp App (Coexistence smb_message_echoes)
                 # Ensure you are subscribed to smb_message_echoes in the Meta App Dashboard
                 echoes = value.get("smb_message_echoes", [])
-                # Sometimes Meta sends it as a single dictionary, sometimes as a list
-                if isinstance(echoes, dict):
-                    echoes = [echoes]
+                standard_echoes = value.get("message_echoes", [])
+                
+                # Normalize both to lists
+                if isinstance(echoes, dict): echoes = [echoes]
+                if isinstance(standard_echoes, dict): standard_echoes = [standard_echoes]
+                
+                # Combine both lists to process them together
+                all_echoes = echoes + standard_echoes
                     
-                for echo_data in echoes:
+                for echo_data in all_echoes:
                     wa_message_id = echo_data.get("messageId") or echo_data.get("id")
                     to_phone = echo_data.get("to")
                     msg_type = echo_data.get("type")
