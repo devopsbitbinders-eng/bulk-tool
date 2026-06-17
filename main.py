@@ -2108,6 +2108,25 @@ async def facebook_auth_callback(request: Request):
         return JSONResponse({"error": f"Internal Error: {str(e)}"}, status_code=500)
 
 
+@app.post("/api/settings/alert-phone")
+async def update_alert_phone(request: Request):
+    session_token = request.cookies.get("session_token")
+    username = verify_session_token(session_token)
+    if not username: return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    u_id = await get_user_id(username)
+
+    body = await request.json()
+    alert_phone = body.get("alert_phone", "").strip()
+    
+    db = await get_db()
+    # Check if they have an active credential
+    cred = await db.fetch_one("SELECT * FROM user_credentials WHERE user_id = :u AND is_active = 1", {"u": u_id})
+    if not cred:
+        return JSONResponse(status_code=400, content={"error": "Please connect your WhatsApp Account first before setting an alert phone number."})
+        
+    await db.execute("UPDATE user_credentials SET alert_phone = :alert WHERE user_id = :u AND is_active = 1", {"u": u_id, "alert": alert_phone})
+    return {"status": "success", "message": "Alert phone updated successfully"}
+
 @app.post("/api/auth/manual")
 async def manual_auth(request: Request):
     """Allows manual entry of WABA ID, Phone ID, and Token (useful for System User tokens)."""
@@ -2120,6 +2139,7 @@ async def manual_auth(request: Request):
     token = body.get("token", "").strip() if body.get("token") else ""
     waba_id = body.get("waba_id", "").strip() if body.get("waba_id") else ""
     phone_id = body.get("phone_id", "").strip() if body.get("phone_id") else ""
+    alert_phone = body.get("alert_phone", "").strip() if body.get("alert_phone") else ""
 
     if not all([token, waba_id, phone_id]):
         return JSONResponse(status_code=400, content={"error": "All fields are required."})
@@ -2142,9 +2162,16 @@ async def manual_auth(request: Request):
     
     # Save new
     await db.execute("""
-        INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, is_active)
-        VALUES (:u, :token, :phone_id, :waba_id, :phone, 1)
-    """, {"u": u_id, "token": token, "phone_id": phone_id, "waba_id": waba_id, "phone": phone_number})
+        INSERT INTO user_credentials (user_id, whatsapp_token, phone_number_id, waba_id, phone_number, alert_phone, is_active)
+        VALUES (:u, :token, :phone_id, :waba_id, :phone, :alert, 1)
+    """, {
+        "u": u_id,
+        "token": token,
+        "phone_id": phone_id,
+        "waba_id": waba_id,
+        "phone": phone_number,
+        "alert": alert_phone
+    })
     # SUBSCRIBE THE WABA TO OUR APP WEBHOOKS
     await subscribe_waba_to_app(waba_id, token)
 
@@ -3976,6 +4003,8 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
     
     import httpx
     import uuid
+    import json
+    print(f"DEBUG WP-WEBHOOK PAYLOAD: {json.dumps(payload)}")
     async with httpx.AsyncClient() as client:
         url = f"https://graph.facebook.com/v17.0/{cred['phone_number_id']}/messages"
         res = await client.post(url, headers=headers, json=payload)
