@@ -3955,9 +3955,17 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
     ignore_keys = ['fluent_form_embded_post_id', 'fluentform_nonce', 'wp_http_referer', 'action']
     
     parts = []
+    form_source = "Website"
+    
     for key, value in form_data.items():
         key_str = str(key).lower()
         
+        # Try to extract the page name from the referer URL to use as the form name
+        if 'referer' in key_str and isinstance(value, str):
+            extracted = value.strip('/').split('/')[-1].replace('-', ' ').title()
+            if extracted: form_source = extracted
+            continue
+            
         # Skip hidden/metadata fields
         if any(ignored in key_str for ignored in ignore_keys) or key_str.startswith('_'):
             continue
@@ -3969,6 +3977,9 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
         elif clean_key == "Numeric Field": clean_key = "Phone"
             
         parts.append(f"{clean_key}: {value}")
+    
+    # Put the Form Name at the very beginning!
+    parts.insert(0, f"Form: {form_source}")
     
     formatted_text = " • ".join(parts)
     
