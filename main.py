@@ -513,7 +513,8 @@ async def index(request: Request, background_tasks: BackgroundTasks):
             "waba_id": waba_id,
             "stats": await get_dashboard_stats(u_id),
             "username": username,
-            "is_admin": is_admin
+            "is_admin": is_admin,
+            "u_id": u_id
         })
     except Exception as e:
         print(f"DASHBOARD ERROR: {e}")
@@ -3905,6 +3906,73 @@ async def get_webhook_debug_logs(request: Request):
         return safe_json_response([dict(r) for r in rows])
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/wp-webhook/{user_id}/{admin_phone}")
+async def wp_webhook_listener(request: Request, user_id: int, admin_phone: str):
+    db = await get_db()
+    
+    # Grab the exact form data WordPress sent us (Handle JSON or Form-Encoded)
+    form_data = {}
+    try:
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            form_data = await request.json()
+        else:
+            # Handle standard WordPress form POST data
+            form_data = dict(await request.form())
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": f"Invalid form data: {e}"})
+        
+    if not form_data:
+        return JSONResponse(status_code=400, content={"error": "Empty form data received"})
+        
+    # Format the form data into a beautiful list
+    formatted_text = "🚨 *New Website Lead!*\n\n"
+    for key, value in form_data.items():
+        clean_key = str(key).replace("_", " ").title()
+        formatted_text += f"*{clean_key}:* {value}\n"
+        
+    # Get the client's WhatsApp Credentials
+    cred = await db.fetch_one("SELECT whatsapp_token, phone_number_id FROM user_credentials WHERE user_id = :u AND is_active = 1", {"u": user_id})
+    if not cred:
+        return JSONResponse(status_code=404, content={"error": "User WhatsApp not connected"})
+        
+    # Send the WhatsApp message to the Admin's Phone
+    headers = {
+        "Authorization": f"Bearer {cred['whatsapp_token']}",
+        "Content-Type": "application/json"
+    }
+    
+    # We use a template to bypass the 24-hour Meta rule. 
+    # The template must be named exactly 'admin_alert' in Meta dashboard.
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": admin_phone,
+        "type": "template",
+        "template": {
+            "name": "admin_alert",
+            "language": {"code": "en_US"},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {
+                            "type": "text",
+                            "text": formatted_text[:1024]  # Meta limit is 1024 characters
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    
+    import httpx
+    async with httpx.AsyncClient() as client:
+        url = f"https://graph.facebook.com/v17.0/{cred['phone_number_id']}/messages"
+        res = await client.post(url, headers=headers, json=payload)
+        
+    return {"status": "success", "message": "Alert sent to admin!"}
 
 # --- STATIC MOUNTS (MOVE TO END TO PREVENT SHADOWING) ---
 # SPECIFIC MOUNT FOR UPLOADS
