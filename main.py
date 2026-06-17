@@ -3993,9 +3993,11 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
                     {"u": user_id, "p": clean_phone, "m": formatted_text[:1000], "wa": wa_msg_id}
                 )
             except Exception as e:
-                print(f"DEBUG: Failed to log WP alert to chat_messages: {e}")
+                print(f"DEBUG WP-WEBHOOK: Failed to log outbound alert to DB: {e}")
+        else:
+            print(f"DEBUG WP-WEBHOOK ERROR: Meta rejected the template. Status: {res.status_code}, Error: {res.text}")
                 
-    return {"status": "success", "message": "Alert sent to admin and logged in chat!"}
+    return {"status": "success", "message": "Alert sent and logged to chat"}
 
 # --- STATIC MOUNTS (MOVE TO END TO PREVENT SHADOWING) ---
 # SPECIFIC MOUNT FOR UPLOADS
