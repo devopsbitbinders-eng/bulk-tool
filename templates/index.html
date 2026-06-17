@@ -2672,6 +2672,9 @@
                                 }
                             }
                         } catch(e) { console.error('Failed to update dropdown', e); }
+                        
+                        // Reload page to update the HTML table with new statuses
+                        setTimeout(() => location.reload(), 1500);
                     } else {
                         showToast(data.error || 'Sync failed', 'error');
                     }
