@@ -3950,19 +3950,30 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
     except Exception as e:
         return JSONResponse(status_code=400, content={"error": f"Invalid form data: {e}"})
         
-    if not form_data:
-        return JSONResponse(status_code=400, content={"error": "Empty form data received"})
-        
-    # Format the form data into a single line string
+    # Format the form data into a clean, single line string
+    # We will ignore ugly metadata fields that Fluent Forms sends automatically
+    ignore_keys = ['fluent_form_embded_post_id', 'fluentform_nonce', 'wp_http_referer', 'action']
+    
     parts = []
     for key, value in form_data.items():
+        key_str = str(key).lower()
+        
+        # Skip hidden/metadata fields
+        if any(ignored in key_str for ignored in ignore_keys) or key_str.startswith('_'):
+            continue
+            
         clean_key = str(key).replace("_", " ").title()
+        
+        # Clean up common ugly names
+        if clean_key == "Input Text": clean_key = "Name"
+        elif clean_key == "Numeric Field": clean_key = "Phone"
+            
         parts.append(f"{clean_key}: {value}")
     
-    formatted_text = " | ".join(parts)
+    formatted_text = " • ".join(parts)
+    
     # Ensure no newlines or tabs exist in the final text (Meta strict rule)
     formatted_text = formatted_text.replace("\n", " ").replace("\r", " ").replace("\t", " ")
-    # Replace multiple spaces with a single space
     import re
     formatted_text = re.sub(r'\s+', ' ', formatted_text)
         
