@@ -3953,11 +3953,18 @@ async def wp_webhook_listener(request: Request, user_id: int, template: str = "a
     if not form_data:
         return JSONResponse(status_code=400, content={"error": "Empty form data received"})
         
-    # Format the form data into a beautiful list
-    formatted_text = "🚨 *New Website Lead!*\n\n"
+    # Format the form data into a single line string
+    parts = []
     for key, value in form_data.items():
         clean_key = str(key).replace("_", " ").title()
-        formatted_text += f"*{clean_key}:* {value}\n"
+        parts.append(f"{clean_key}: {value}")
+    
+    formatted_text = " | ".join(parts)
+    # Ensure no newlines or tabs exist in the final text (Meta strict rule)
+    formatted_text = formatted_text.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    # Replace multiple spaces with a single space
+    import re
+    formatted_text = re.sub(r'\s+', ' ', formatted_text)
         
     # Get the client's WhatsApp Credentials
     cred = await db.fetch_one("SELECT whatsapp_token, phone_number_id, phone_number, alert_phone FROM user_credentials WHERE user_id = :u AND is_active = 1", {"u": user_id})
