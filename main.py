@@ -951,7 +951,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
         template_def = None
         if msg_type == "template" and template_name:
             template_def = await db.fetch_one(
-                "SELECT components FROM templates WHERE LOWER(name) = LOWER(:name) AND user_id = :u LIMIT 1", 
+                "SELECT components, variable_map FROM templates WHERE LOWER(name) = LOWER(:name) AND user_id = :u LIMIT 1", 
                 {"name": template_name, "u": user_id}
             )
 
@@ -1033,9 +1033,14 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 body_params = []
                 
                 comp_list = []
-                if template_def and template_def['components']:
-                    try: comp_list = json.loads(template_def['components'])
-                    except: pass
+                t_var_map = {}
+                if template_def:
+                    if template_def.get('components'):
+                        try: comp_list = json.loads(template_def['components'])
+                        except: pass
+                    if template_def.get('variable_map'):
+                        try: t_var_map = json.loads(template_def['variable_map'])
+                        except: pass
                 
                 header_var_count = 0
                 body_var_count = 0
@@ -1057,7 +1062,7 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                             btn_idx = 0
                             for btn in c.get('buttons', []):
                                 if str(btn.get('type')).upper() == 'URL' and '{{1}}' in str(btn.get('url', '')):
-                                    orig_url = btn.get('_original_url')
+                                    orig_url = btn.get('_original_url') or t_var_map.get('_original_url')
                                     if orig_url:
                                         import base64
                                         b64_url = base64.urlsafe_b64encode(orig_url.encode()).decode().rstrip('=')
@@ -2829,9 +2834,13 @@ async def create_complex_template(
                         while url_idx < len(btn_list):
                             if btn_list[url_idx].get('type') == 'URL':
                                 btn['_original_url'] = btn_list[url_idx].get('url', '')
+                                v_map['_original_url'] = btn_list[url_idx].get('url', '')
                                 url_idx += 1
                                 break
                             url_idx += 1
+
+    # Update variable_map string to include our new keys
+    variable_map = json.dumps(v_map)
 
     # Save to Local DB
     db = await get_db()
