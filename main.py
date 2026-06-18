@@ -3091,7 +3091,7 @@ async def verify_webhook(request: Request):
         print("DEBUG WEBHOOK: Verified successfully!")
         return HTMLResponse(content=challenge, status_code=200)
     else:
-        print("DEBUG WEBHOOK: Verification failed.")
+        print(f"DEBUG WEBHOOK MISMATCH: Expected mode='subscribe' and token='{WEBHOOK_VERIFY_TOKEN}', but got mode='{mode}' and token='{token}'")
         return JSONResponse(status_code=403, content={"error": "Verification failed"})
 
 @app.get("/api/webhook-logs")
