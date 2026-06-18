@@ -3228,7 +3228,7 @@
                 const toast = document.createElement('div');
                 const bgColor = type === 'success' ? 'bg-emerald-600' : (type === 'error' ? 'bg-rose-600' : 'bg-slate-800');
 
-                toast.className = `toast ${bgColor} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 min-w-[300px] border border-white/10 glass`;
+                toast.className = `toast ${bgColor} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 min-w-[300px] border border-white/10`;
                 toast.innerHTML = `
                 <div class="flex-grow font-medium text-sm">${message}</div>
                 <button onclick="this.parentElement.remove()" class="text-white/50 hover:text-white transition-colors">
