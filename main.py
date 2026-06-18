@@ -1312,7 +1312,10 @@ async def process_batch_endpoint(campaign_id: int):
 async def cron_process_endpoint():
     """External Cron endpoint to process pending messages across all campaigns."""
     db = await get_db()
-    
+    import time
+    start_time = time.time()
+    MAX_RUNTIME = 8.0  # Leave 2 seconds margin for Vercel 10s limit
+
     # RETRY PROCESSOR: Retry failed messages scheduled for retry (8h intervals, 3 times)
     now_utc = get_now_utc()
     from datetime import timedelta
@@ -1329,7 +1332,7 @@ async def cron_process_endpoint():
               AND m.retry_count < c.retry_max_count
               AND m.next_retry_at IS NOT NULL
               AND m.next_retry_at <= :now
-            LIMIT 50
+            LIMIT 15
         """, {"now": now_utc})
         
         retry_success = 0
@@ -1422,12 +1425,11 @@ async def cron_process_endpoint():
         return {"message": "No active campaigns found."}
         
     total_processed = 0
-    max_messages = 100
-    chunk_size = 20
-    
-    import asyncio
     
     for c in active_campaigns:
+        if time.time() - start_time >= MAX_RUNTIME:
+            break
+            
         campaign_id = c['id']
         
         # Fetch campaign metadata
@@ -1439,20 +1441,17 @@ async def cron_process_endpoint():
         if campaign['status'] == 'Stopped' or campaign['status'] == 'Paused':
             continue
             
-        # Original Sequential Processing (Safe and reliable)
-        for _ in range(3): # Process 3 batches of 30 messages (total 90) sequentially
-            result = await process_campaign_batch(campaign_id, batch_size=30)
+        # Time-bounded Sequential Processing
+        while time.time() - start_time < MAX_RUNTIME:
+            result = await process_campaign_batch(campaign_id, batch_size=20)
             processed_in_chunk = result.get('processed', 0)
             total_processed += processed_in_chunk
             
             if processed_in_chunk == 0:
                 # No more messages for this campaign
                 break
-            
-        if total_processed >= max_messages:
-            break
-            
-    return {"message": f"Processed {total_processed} messages across campaigns."}
+                
+    return {"message": f"Processed {total_processed} messages and {retry_success+retry_failed} retries safely within timeout."}
 
 async def process_campaign(user_id: int, campaign_id: int, data: list, phone_col: str, message_template: str, msg_type: str = "text", template_name: str = "", language_code: str = "en_US", report_email: str = None, mappings: dict = None):
     print(f"DEBUG: Starting processing for Campaign {campaign_id} with {len(data)} rows. Type: {msg_type}")
