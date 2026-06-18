@@ -3179,6 +3179,7 @@
                 if (!ts) return "";
                 try {
                     let cleanTs = ts.toString().replace(' ', 'T');
+                    if (!cleanTs.endsWith('Z')) cleanTs += 'Z';
                     let d = new Date(cleanTs);
                     if (isNaN(d.getTime())) return ts;
 
@@ -4183,14 +4184,14 @@
                     return;
                 }
                 
-                let csv = 'Phone,Status,Error,Date\\n';
+                let csv = 'Phone,Status,Error,Date\r\n';
                 rows.forEach(row => {
                     const phone = row.dataset.phone || '';
                     const statusText = row.querySelector('td:nth-child(4) span.capitalize')?.innerText || '';
                     const errorText = row.querySelector('td:nth-child(4) span.line-clamp-2')?.title || '';
                     const date = row.querySelector('td:nth-child(5)')?.innerText || '';
                     
-                    csv += `"${phone}","${statusText.toUpperCase().trim()}","${errorText.replace(/"/g, '""')}","${date}"\\n`;
+                    csv += `"${phone}","${statusText.toUpperCase().trim()}","${errorText.replace(/"/g, '""')}","${date}"\r\n`;
                 });
                 
                 const blob = new Blob([csv], { type: 'text/csv' });

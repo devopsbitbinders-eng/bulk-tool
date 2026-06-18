@@ -1915,6 +1915,60 @@ async def export_campaign(campaign_id: int):
     if not rows:
         return JSONResponse({"error": "No data found for this campaign"}, status_code=404)
 
+    # Strictly show only: Phone Number, Name, Status, Error, and Time
+    report_data = []
+    from datetime import datetime, timedelta
+    
+    for r in rows:
+        raw = r['row_data']
+        name_val = ""
+        if raw:
+            orig_data = json.loads(raw)
+            # Try to find a name from var_1 or columns containing 'name'
+            if 'var_1' in orig_data:
+                name_val = orig_data['var_1']
+            else:
+                for k, v in orig_data.items():
+                    if 'name' in k.lower():
+                        name_val = v
+                        break
+                        
+        data = {
+            "Phone Number": r['phone'],
+            "Name": name_val,
+            "Status": str(r['status']).capitalize() if r['status'] else "Unknown",
+            "Error": r['error_message'] if r['error_message'] else ""
+        }
+        
+        # Convert timestamp to IST (UTC + 5:30)
+        if r['timestamp']:
+            try:
+                if isinstance(r['timestamp'], str):
+                    dt = datetime.strptime(r['timestamp'], "%Y-%m-%d %H:%M:%S")
+                else:
+                    dt = r['timestamp'] # Assume it's a datetime object
+                    
+                ist_dt = dt + timedelta(hours=5, minutes=30)
+                data['Time'] = ist_dt.strftime("%I:%M %p, %d %b %Y").upper()
+            except Exception:
+                data['Time'] = str(r['timestamp'])
+        else:
+            data['Time'] = ""
+            
+        report_data.append(data)
+
+    df = pd.DataFrame(report_data)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Campaign Report')
+    output.seek(0)
+
+    headers = {
+        'Content-Disposition': f'attachment; filename="campaign_{campaign_id}_report.xlsx"'
+    }
+    return StreamingResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
+
 @app.post("/api/opt-outs/import")
 async def import_opt_outs(request: Request, file: UploadFile = File(...)):
     session_token = request.cookies.get("session_token")
@@ -1979,66 +2033,6 @@ async def export_opt_outs(request: Request):
     response.headers["Content-Disposition"] = "attachment; filename=opt_outs.csv"
     return response
 
-    # Strictly show only: Phone Number, Name, Status, Error, and Time
-    report_data = []
-    from datetime import datetime, timedelta
-    
-    for r in rows:
-        raw = r['row_data']
-        name_val = ""
-        if raw:
-            orig_data = json.loads(raw)
-            # Try to find a name from var_1 or columns containing 'name'
-            if 'var_1' in orig_data:
-                name_val = orig_data['var_1']
-            else:
-                for k, v in orig_data.items():
-                    if 'name' in k.lower():
-                        name_val = v
-                        break
-                        
-        data = {
-            "Phone Number": r['phone'],
-            "Name": name_val,
-            "Status": str(r['status']).capitalize() if r['status'] else "Unknown",
-            "Error": r['error_message'] if r['error_message'] else ""
-        }
-        
-        # Convert timestamp to IST (UTC + 5:30)
-        if r['timestamp']:
-            try:
-                if isinstance(r['timestamp'], str):
-                    dt = datetime.strptime(r['timestamp'], "%Y-%m-%d %H:%M:%S")
-                else:
-                    dt = r['timestamp'] # Assume it's a datetime object
-                    
-                # Migration check: If before fix time (2026-05-14 12:35), it was UTC. So add 5:30.
-                fix_time = datetime(2026, 5, 14, 12, 35, 0)
-                
-                if dt < fix_time:
-                    ist_dt = dt + timedelta(hours=5, minutes=30)
-                else:
-                    ist_dt = dt
-                    
-                data['Time'] = ist_dt.strftime("%Y-%m-%d %H:%M:%S")
-            except Exception:
-                data['Time'] = str(r['timestamp'])
-        else:
-            data['Time'] = ""
-            
-        report_data.append(data)
-
-    df = pd.DataFrame(report_data)
-    
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Campaign Report')
-    output.seek(0)
-
-    headers = {
-        'Content-Disposition': f'attachment; filename="campaign_{campaign_id}_report.xlsx"'
-    }
-    return StreamingResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
 
 @app.post("/auth/facebook/unlink")
 async def facebook_unlink(request: Request):
