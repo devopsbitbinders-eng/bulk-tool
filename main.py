@@ -1357,7 +1357,7 @@ async def cron_process_endpoint():
                 
                 success, response = await send_whatsapp_message(
                     msg['phone'], msg['message'], msg_type, template_name, language_code,
-                    media_url=None, credentials=credentials,
+                    media_url=media_url, credentials=credentials,
                     forced_components=forced_components, media_id=campaign_media_id
                 )
                 
@@ -1386,11 +1386,11 @@ async def cron_process_endpoint():
                         await db.execute("""
                             UPDATE messages SET retry_count=:rc, next_retry_at=NULL WHERE id=:id
                         """, {"rc": max_retries, "id": msg['id']})
-                        print(f"DEBUG RETRY-CRON: {msg['phone']} PERMANENTLY FAILED after {max_retries} retries")
                     else:
                         # Schedule next retry based on campaign setting
                         interval = msg.get('retry_interval_hours', 8)
-                        next_retry = (now_utc + timedelta(hours=interval)).strftime('%Y-%m-%d %H:%M:%S')
+                        from datetime import datetime, timedelta
+                        next_retry = (datetime.utcnow() + timedelta(hours=interval)).strftime('%Y-%m-%d %H:%M:%S')
                         await db.execute("""
                             UPDATE messages SET retry_count=:rc, next_retry_at=:nra WHERE id=:id
                         """, {"rc": new_retry_count, "nra": next_retry, "id": msg['id']})

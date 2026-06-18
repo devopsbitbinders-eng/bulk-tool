@@ -304,14 +304,21 @@ async def send_whatsapp_message(phone, message=None, msg_type="text", template_n
             const_components = []
             
             # 1. Header (Media or Text with Variables)
-            if media_url:
+            if media_url or media_id:
                 fmt = "image"
-                if str(media_url).lower().endswith((".mp4", ".mov")): fmt = "video"
-                elif str(media_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
+                check_url = media_url or ""
+                if str(check_url).lower().endswith((".mp4", ".mov")): fmt = "video"
+                elif str(check_url).lower().endswith((".pdf", ".doc", ".docx")): fmt = "document"
                 
+                param_obj = {"type": fmt}
+                if media_id and media_id != "None":
+                    param_obj[fmt] = {"id": str(media_id)}
+                elif media_url:
+                    param_obj[fmt] = {"link": media_url}
+                    
                 const_components.append({
                     "type": "header",
-                    "parameters": [{"type": fmt, fmt: {"link": media_url}}]
+                    "parameters": [param_obj]
                 })
             
             # 2. Body Variables
