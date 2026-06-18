@@ -2753,10 +2753,12 @@ async def create_complex_template(
     # 2. Body
     # Meta requires exactly n examples for variables {{1}} through {{n}}.
     found_var_indices = [int(m) for m in re.findall(r'\{\{\s*(\d+)\s*\}\}', content)]
+    
+    # Initialize v_map for all templates, even if no body variables exist
+    v_map = json.loads(variable_map or "{}")
+    
     if found_var_indices:
         max_idx = max(found_var_indices)
-        # Use the names from variable_map for better approval speed
-        v_map = json.loads(variable_map or "{}")
         example_values = [v_map.get(str(i), "sample") for i in range(1, max_idx + 1)]
         
         components.append({
