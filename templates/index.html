@@ -4106,9 +4106,11 @@
                     } else {
                         tbody.innerHTML = displayMessages.map(m => {
                             let statusColor = 'text-slate-600';
-                            if (m.status === 'delivered') statusColor = 'text-blue-600';
-                            if (m.status === 'read') statusColor = 'text-emerald-600';
-                            if (m.status === 'failed') statusColor = 'text-rose-600';
+                            let statusBg = 'bg-slate-100';
+                            if (m.status === 'delivered') { statusColor = 'text-blue-600'; statusBg = 'bg-blue-100'; }
+                            if (m.status === 'read') { statusColor = 'text-emerald-600'; statusBg = 'bg-emerald-100'; }
+                            if (m.status === 'failed') { statusColor = 'text-rose-600'; statusBg = 'bg-rose-100'; }
+                            if (m.status === 'clicked') { statusColor = 'text-purple-600'; statusBg = 'bg-purple-100'; }
 
                             let errorMsg = m.error_message ? `<span class="text-[11px] text-slate-500 font-normal block mt-1 leading-relaxed line-clamp-2" title="${m.error_message.replace(/"/g, '&quot;')}">ERROR(${m.error_message})</span>` : '';
                             let tagHtml = m.tag ? `<span class="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] rounded-full font-bold uppercase">${m.tag}</span>` : '';
@@ -4118,8 +4120,10 @@
                                 <td class="px-4 py-4"><input type="checkbox" class="msg-checkbox rounded border-slate-300" value="${m.id}"></td>
                                 <td class="px-6 py-4 text-slate-600 font-medium">${m.phone}${tagHtml}</td>
                                 <td class="px-6 py-4 text-slate-500">${window.wabaPhone || '-'}</td>
-                                <td class="px-6 py-4 font-bold ${statusColor}">
-                                    ${m.status.toUpperCase()}
+                                <td class="px-6 py-4">
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${statusBg} ${statusColor} capitalize">
+                                        ${m.status}
+                                    </span>
                                     ${errorMsg}
                                 </td>
                                 <td class="px-6 py-4 text-slate-500 text-xs sync-time">${m.timestamp}</td>

@@ -2983,7 +2983,9 @@ async def get_campaign_details(request: Request, campaign_id: int):
     
     # Message list
     messages = await db.fetch_all("""
-        SELECT id, phone, status, error_message, timestamp, tag 
+        SELECT id, phone, 
+               CASE WHEN clicked = 1 THEN 'clicked' ELSE status END as status, 
+               error_message, timestamp, tag 
         FROM messages 
         WHERE campaign_id = :id AND user_id = :u
         ORDER BY timestamp ASC
