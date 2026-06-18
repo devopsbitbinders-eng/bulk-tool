@@ -1035,11 +1035,14 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 comp_list = []
                 t_var_map = {}
                 if template_def:
-                    if template_def.get('components'):
-                        try: comp_list = json.loads(template_def['components'])
+                    components_str = template_def['components']
+                    if components_str:
+                        try: comp_list = json.loads(components_str)
                         except: pass
-                    if template_def.get('variable_map'):
-                        try: t_var_map = json.loads(template_def['variable_map'])
+                        
+                    var_map_str = template_def['variable_map']
+                    if var_map_str:
+                        try: t_var_map = json.loads(var_map_str)
                         except: pass
                 
                 header_var_count = 0
