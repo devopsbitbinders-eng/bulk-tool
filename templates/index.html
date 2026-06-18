@@ -1122,7 +1122,12 @@
         <!-- Campaigns Tab -->
         <div id="content-campaigns" class="">
             <!-- Stats Dashboard -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <style>
+                @media (min-width: 768px) {
+                    .dash-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+                }
+            </style>
+            <div class="grid grid-cols-1 gap-6 mb-8 dash-grid-4">
                 <!-- Card 1: Templates (Orange) -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="bg-amber-500 px-6 py-3 text-center">
