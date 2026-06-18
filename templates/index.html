@@ -2921,6 +2921,9 @@
                         class="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded shadow-sm hover:bg-amber-600 transition-colors"
                         onclick="selectAllMessages()">Select All</button>
                     <button
+                        class="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded shadow-sm hover:bg-emerald-700 transition-colors"
+                        onclick="exportFilteredMessages()">Export List</button>
+                    <button
                         class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded shadow-sm hover:bg-blue-700 transition-colors"
                         onclick="resendSelected()">Multi Resend</button>
                 </div>
@@ -3851,7 +3854,7 @@
                         </td>
                         <td class="px-4 py-5 text-center">
                             <div class="flex items-center justify-center gap-2">
-                                <button onclick="showCampaignChart(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', ${c.read_count || c.read || 0}, ${c.delivered_count || c.delivered || 0}, ${c.failed || 0}, ${c.sent_success || 0})" class="w-8 h-8 rounded-full text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-colors" title="Chart">
+                                <button onclick="showCampaignChart(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', ${c.read_count || c.read || 0}, ${c.delivered_count || c.delivered || 0}, ${c.failed || 0}, ${c.sent_success || 0}, ${c.clicked_count || 0})" class="w-8 h-8 rounded-full text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-colors" title="Chart">
                                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
                                 </button>
                                 <button onclick="window.location.href='/api/campaigns/${c.id}/export'" class="w-8 h-8 rounded-full text-cyan-500 hover:bg-cyan-50 flex items-center justify-center transition-colors" title="Download">
@@ -3963,7 +3966,7 @@
             }
 
             let campaignPieChartInstance = null;
-            function showCampaignChart(id, name, read, delivered, failed, sent) {
+            function showCampaignChart(id, name, read, delivered, failed, sent, clicked = 0) {
                 const modal = document.getElementById('chartModal');
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
@@ -3975,11 +3978,11 @@
 
                 Chart.register(ChartDataLabels);
 
-                const data = [read, delivered, failed, sent];
-                const labels = ['READ', 'DELIVERED', 'ERROR', 'SENT'];
-                const colors = ['#007bff', '#00e676', '#ffb300', '#ff4081'];
+                const data = [read, delivered, failed, sent, clicked];
+                const labels = ['READ', 'DELIVERED', 'ERROR', 'SENT', 'CLICKED'];
+                const colors = ['#007bff', '#00e676', '#ffb300', '#ff4081', '#9333ea']; // Purple for clicked
 
-                const total = read + delivered + failed + sent;
+                const total = read + delivered + failed + sent + clicked;
 
                 campaignPieChartInstance = new Chart(ctx, {
                     type: 'pie',
@@ -4158,6 +4161,33 @@
                         showToast('Network error', 'error');
                     }
                 });
+            }
+
+            function exportFilteredMessages() {
+                const rows = document.querySelectorAll('#detailTableBody .message-row');
+                if (rows.length === 0) {
+                    showToast('No messages to export.', 'info');
+                    return;
+                }
+                
+                let csv = 'Phone,Status,Error,Date\\n';
+                rows.forEach(row => {
+                    const phone = row.dataset.phone || '';
+                    const statusText = row.querySelector('td:nth-child(4) span.capitalize')?.innerText || '';
+                    const errorText = row.querySelector('td:nth-child(4) span.line-clamp-2')?.title || '';
+                    const date = row.querySelector('td:nth-child(5)')?.innerText || '';
+                    
+                    csv += `"${phone}","${statusText.toUpperCase().trim()}","${errorText.replace(/"/g, '""')}","${date}"\\n`;
+                });
+                
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `campaign_filtered_export.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showToast(`Exported ${rows.length} messages.`, 'success');
             }
 
             async function resendSelected() {
