@@ -1192,6 +1192,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 if not actual_media_id and str(actual_media_url).startswith("http") and "/static/uploads/" in str(actual_media_url):
                     raise Exception("Local media file was not synced to Meta")
 
+            print(f"DEBUG: ABOUT TO SEND TEMPLATE {template_name} to {phone}")
+            print(f"DEBUG: FORCED COMPONENTS ARE: {json.dumps(forced_components)}")
             success, response = await send_whatsapp_message(
                 phone, message_to_send, final_msg_type, template_name, language_code, 
                 media_url=actual_media_url, credentials=credentials, 
