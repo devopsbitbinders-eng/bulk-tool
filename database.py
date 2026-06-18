@@ -284,6 +284,12 @@ async def init_db():
     try: await db.execute("ALTER TABLE messages ADD COLUMN tag TEXT")
     except: pass
     
+    # Migration: Link Tracking
+    try: await db.execute("ALTER TABLE messages ADD COLUMN clicked BOOLEAN DEFAULT 0")
+    except: pass
+    try: await db.execute("ALTER TABLE campaigns ADD COLUMN clicked_count INTEGER DEFAULT 0")
+    except: pass
+    
     # Migration: status in wapp_forms
     try: await db.execute("ALTER TABLE wapp_forms ADD COLUMN status TEXT DEFAULT 'PUBLISHED'")
     except: pass

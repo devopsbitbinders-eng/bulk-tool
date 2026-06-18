@@ -1122,7 +1122,7 @@
         <!-- Campaigns Tab -->
         <div id="content-campaigns" class="">
             <!-- Stats Dashboard -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <!-- Card 1: Templates (Orange) -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="bg-amber-500 px-6 py-3 text-center">
@@ -1172,6 +1172,27 @@
                         </div>
                         <div class="text-center w-1/2">
                             <div class="text-3xl font-bold text-slate-800">{{ stats.outgoing.last_7_days }}</div>
+                        </div>
+                    </div>
+                    <div
+                        class="px-6 py-2 bg-slate-50/50 flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                        <span>today</span>
+                        <span>last 7 days</span>
+                    </div>
+                </div>
+
+                <!-- Card 4: Clicks (Purple) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-purple-500 px-6 py-3 text-center">
+                        <h3 class="text-white font-bold text-sm">Total Link Clicks</h3>
+                    </div>
+                    <div class="p-6 pb-2 flex justify-between items-center">
+                        <div class="text-center w-1/2 border-r border-slate-100">
+                            <div class="text-3xl font-bold text-slate-800" id="stat-clicks">{{ stats.clicks.today }}
+                            </div>
+                        </div>
+                        <div class="text-center w-1/2">
+                            <div class="text-3xl font-bold text-slate-800">{{ stats.clicks.last_7_days }}</div>
                         </div>
                     </div>
                     <div
@@ -1842,6 +1863,7 @@
                             <th class="px-4 py-4 text-xs font-bold uppercase max-w-[200px]">Message</th>
                             <th class="px-4 py-4 text-xs font-bold uppercase">Submit Date</th>
                             <th class="px-4 py-4 text-xs font-bold uppercase text-center">READ</th>
+                            <th class="px-4 py-4 text-xs font-bold uppercase text-center text-purple-600">CLICKED</th>
                             <th class="px-4 py-4 text-xs font-bold uppercase text-center">DLVD</th>
                             <th class="px-4 py-4 text-xs font-bold uppercase text-center">FAILED</th>
                             <th class="px-4 py-4 text-xs font-bold uppercase text-center">Other</th>
@@ -3814,6 +3836,7 @@
                         <td class="px-4 py-5 text-xs text-slate-500 truncate max-w-[200px]" title="${(c.message_template || '').replace(/"/g, '&quot;')}">${c.message_template || '-'}</td>
                         <td class="px-4 py-5 text-xs text-slate-500">${formatDateTime(c.timestamp)}</td>
                         <td class="px-4 py-5 text-center text-sm font-medium text-emerald-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'read')">${c.read_count || c.read || 0}</td>
+                        <td class="px-4 py-5 text-center text-sm font-medium text-purple-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'clicked')">${c.clicked || 0}</td>
                         <td class="px-4 py-5 text-center text-sm font-medium text-blue-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'delivered')">${c.delivered_count || c.delivered || 0}</td>
                         <td class="px-4 py-5 text-center text-sm font-medium text-rose-600 hover:underline cursor-pointer" onclick="viewCampaignDetails(${c.id}, '${(c.name || 'Campaign').replace(/'/g, "\\'")}', '${c.timestamp}', 'failed')">${c.failed || 0}</td>
                         <td class="px-4 py-5 text-center text-sm">
@@ -8225,6 +8248,9 @@
                     if (res.ok) {
                         const data = await res.json();
                         renderChart(data.chart_data);
+                        if (document.getElementById('stat-incoming') && data.incoming !== undefined) document.getElementById('stat-incoming').innerText = data.incoming;
+                        if (document.getElementById('stat-outgoing') && data.outgoing !== undefined) document.getElementById('stat-outgoing').innerText = data.outgoing;
+                        if (document.getElementById('stat-clicks') && data.clicks !== undefined) document.getElementById('stat-clicks').innerText = data.clicks;
                     }
                 } catch (err) {
                     console.error("Failed to fetch dashboard stats", err);

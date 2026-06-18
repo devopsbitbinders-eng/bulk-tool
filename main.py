@@ -237,6 +237,9 @@ async def get_dashboard_stats(user_id: int):
     camp_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": today_str})
     camp_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
     
+    click_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND clicked = 1 AND timestamp >= :ts", {"u": user_id, "ts": today_str})
+    click_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND clicked = 1 AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
+    
     # Chart Data Aggregation (Last 7 Days)
     chart_data = {"labels": [], "sent": [], "delivered": [], "read": [], "failed": []}
     
@@ -306,6 +309,10 @@ async def get_dashboard_stats(user_id: int):
         "outgoing": {
             "today": camp_out_today['count'] or 0,
             "last_7_days": camp_out_7d['count'] or 0
+        },
+        "clicks": {
+            "today": click_today['count'] or 0,
+            "last_7_days": click_7d['count'] or 0
         },
         "chart_data": chart_data
     }
@@ -382,6 +389,8 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
                     elif st == 'read': daily_stats[day_str]["read"] += 1
                     elif st in ('failed', 'error'): daily_stats[day_str]["failed"] += 1
                 
+        clicks = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND clicked = 1 AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
+
         for d in chart_data["labels"]:
             chart_data["sent"].append(daily_stats[d]["sent"])
             chart_data["delivered"].append(daily_stats[d]["delivered"])
@@ -391,6 +400,7 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
         return {
             "incoming": inc['count'] if inc else 0,
             "outgoing": out['count'] if out else 0,
+            "clicks": clicks['count'] if clicks else 0,
             "chart_data": chart_data
         }
     except Exception as e:
@@ -1043,6 +1053,22 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                                 media_header_type = str(c.get('format')).lower()
                         elif ctype == 'BODY':
                             body_var_count = len(re.findall(r'\{\{\s*\d+\s*\}\}', ctext))
+                        elif ctype == 'BUTTONS':
+                            btn_idx = 0
+                            for btn in c.get('buttons', []):
+                                if str(btn.get('type')).upper() == 'URL' and '{{1}}' in str(btn.get('url', '')):
+                                    orig_url = btn.get('_original_url')
+                                    if orig_url:
+                                        import base64
+                                        b64_url = base64.urlsafe_b64encode(orig_url.encode()).decode().rstrip('=')
+                                        payload_text = f"{msg['id']}/{b64_url}"
+                                        forced_components.append({
+                                            "type": "button",
+                                            "sub_type": "url",
+                                            "index": str(btn_idx),
+                                            "parameters": [{"type": "text", "text": payload_text}]
+                                        })
+                                btn_idx += 1
                 
                 vars_map = mappings.get('vars', {}) if mappings else {}
                 media_header_type = 'image' # Default fallback
@@ -2909,6 +2935,7 @@ async def get_history(request: Request, start_date: str = None, end_date: str = 
                (SELECT COUNT(id) FROM messages WHERE campaign_id = c.id AND status = 'sent') as sent_success,
                (SELECT COUNT(id) FROM messages WHERE campaign_id = c.id AND status = 'delivered') as delivered,
                (SELECT COUNT(id) FROM messages WHERE campaign_id = c.id AND status = 'read') as `read`,
+               (SELECT COUNT(id) FROM messages WHERE campaign_id = c.id AND clicked = 1) as clicked,
                (SELECT COUNT(id) FROM messages WHERE campaign_id = c.id AND status = 'failed') as failed
         FROM ({inner_query}) c 
         ORDER BY c.timestamp DESC
@@ -4628,3 +4655,23 @@ async def move_wp_channel_member(request: Request):
         await db.execute("UPDATE wp_channel_members SET channel_id = :ncid WHERE id = :mid", {"ncid": new_channel_id, "mid": member_id})
                      
     return {'status': 'ok'}
+
+@app.post('/api/track-click/{tracking_id}')
+async def track_link_click(tracking_id: int):
+    """Called secretly by Cloudflare Worker when a tracked link is clicked."""
+    try:
+        db = await get_db()
+        # Check if already clicked to prevent double-counting
+        check = await db.fetch_val("SELECT clicked FROM messages WHERE id = :id", {"id": tracking_id})
+        if check == 0 or check is False:
+            await db.execute("UPDATE messages SET clicked = 1 WHERE id = :id", {"id": tracking_id})
+            
+            # Increment campaign clicked count
+            msg = await db.fetch_one("SELECT campaign_id FROM messages WHERE id = :id", {"id": tracking_id})
+            if msg:
+                await db.execute("UPDATE campaigns SET clicked_count = clicked_count + 1 WHERE id = :cid", {"cid": msg['campaign_id']})
+                
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"DEBUG: Tracking Click Error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
