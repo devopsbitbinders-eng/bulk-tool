@@ -608,8 +608,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        waba_id: id2, // id2 is WABA
-                        phone_id: id1, // id1 is Phone
+                        waba_id: "AUTO_DETECT",
+                        phone_id: "AUTO_DETECT",
                         code: code,
                         is_nuclear: true
                     })
