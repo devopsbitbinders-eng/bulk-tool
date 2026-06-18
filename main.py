@@ -1340,6 +1340,7 @@ async def cron_process_endpoint():
         
         for msg in retry_messages:
             try:
+                msg = dict(msg)
                 credentials = await get_active_credentials(msg['user_id'])
                 row = json.loads(msg['row_data']) if msg['row_data'] else {}
                 mappings = json.loads(msg['mappings']) if msg.get('mappings') else {}
