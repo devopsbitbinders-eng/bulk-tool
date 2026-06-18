@@ -1101,7 +1101,15 @@
                         <span class="text-sm font-semibold text-rose-700">Read</span>
                     </label>
 
-                    <button onclick="selectAllFilters(true)"
+                    <label
+                        class="flex items-center gap-2 cursor-pointer select-none bg-purple-50 border border-purple-200 rounded-lg px-4 py-2 hover:bg-purple-100 transition-colors">
+                        <input type="checkbox" id="filter-clicked" checked onchange="updateChartFilter()"
+                            class="w-4 h-4 accent-purple-500 rounded">
+                        <span class="w-3 h-3 rounded-full inline-block" style="background:#9333ea"></span>
+                        <span class="text-sm font-semibold text-purple-700">Clicked</span>
+                    </label>
+
+                    <div class="ml-auto flex items-center gap-2"> <button onclick="selectAllFilters(true)"
                         class="ml-auto text-xs font-bold text-slate-500 hover:text-blue-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:border-blue-300 transition-colors">Select
                         All</button>
                     <button onclick="selectAllFilters(false)"
@@ -3978,11 +3986,15 @@
 
                 Chart.register(ChartDataLabels);
 
-                const data = [read, delivered, failed, sent, clicked];
+                // Prevent double-counting: if it's clicked, it's already counted as read.
+                // We subtract clicked from read so the pie slices add up to the true total messages.
+                const adjustedRead = Math.max(0, read - clicked);
+
+                const data = [adjustedRead, delivered, failed, sent, clicked];
                 const labels = ['READ', 'DELIVERED', 'ERROR', 'SENT', 'CLICKED'];
                 const colors = ['#007bff', '#00e676', '#ffb300', '#ff4081', '#9333ea']; // Purple for clicked
 
-                const total = read + delivered + failed + sent + clicked;
+                const total = adjustedRead + delivered + failed + sent + clicked;
 
                 campaignPieChartInstance = new Chart(ctx, {
                     type: 'pie',
@@ -8226,11 +8238,12 @@
                     delivered: document.getElementById('filter-delivered')?.checked ?? true,
                     failed: document.getElementById('filter-failed')?.checked ?? true,
                     read: document.getElementById('filter-read')?.checked ?? true,
+                    clicked: document.getElementById('filter-clicked')?.checked ?? true,
                 };
             }
 
             function selectAllFilters(state) {
-                ['filter-sent', 'filter-delivered', 'filter-failed', 'filter-read'].forEach(id => {
+                ['filter-sent', 'filter-delivered', 'filter-failed', 'filter-read', 'filter-clicked'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.checked = state;
                 });
@@ -8257,6 +8270,7 @@
                     { label: 'Delivered', data: chartData.delivered, backgroundColor: '#10b981', key: 'delivered' },
                     { label: 'Error / Failed', data: chartData.failed, backgroundColor: '#f59e0b', key: 'failed' },
                     { label: 'Read', data: chartData.read, backgroundColor: '#f43f5e', key: 'read' },
+                    { label: 'Clicked', data: chartData.clicked, backgroundColor: '#9333ea', key: 'clicked' },
                 ];
                 const activeDatasets = allDatasets.filter(d => statuses[d.key]);
 

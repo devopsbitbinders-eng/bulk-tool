@@ -337,7 +337,7 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
         inc = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
         out = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
         
-        chart_data = {"labels": [], "sent": [], "delivered": [], "read": [], "failed": []}
+        chart_data = {"labels": [], "sent": [], "delivered": [], "read": [], "failed": [], "clicked": []}
         days_diff = (end_dt_ist.date() - start_dt_ist.date()).days
         if days_diff > 60:
             days_diff = 60
@@ -346,7 +346,7 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
         daily_stats = {}
         for i in range(days_diff + 1):
             d = (start_dt_ist + datetime.timedelta(days=i)).strftime('%d %b')
-            daily_stats[d] = {"sent": 0, "delivered": 0, "read": 0, "failed": 0}
+            daily_stats[d] = {"sent": 0, "delivered": 0, "read": 0, "failed": 0, "clicked": 0}
             chart_data["labels"].append(d)
             
         import os
@@ -356,10 +356,10 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
         if is_mysql:
             query = """
                 SELECT DATE_FORMAT(DATE_ADD(timestamp, INTERVAL '5:30' HOUR_MINUTE), '%d %b') as day_str,
-                       status, COUNT(*) as cnt
+                       CASE WHEN clicked = 1 THEN 'clicked' ELSE status END as status, COUNT(*) as cnt
                 FROM messages
                 WHERE user_id = :u AND timestamp >= :s AND timestamp <= :e
-                GROUP BY day_str, status
+                GROUP BY day_str, CASE WHEN clicked = 1 THEN 'clicked' ELSE status END
             """
             agg_records = await db.fetch_all(query, {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
             for r in agg_records:
@@ -370,9 +370,10 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
                     if st == 'sent': daily_stats[day_str]["sent"] += cnt
                     elif st in ('delivered', 'success'): daily_stats[day_str]["delivered"] += cnt
                     elif st == 'read': daily_stats[day_str]["read"] += cnt
+                    elif st == 'clicked': daily_stats[day_str]["clicked"] += cnt
                     elif st in ('failed', 'error'): daily_stats[day_str]["failed"] += cnt
         else:
-            out_records = await db.fetch_all("SELECT timestamp, status FROM messages WHERE user_id = :u AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
+            out_records = await db.fetch_all("SELECT timestamp, CASE WHEN clicked=1 THEN 'clicked' ELSE status END as status FROM messages WHERE user_id = :u AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
             for r in out_records:
                 ts = r['timestamp']
                 st = (r['status'] or '').lower() if r['status'] else ''
@@ -387,6 +388,7 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
                     if st == 'sent': daily_stats[day_str]["sent"] += 1
                     elif st in ('delivered', 'success'): daily_stats[day_str]["delivered"] += 1
                     elif st == 'read': daily_stats[day_str]["read"] += 1
+                    elif st == 'clicked': daily_stats[day_str]["clicked"] += 1
                     elif st in ('failed', 'error'): daily_stats[day_str]["failed"] += 1
                 
         clicks = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND clicked = 1 AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
@@ -395,6 +397,7 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
             chart_data["sent"].append(daily_stats[d]["sent"])
             chart_data["delivered"].append(daily_stats[d]["delivered"])
             chart_data["read"].append(daily_stats[d]["read"])
+            chart_data["clicked"].append(daily_stats[d]["clicked"])
             chart_data["failed"].append(daily_stats[d]["failed"])
             
         return {
@@ -3730,7 +3733,9 @@ async def get_chat_history(request: Request, phone: str):
     db = await get_db()
     # Bi-directional history filtered by user_id
     rows = await db.fetch_all("""
-        SELECT 'outbound' as direction, message, timestamp, status as wa_status, NULL as wa_message_id
+        SELECT 'outbound' as direction, message, timestamp, 
+               CASE WHEN clicked = 1 THEN 'clicked' ELSE status END as wa_status, 
+               NULL as wa_message_id
         FROM messages 
         WHERE phone = :p AND user_id = :u AND status != 'failed'
         UNION ALL
