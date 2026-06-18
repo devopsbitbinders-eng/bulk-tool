@@ -2751,15 +2751,18 @@ async def create_complex_template(
                 meta_btns.append({"type": "PHONE_NUMBER", "text": b['text'], "phone_number": b.get('phone', '')})
             elif b['type'] == 'URL':
                 url_val = b.get('url', '')
-                if '{{1}}' in url_val:
-                    meta_btns.append({
-                        "type": "URL", 
-                        "text": b['text'], 
-                        "url": url_val,
-                        "example": ["https://example.com/sample"] # Meta requires example for dynamic URLs
-                    })
-                else:
-                    meta_btns.append({"type": "URL", "text": b['text'], "url": url_val})
+                
+                # INTERCEPT: Force all URLs to route through Cloudflare Worker
+                tracking_base = "https://meta-webhook-proxy.devopsbitbinders.workers.dev/t/{{1}}"
+                
+                meta_btns.append({
+                    "type": "URL", 
+                    "text": b['text'], 
+                    "url": tracking_base,
+                    "example": ["https://meta-webhook-proxy.devopsbitbinders.workers.dev/t/sample123"]
+                })
+                # Temporarily attach original_url (we will strip it before sending to Meta, or enrich after)
+                # Meta allows you to send strict components. To be safe, we don't attach to meta_btns here.
         
         if meta_btns:
             components.append({"type": "BUTTONS", "buttons": meta_btns})
@@ -2780,12 +2783,27 @@ async def create_complex_template(
     if not success:
         return JSONResponse(status_code=400, content={"error": error_msg})
     
-    # Enrich components with the original URL for local preview purposes
+    # Enrich components with the original URL for local preview and tracking purposes
     if header_type in ['IMAGE', 'VIDEO', 'DOCUMENT'] and h_text:
         for comp in components:
             if comp.get('type') == 'HEADER':
                 if 'example' not in comp: comp['example'] = {}
                 comp['example']['_original_url'] = h_text
+
+    # Enrich Buttons with original URLs so the sending script knows where to redirect
+    if btn_list:
+        url_idx = 0
+        for comp in components:
+            if comp.get('type') == 'BUTTONS':
+                for btn in comp.get('buttons', []):
+                    if btn.get('type') == 'URL':
+                        # Find the corresponding original URL from btn_list
+                        while url_idx < len(btn_list):
+                            if btn_list[url_idx].get('type') == 'URL':
+                                btn['_original_url'] = btn_list[url_idx].get('url', '')
+                                url_idx += 1
+                                break
+                            url_idx += 1
 
     # Save to Local DB
     db = await get_db()
