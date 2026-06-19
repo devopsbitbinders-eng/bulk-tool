@@ -1264,11 +1264,14 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
 
         # 4. Update Campaign Totals
         total_processed = campaign['sent_success'] + campaign['sent_failed'] + processed_count
+        is_complete = total_processed >= campaign['total_numbers']
+        
         await db.execute("""
             UPDATE campaigns 
-            SET sent_success = sent_success + :s, sent_failed = sent_failed + :f
+            SET sent_success = sent_success + :s, sent_failed = sent_failed + :f,
+                status = CASE WHEN :is_comp = 1 THEN 'Completed' ELSE status END
             WHERE id = :id
-        """, {"s": success_batch, "f": failed_batch, "id": campaign_id})
+        """, {"s": success_batch, "f": failed_batch, "is_comp": 1 if is_complete else 0, "id": campaign_id})
 
         # 5. Broadcast progress via SSE
         progress_event = json.dumps({
