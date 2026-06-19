@@ -6560,7 +6560,7 @@
 
                     tbody.innerHTML = data.map(r => `
                     <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="px-6 py-4 whitespace-nowrap text-slate-500 text-sm">${new Date(r.timestamp).toLocaleString()}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-slate-500 text-sm">${formatDateTime(r.timestamp)}</td>
                         <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-700">${r.phone}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-slate-600">${r.sender_name || '-'}</td>
                         <td class="px-6 py-4 text-slate-700">${(r.response || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')}</td>
@@ -6621,7 +6621,7 @@
                     csvContent += "Timestamp,Phone,Name,Response\n";
                     data.forEach(function (r) {
                         let row = [
-                            new Date(r.timestamp).toLocaleString(),
+                            formatDateTime(r.timestamp),
                             r.phone,
                             (r.sender_name || '').replace(/,/g, ''),
                             `"${(r.response || '').replace(/"/g, '""')}"`
@@ -8321,9 +8321,6 @@
                     if (res.ok) {
                         const data = await res.json();
                         renderChart(data.chart_data);
-                        if (document.getElementById('stat-incoming') && data.incoming !== undefined) document.getElementById('stat-incoming').innerText = data.incoming;
-                        if (document.getElementById('stat-outgoing') && data.outgoing !== undefined) document.getElementById('stat-outgoing').innerText = data.outgoing;
-                        if (document.getElementById('stat-clicks') && data.clicks !== undefined) document.getElementById('stat-clicks').innerText = data.clicks;
                     }
                 } catch (err) {
                     console.error("Failed to fetch dashboard stats", err);
@@ -8499,7 +8496,7 @@
                         tbody.innerHTML = channels.map(c => `
                         <tr class="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-0">
                             <td class="px-4 py-3 text-slate-600">${c.name}</td>
-                            <td class="px-4 py-3 text-slate-500">${new Date(c.created_at).toLocaleString()}</td>
+                            <td class="px-4 py-3 text-slate-500">${formatDateTime(c.created_at)}</td>
                             <td class="px-4 py-3 text-slate-600">${c.total || 0}</td>
                             <td class="px-4 py-3 text-center">
                                 <div class="flex items-center justify-center gap-2">

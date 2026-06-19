@@ -12,11 +12,10 @@ async def run():
     db = Database(db_url)
     await db.connect()
     
-    # Check MySQL CURRENT_TIMESTAMP
-    row = await db.fetch_one("SELECT CURRENT_TIMESTAMP as db_time, @@time_zone as tz")
-    print("Database Time:", row['db_time'])
-    print("Timezone Config:", row['tz'])
-    
+    rows = await db.fetch_all("SELECT COUNT(*) as c FROM chat_messages WHERE direction='outbound' AND timestamp >= '2026-06-18 18:30:00'")
+    for r in rows:
+        print("Chat Today:", r['c'])
+        
     await db.disconnect()
 
 asyncio.run(run())
