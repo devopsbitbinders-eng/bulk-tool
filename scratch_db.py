@@ -12,9 +12,19 @@ async def run():
     db = Database(db_url)
     await db.connect()
     
-    camps = await db.fetch_all("SELECT id, name FROM campaigns WHERE name LIKE '%Sheet62%' LIMIT 5")
-    for camp in camps:
-        print("Found campaign:", camp['id'], camp['name'])
+    # Get the latest campaign file
+    file_record = await db.fetch_one("SELECT id, campaign_id, LENGTH(csv_content) as size, csv_content FROM campaign_files ORDER BY id DESC LIMIT 1")
+    if file_record:
+        print(f"File ID: {file_record['id']} - Size: {file_record['size']} bytes")
+        # Save it
+        with open("last_uploaded.csv", "wb") as f:
+            if isinstance(file_record['csv_content'], str):
+                f.write(file_record['csv_content'].encode('utf-8'))
+            else:
+                f.write(file_record['csv_content'])
+        print("Saved to last_uploaded.csv")
+    else:
+        print("No campaign files found.")
             
     await db.disconnect()
 
