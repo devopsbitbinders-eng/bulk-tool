@@ -1267,8 +1267,8 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                 "m": message_to_send, "nra": next_retry_at, "rd": json.dumps(row), "id": msg['id']
             })
             processed_count += 1
-            # Minimal delay between messages in batch (reduced for speed)
-            await asyncio.sleep(0.05)
+            # Minimal delay between messages in batch
+            await asyncio.sleep(0.15)
 
         # 4. Update Campaign Totals
         total_processed = campaign['sent_success'] + campaign['sent_failed'] + processed_count

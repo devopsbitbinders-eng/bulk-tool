@@ -5866,8 +5866,8 @@
                         }
                         retryCount = 0; // Reset on success
 
-                        // Reduced cooldown between batches for faster sending
-                        await new Promise(r => setTimeout(r, 500));
+                        // Cooldown to prevent database connection limits
+                        await new Promise(r => setTimeout(r, 1500));
                     } catch (e) {
                         console.error("Batch processing error:", e);
                         retryCount++;
