@@ -486,7 +486,7 @@
             </div>
 
             <!-- RIGHT: Status & Profile -->
-            <div class="flex items-center gap-3 flex-shrink-0 flex-1 justify-end min-w-0">
+            <div class="flex items-center gap-3 flex-shrink-0 flex-1 justify-end pr-2 md:pr-4">
                 <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 flex-shrink-0">
                     <span id="apiStatusDot"
                         class="w-2 h-2 {% if linked_phone %}bg-green-500{% else %}bg-slate-300{% endif %} rounded-full {% if linked_phone %}animate-pulse{% endif %}"></span>
@@ -508,8 +508,8 @@
                             class="w-7 h-7 flex-shrink-0 rounded-full bg-gradient-to-tr from-indigo-500 to-emerald-500 flex items-center justify-center text-white font-bold text-xs shadow-inner uppercase">
                             {{ username[0] if username else 'U' }}
                         </div>
-                        <div class="flex flex-col items-start justify-center text-left">
-                            <p class="text-[9px] text-slate-400 font-medium leading-none mb-0.5 whitespace-nowrap">Signed in as</p>
+                        <div class="flex flex-col items-start justify-center text-left" style="white-space: nowrap;">
+                            <p class="text-[9px] text-slate-400 font-medium leading-none mb-0.5" style="white-space: nowrap;">Signed in as</p>
                             <p class="text-[11px] text-slate-700 font-bold leading-none truncate max-w-[100px]"
                                 title="{{ username }}">{{ username or 'User' }}</p>
                         </div>
