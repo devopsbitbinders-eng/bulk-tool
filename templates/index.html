@@ -3179,20 +3179,27 @@
             function formatDateTime(ts) {
                 if (!ts) return "";
                 try {
-                    let cleanTs = ts.toString().replace(' ', 'T');
+                    let tsStr = ts.toString().trim();
+                    // If it matches standard DB format: YYYY-MM-DD HH:MM:SS
+                    const match = tsStr.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+                    if (match) {
+                        const d = new Date(Date.UTC(match[1], match[2] - 1, match[3], match[4], match[5], match[6]));
+                        if (!isNaN(d.getTime())) {
+                            return d.toLocaleString('en-IN', {
+                                day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
+                            }).toUpperCase();
+                        }
+                    }
+                    
+                    // Fallback
+                    let cleanTs = tsStr.replace(' ', 'T');
                     if (!cleanTs.endsWith('Z')) cleanTs += 'Z';
                     let d = new Date(cleanTs);
                     if (isNaN(d.getTime())) return ts;
 
-                    const options = {
-                        day: '2-digit',
-                        month: 'short',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true,
-                        timeZone: 'Asia/Kolkata'
-                    };
-                    return d.toLocaleString('en-IN', options).toUpperCase();
+                    return d.toLocaleString('en-IN', {
+                        day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
+                    }).toUpperCase();
                 } catch (e) { return ts; }
             }
 
@@ -3200,15 +3207,25 @@
                 if (!ts) return "";
                 try {
                     if (ts.length <= 8 && ts.includes(':') && !ts.includes('-')) return ts;
-                    let cleanTs = ts.toString().replace(' ', 'T');
+                    let tsStr = ts.toString().trim();
+                    
+                    const match = tsStr.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+                    if (match) {
+                        const d = new Date(Date.UTC(match[1], match[2] - 1, match[3], match[4], match[5], match[6]));
+                        if (!isNaN(d.getTime())) {
+                            return d.toLocaleTimeString('en-IN', {
+                                hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
+                            }).toUpperCase();
+                        }
+                    }
+                    
+                    let cleanTs = tsStr.replace(' ', 'T');
+                    if (!cleanTs.endsWith('Z')) cleanTs += 'Z';
                     let d = new Date(cleanTs);
                     if (isNaN(d.getTime())) return ts;
 
                     return d.toLocaleTimeString('en-IN', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true,
-                        timeZone: 'Asia/Kolkata'
+                        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
                     }).toUpperCase();
                 } catch (e) { return ts; }
             }
@@ -4144,7 +4161,7 @@
                                     </span>
                                     ${errorMsg}
                                 </td>
-                                <td class="px-6 py-4 text-slate-500 text-xs sync-time">${m.timestamp}</td>
+                                <td class="px-6 py-4 text-slate-500 text-xs sync-time">${formatDateTime(m.timestamp)}</td>
                                 <td class="px-6 py-4 text-right">
                                     <button onclick="resendSingle('${m.phone}', ${m.id})" class="px-4 py-1.5 bg-[#20c997] text-white text-xs font-bold rounded shadow-sm hover:bg-emerald-500 transition-colors">Resend</button>
                                 </td>
