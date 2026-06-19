@@ -2729,14 +2729,23 @@ async def create_complex_template(
                         if resp.status_code == 200:
                             file_bytes = resp.content
                             
-                            # Detect MIME type
+                            # Detect MIME type based on extension first, then fallback to header_type
                             filename = h_text.split("/")[-1].split("?")[0]
-                            ext = filename.split(".")[-1].lower()
+                            ext = ""
+                            if "." in filename:
+                                ext = filename.split(".")[-1].lower()
+                                
                             mime_map = {
                                 "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
                                 "mp4": "video/mp4", "pdf": "application/pdf"
                             }
-                            mime = mime_map.get(ext, "image/jpeg")
+                            
+                            # Determine fallback based on Meta's required header_type
+                            fallback_mime = "image/jpeg"
+                            if header_type == "VIDEO": fallback_mime = "video/mp4"
+                            elif header_type == "DOCUMENT": fallback_mime = "application/pdf"
+                            
+                            mime = mime_map.get(ext, fallback_mime)
                             
                             from whatsapp_service import get_meta_header_handle
                             handle, upload_error = await get_meta_header_handle(file_bytes, mime, credentials)
