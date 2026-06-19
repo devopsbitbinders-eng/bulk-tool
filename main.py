@@ -902,15 +902,15 @@ async def process_campaign_batch(campaign_id: int, batch_size: int = 30):
                         await db.execute("UPDATE campaign_files SET status = 'pending', processed_rows = 0 WHERE campaign_id = :id", {"id": campaign_id})
                         return {"completed": False, "processed": 0}
                         
-                    # Check if messages are all processed
-                    pending_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'pending'", {"id": campaign_id})
-                    if pending_msgs == 0:
+                    # Check if messages are all processed (including those currently locked by workers)
+                    active_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status NOT IN ('sent', 'delivered', 'read', 'failed')", {"id": campaign_id})
+                    if active_msgs == 0:
                         await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
                         return {"completed": True, "processed": 0}
                 else:
                     # For campaigns without a file (e.g. single mobile, group, tag)
-                    pending_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status = 'pending'", {"id": campaign_id})
-                    if pending_msgs == 0:
+                    active_msgs = await db.fetch_val("SELECT COUNT(*) FROM messages WHERE campaign_id = :id AND status NOT IN ('sent', 'delivered', 'read', 'failed')", {"id": campaign_id})
+                    if active_msgs == 0:
                         await db.execute("UPDATE campaigns SET status = 'Completed' WHERE id = :id", {"id": campaign_id})
                         return {"completed": True, "processed": 0}
                 return {"completed": False, "processed": 0}
