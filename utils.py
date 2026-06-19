@@ -30,8 +30,8 @@ def extract_phone_numbers(file_content, filename):
     print(f"DEBUG: Processing file: {filename} (Content Size: {len(file_content)} bytes)")
     try:
         if str(filename).lower().endswith('.csv'):
-            # Use sep=None and engine='python' to auto-detect the separator
-            df = pd.read_csv(io.BytesIO(file_content), sep=None, engine='python')
+            # Use sep=',' explicitly. sep=None causes Python sniffer to guess random digits as delimiters on single-column files.
+            df = pd.read_csv(io.BytesIO(file_content), sep=',', engine='python')
             
             # Check if headers might be missing
             first_row_is_nums = True
@@ -42,7 +42,7 @@ def extract_phone_numbers(file_content, filename):
             
             if first_row_is_nums:
                 print("DEBUG: CSV headers look like data. Re-reading without headers.")
-                df = pd.read_csv(io.BytesIO(file_content), header=None, sep=None, engine='python')
+                df = pd.read_csv(io.BytesIO(file_content), header=None, sep=',', engine='python')
                 df.columns = [f"col_{i}" for i in range(len(df.columns))]
         elif str(filename).lower().endswith(('.xls', '.xlsx')):
             # First, try reading the first sheet normally (simplest way)

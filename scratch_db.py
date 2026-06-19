@@ -12,10 +12,10 @@ async def run():
     db = Database(db_url)
     await db.connect()
     
-    rows = await db.fetch_all("SELECT COUNT(*) as c FROM chat_messages WHERE direction='outbound' AND timestamp >= '2026-06-18 18:30:00'")
-    for r in rows:
-        print("Chat Today:", r['c'])
-        
+    camps = await db.fetch_all("SELECT id, name FROM campaigns WHERE name LIKE '%Sheet62%' LIMIT 5")
+    for camp in camps:
+        print("Found campaign:", camp['id'], camp['name'])
+            
     await db.disconnect()
 
 asyncio.run(run())
