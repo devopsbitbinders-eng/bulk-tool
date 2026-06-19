@@ -237,6 +237,12 @@ async def get_dashboard_stats(user_id: int):
     camp_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": today_str})
     camp_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
     
+    chat_out_today = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='outbound' AND timestamp >= :ts", {"u": user_id, "ts": today_str})
+    chat_out_7d = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='outbound' AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
+    
+    out_today_total = (camp_out_today['count'] if camp_out_today else 0) + (chat_out_today['count'] if chat_out_today else 0)
+    out_7d_total = (camp_out_7d['count'] if camp_out_7d else 0) + (chat_out_7d['count'] if chat_out_7d else 0)
+    
     click_today = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND clicked = 1 AND timestamp >= :ts", {"u": user_id, "ts": today_str})
     click_7d = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND clicked = 1 AND timestamp >= :ts", {"u": user_id, "ts": seven_days_str})
     
@@ -310,8 +316,8 @@ async def get_dashboard_stats(user_id: int):
             "last_7_days": inc_7d['count'] if inc_7d else 0
         },
         "outgoing": {
-            "today": camp_out_today['count'] or 0,
-            "last_7_days": camp_out_7d['count'] or 0
+            "today": out_today_total,
+            "last_7_days": out_7d_total
         },
         "clicks": {
             "today": click_today['count'] or 0,
@@ -339,6 +345,8 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
         
         inc = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='inbound' AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
         out = await db.fetch_one("SELECT COUNT(*) as count FROM messages WHERE user_id = :u AND status IN ('sent', 'delivered', 'read') AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
+        chat_out = await db.fetch_one("SELECT COUNT(*) as count FROM chat_messages WHERE user_id = :u AND direction='outbound' AND timestamp >= :s AND timestamp <= :e", {"u": user['id'], "s": start_str_utc, "e": end_str_utc})
+        out_total = (out['count'] if out else 0) + (chat_out['count'] if chat_out else 0)
         
         chart_data = {"labels": [], "sent": [], "delivered": [], "read": [], "failed": [], "clicked": []}
         days_diff = (end_dt_ist.date() - start_dt_ist.date()).days
@@ -405,7 +413,7 @@ async def get_filtered_dashboard(request: Request, start: str, end: str):
             
         return {
             "incoming": inc['count'] if inc else 0,
-            "outgoing": out['count'] if out else 0,
+            "outgoing": out_total,
             "clicks": clicks['count'] if clicks else 0,
             "chart_data": chart_data
         }
