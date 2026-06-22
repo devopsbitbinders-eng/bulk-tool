@@ -3497,6 +3497,9 @@ async def webhook_handler(request: Request):
                 
     except Exception as e:
         print(f"DEBUG WEBHOOK: Error processing: {str(e)}")
+        # IMPORTANT: Force a 500 Error if the database fails so Meta retries the webhook!
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
     return {"status": "ok"}
 
