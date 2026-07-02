@@ -609,8 +609,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        waba_id: "AUTO_DETECT",
-                        phone_id: "AUTO_DETECT",
+                        waba_id: id2 || "AUTO_DETECT",
+                        phone_id: id1 || "AUTO_DETECT",
                         code: code,
                         is_nuclear: true
                     })
